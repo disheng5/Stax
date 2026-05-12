@@ -1,0 +1,4 @@
+.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
+.name { font-size: 30rpx; font-weight: 500; }
+.profit { font-size: 32rpx; font-weight: 600; }
+.meta { display: flex; gap: 12rpx; }

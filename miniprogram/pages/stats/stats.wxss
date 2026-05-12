@@ -1,0 +1,3 @@
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
+.stat { padding: 32rpx; text-align: center; margin: 0; }
+.stat .num { font-size: 48rpx; font-weight: 700; margin-bottom: 8rpx; }
