@@ -2,3 +2,26 @@
 .cn { font-size: 28rpx; margin-top: 8rpx; }
 .cat { margin-top: 12rpx; font-size: 24rpx; }
 .title { font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx; }
+
+.ai-card {
+  background: linear-gradient(135deg, rgba(11,110,79,0.08), rgba(201,169,97,0.12));
+  border: 2rpx dashed rgba(11,110,79,0.4);
+  cursor: pointer;
+}
+.ai-hero { display: flex; align-items: center; gap: 20rpx; }
+.ai-emoji { font-size: 56rpx; }
+.ai-title { font-size: 28rpx; font-weight: 600; color: var(--table-green); margin-bottom: 4rpx; }
+
+.ai-loading { display: flex; align-items: center; justify-content: center; gap: 16rpx; padding: 24rpx 0; }
+.brain { font-size: 48rpx; animation: pulse 1.5s infinite; }
+@keyframes pulse { 50% { transform: scale(1.15); opacity: 0.6; } }
+
+.ai-result {
+  background: linear-gradient(135deg, var(--table-green), #094a36);
+  color: #fff;
+}
+.ai-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.ai-result .ai-tag { font-size: 24rpx; opacity: 0.85; }
+.ai-actions { display: flex; gap: 16rpx; }
+.op-btn { color: rgba(255,255,255,0.7); font-size: 24rpx; padding: 8rpx 12rpx; }
+.ai-body { font-size: 28rpx; line-height: 1.7; white-space: pre-wrap; }

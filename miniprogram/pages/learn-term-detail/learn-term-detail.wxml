@@ -12,5 +12,38 @@
     <view class="title">例子</view>
     <view class="text-sub">{{term.example}}</view>
   </view>
+
+  <!-- AI 深度释义 -->
+  <view class="card ai-card" wx:if="{{!aiText && !aiLoading}}" bindtap="onAskAi">
+    <view class="ai-hero">
+      <text class="ai-emoji">🤖</text>
+      <view>
+        <view class="ai-title">让 AI 给我一个生动版</view>
+        <view class="text-sub">场景化讲透 + 实战体感</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:elif="{{aiLoading}}">
+    <view class="ai-loading">
+      <text class="brain">🧠</text>
+      <text class="text-sub">AI 正在思考中…</text>
+    </view>
+  </view>
+
+  <view class="card ai-result" wx:elif="{{aiText}}">
+    <view class="ai-header">
+      <text class="ai-tag">🤖 AI 生动版</text>
+      <view class="ai-actions">
+        <text bindtap="onCopyAi" class="text-sub op-btn">复制</text>
+        <text bindtap="onAskAi" class="text-sub op-btn">换一段</text>
+      </view>
+    </view>
+    <view class="ai-body">{{aiText}}</view>
+  </view>
+
+  <view class="card text-danger" wx:if="{{aiError}}" bindtap="onAskAi">
+    <text>{{aiError}}，点击重试</text>
+  </view>
 </view>
 <view wx:elif="{{!loading}}" class="text-sub" style="padding:120rpx;text-align:center;">未找到该术语</view>
