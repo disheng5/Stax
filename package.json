@@ -1,0 +1,14 @@
+{
+  "name": "stax",
+  "version": "0.1.0",
+  "description": "Stax · 长河筹略 - 线下德州扑克记账 / 计时 / 战绩工具（微信小程序）",
+  "private": true,
+  "scripts": {
+    "lint": "eslint \"miniprogram/**/*.js\" \"cloudfunctions/**/*.js\"",
+    "format": "prettier --write \"**/*.{js,json,wxml,wxss}\""
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0"
+  }
+}
