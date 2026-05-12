@@ -1,0 +1,15 @@
+<view class="container">
+  <view class="legend">
+    <view class="dot premium"></view><text>顶级</text>
+    <view class="dot strong"></view><text>强</text>
+    <view class="dot playable"></view><text>可玩</text>
+    <view class="dot marginal"></view><text>边缘</text>
+    <view class="dot trash"></view><text>弃</text>
+  </view>
+  <view class="grid">
+    <view class="cell {{cell.tier}}" wx:for="{{matrix}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
+      <view wx:for="{{row}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci" class="cell {{cell.tier}}">{{cell.hand}}</view>
+    </view>
+  </view>
+  <view class="text-sub" wx:if="{{loading}}">加载中…</view>
+</view>

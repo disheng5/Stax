@@ -1,0 +1,9 @@
+.legend { display: flex; align-items: center; gap: 8rpx; flex-wrap: wrap; margin-bottom: 16rpx; font-size: 22rpx; }
+.dot { width: 24rpx; height: 24rpx; border-radius: 4rpx; margin-right: 4rpx; }
+.dot.premium  { background: #c8102e; }
+.dot.strong   { background: #c9a961; }
+.dot.playable { background: #0b6e4f; }
+.dot.marginal { background: #999; }
+.dot.trash    { background: #ddd; }
+.grid { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2rpx; }
+.cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 18rpx; }

@@ -1,0 +1,6 @@
+.search { height: 72rpx; padding: 0 24rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-md); margin-bottom: 16rpx; }
+.tabs { display: flex; gap: 12rpx; flex-wrap: wrap; margin-bottom: 16rpx; }
+.tab { padding: 12rpx 24rpx; border-radius: 24rpx; background: var(--border); font-size: 24rpx; color: var(--text-sub); }
+.tab.active { background: var(--table-green); color: #fff; }
+.term { display: flex; justify-content: space-between; align-items: baseline; padding: 24rpx; }
+.term .en { font-size: 28rpx; font-weight: 500; }

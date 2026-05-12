@@ -1,0 +1,12 @@
+<view class="container">
+  <input class="search" placeholder="搜索中英术语" value="{{keyword}}" bindinput="onSearch" />
+  <view class="tabs">
+    <view class="tab {{!category ? 'active' : ''}}" data-k="" bindtap="onCategory">全部</view>
+    <view class="tab {{category === item ? 'active' : ''}}" wx:for="{{categories}}" wx:key="*this" data-k="{{item}}" bindtap="onCategory">{{item}}</view>
+  </view>
+
+  <view class="card term" wx:for="{{terms}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpen">
+    <view class="en">{{item.termEn}}</view>
+    <view class="cn text-sub">{{item.termCn}}</view>
+  </view>
+</view>

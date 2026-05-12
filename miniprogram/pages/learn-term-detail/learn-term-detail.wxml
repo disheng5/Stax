@@ -1,0 +1,15 @@
+<view class="container" wx:if="{{term}}">
+  <view class="card">
+    <view class="en">{{term.termEn}}</view>
+    <view class="cn text-sub">{{term.termCn}}</view>
+    <view class="cat text-gold">{{term.category}}</view>
+  </view>
+  <view class="card">
+    <view class="title">释义</view>
+    <view>{{term.definition}}</view>
+  </view>
+  <view class="card" wx:if="{{term.example}}">
+    <view class="title">例子</view>
+    <view class="text-sub">{{term.example}}</view>
+  </view>
+</view>

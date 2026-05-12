@@ -1,0 +1,2 @@
+.entry { padding: 40rpx 32rpx; }
+.entry .title { font-size: 32rpx; font-weight: 600; margin-bottom: 8rpx; color: var(--table-green); }
