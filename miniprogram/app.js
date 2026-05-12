@@ -22,11 +22,35 @@ App({
         success: () => wx.setStorageSync('compliance_shown', true)
       })
     }
+
+    // 拉取自身 openid，写入 globalData
+    this._whoami()
+  },
+
+  async _whoami(retry = 0) {
+    try {
+      const cached = wx.getStorageSync('user_profile') || {}
+      const res = await wx.cloud.callFunction({
+        name: 'whoami',
+        data: {
+          upsertNickname: cached.nickName || undefined,
+          upsertAvatar: cached.avatarUrl || undefined
+        }
+      })
+      if (res && res.result && res.result.ok) {
+        this.globalData.openid = res.result.openid
+        this.globalData.userDoc = res.result.user
+      }
+    } catch (err) {
+      console.error('[whoami]', err)
+      if (retry < 2) setTimeout(() => this._whoami(retry + 1), 1500)
+    }
   },
 
   globalData: {
     userInfo: null,
     openid: null,
+    userDoc: null,
     defaultBuyIn: 100,
     defaultBlind: { sb: 10, bb: 20, blindUpMinutes: 20 }
   }

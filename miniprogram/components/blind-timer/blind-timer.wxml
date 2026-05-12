@@ -1,5 +1,8 @@
 <view class="timer-bar">
-  <view class="level">Lv.{{currentLevel + 1}}</view>
-  <view class="blinds">{{currentBlind.sb}} / {{currentBlind.bb}}</view>
-  <view class="countdown {{paused ? 'paused' : ''}}">{{remaining}}</view>
+  <view class="left">
+    <view class="level">Lv.{{currentLevel + 1}}</view>
+    <view class="blinds">{{currentBlind.sb}} / {{currentBlind.bb}}<text wx:if="{{currentBlind.ante}}" class="ante"> · ante {{currentBlind.ante}}</text></view>
+  </view>
+  <view class="countdown {{paused ? 'paused' : ''}} {{timeUp ? 'up' : ''}}">{{remaining}}</view>
 </view>
+<view class="next-row text-sub" wx:if="{{nextBlind}}">下一级 {{nextBlind.sb}}/{{nextBlind.bb}}<text wx:if="{{nextBlind.ante}}"> · ante {{nextBlind.ante}}</text></view>

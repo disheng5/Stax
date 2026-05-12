@@ -1,14 +1,13 @@
 .timer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--table-green);
-  color: #fff;
-  padding: 24rpx 32rpx;
-  border-radius: var(--radius-md);
-  margin-bottom: 24rpx;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--table-green); color: #fff;
+  padding: 24rpx 32rpx; border-radius: var(--radius-md); margin-bottom: 12rpx;
 }
-.level { font-size: 26rpx; opacity: 0.85; }
-.blinds { font-size: 36rpx; font-weight: 600; }
-.countdown { font-size: 40rpx; font-family: 'Courier New', monospace; font-weight: 600; }
-.countdown.paused { opacity: 0.5; }
+.left .level   { font-size: 24rpx; opacity: 0.85; }
+.left .blinds  { font-size: 36rpx; font-weight: 600; margin-top: 4rpx; }
+.left .ante    { font-size: 22rpx; opacity: 0.85; font-weight: 400; }
+.countdown     { font-size: 56rpx; font-family: 'Courier New', monospace; font-weight: 700; }
+.countdown.paused { opacity: 0.4; }
+.countdown.up     { color: var(--gold); animation: blink 1s infinite; }
+@keyframes blink  { 50% { opacity: 0.4; } }
+.next-row { padding: 0 12rpx 16rpx; font-size: 22rpx; }
