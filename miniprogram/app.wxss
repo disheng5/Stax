@@ -1,0 +1,16 @@
+/* app.wxss — 全局样式入口 */
+@import 'styles/theme.wxss';
+
+page {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.container {
+  padding: 32rpx;
+  box-sizing: border-box;
+  min-height: 100vh;
+}

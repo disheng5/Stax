@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/game-create/game-create",
+    "pages/game-join/game-join",
+    "pages/game-detail/game-detail",
+    "pages/game-settle/game-settle",
+    "pages/history/history",
+    "pages/stats/stats",
+    "pages/learn-index/learn-index",
+    "pages/learn-terms/learn-terms",
+    "pages/learn-term-detail/learn-term-detail",
+    "pages/learn-hand-chart/learn-hand-chart",
+    "pages/profile/profile",
+    "pages/about/about"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0B6E4F",
+    "navigationBarTitleText": "Stax · 长河筹略",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F2EA"
+  },
+  "tabBar": {
+    "color": "#666666",
+    "selectedColor": "#0B6E4F",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/learn-index/learn-index",
+        "text": "学习",
+        "iconPath": "images/tab-learn.png",
+        "selectedIconPath": "images/tab-learn-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/tab-me.png",
+        "selectedIconPath": "images/tab-me-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,51 @@
+/* theme.wxss — 主题色与设计令牌 (Spec §1) */
+page {
+  --table-green: #0b6e4f;
+  --chip-red: #c8102e;
+  --gold: #c9a961;
+  --bg: #f5f2ea;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --text-sub: #666666;
+  --border: #e5e0d3;
+  --danger: #c8102e;
+  --success: #0b6e4f;
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --shadow-card: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  padding: 0 40rpx;
+  border-radius: var(--radius-md);
+  font-size: 30rpx;
+  font-weight: 500;
+  background: var(--table-green);
+  color: #ffffff;
+  border: none;
+}
+
+.btn--primary { background: var(--table-green); color: #fff; }
+.btn--danger  { background: var(--chip-red);   color: #fff; }
+.btn--ghost   { background: transparent;        color: var(--table-green); border: 2rpx solid var(--table-green); }
+.btn--block   { width: 100%; }
+
+.btn:active { opacity: 0.85; }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 32rpx;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24rpx;
+}
+
+.text-sub { color: var(--text-sub); font-size: 26rpx; }
+.text-gold { color: var(--gold); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
