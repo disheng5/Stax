@@ -1,0 +1,17 @@
+<view class="container">
+  <view class="card">
+    <view class="logo">Stax · 长河筹略</view>
+    <view class="text-sub">Hold'em, held right.</view>
+    <view class="text-sub">Version 0.1.0 · MVP</view>
+  </view>
+
+  <view class="card">
+    <view class="title">合规声明</view>
+    <view>长河筹略（Stax）仅供朋友间线下竞技扑克记账与学习交流使用，严禁用于任何形式的赌博活动。请遵守当地法律法规。</view>
+  </view>
+
+  <view class="card">
+    <view class="title">联系我们</view>
+    <view class="text-sub">反馈 / Issue：GitHub Stax 仓库</view>
+  </view>
+</view>

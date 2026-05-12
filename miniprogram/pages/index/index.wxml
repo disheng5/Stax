@@ -1,0 +1,22 @@
+<view class="container">
+  <view class="hero">
+    <view class="logo">Stax</view>
+    <view class="slogan">Hold'em, held right.</view>
+    <view class="zh-name">长河筹略</view>
+  </view>
+
+  <view class="actions">
+    <button class="btn btn--primary btn--block" bindtap="onCreate">创建牌局</button>
+    <button class="btn btn--ghost   btn--block" bindtap="onJoin">加入牌局</button>
+    <button class="btn btn--ghost   btn--block" bindtap="onHistory">我的战绩</button>
+  </view>
+
+  <view class="section-title">进行中的牌局</view>
+  <block wx:if="{{ongoingGames.length}}">
+    <view class="card" wx:for="{{ongoingGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="game-name">{{item.name}}</view>
+      <view class="text-sub">{{item.players.length}} 人 · {{item.inviteCode}}</view>
+    </view>
+  </block>
+  <empty-state wx:elif="{{!loading}}" title="还没有进行中的牌局" desc="点击上方按钮创建或加入" />
+</view>

@@ -1,0 +1,12 @@
+.hero {
+  text-align: center; padding: 80rpx 0 60rpx;
+  background: linear-gradient(180deg, var(--table-green), transparent);
+  border-radius: var(--radius-lg);
+  color: #fff; margin-bottom: 32rpx;
+}
+.hero .logo   { font-size: 80rpx; font-weight: 700; letter-spacing: 8rpx; }
+.hero .slogan { font-size: 26rpx; opacity: 0.85; margin-top: 12rpx; }
+.hero .zh-name{ font-size: 28rpx; margin-top: 8rpx; color: var(--gold); }
+.actions { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 48rpx; }
+.section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
+.game-name { font-size: 32rpx; font-weight: 500; margin-bottom: 8rpx; }

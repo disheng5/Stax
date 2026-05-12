@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "Stax · 长河筹略",
+  "usingComponents": {
+    "empty-state": "/components/empty-state/empty-state"
+  }
+}

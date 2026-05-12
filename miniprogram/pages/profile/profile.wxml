@@ -1,0 +1,22 @@
+<view class="container">
+  <view class="card user" bindtap="onAuth">
+    <image class="avatar" src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}" />
+    <view>
+      <view class="nick">{{userInfo.nickName || '点击授权登录'}}</view>
+      <view class="text-sub">完善资料后可参与牌局</view>
+    </view>
+  </view>
+
+  <view class="card row" bindtap="onStats">
+    <text>数据看板</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onHistory">
+    <text>战绩历史</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onClearCache">
+    <text>清除缓存</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onAbout">
+    <text>关于 Stax</text><text class="text-sub">›</text>
+  </view>
+</view>
