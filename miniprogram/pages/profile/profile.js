@@ -88,6 +88,9 @@ Page({
   onStats()    { wx.navigateTo({ url: '/pages/stats/stats' }) },
   onHistory()  { wx.navigateTo({ url: '/pages/history/history' }) },
   onAbout()    { wx.navigateTo({ url: '/pages/about/about' }) },
+  onLearnTerms()     { wx.navigateTo({ url: '/pages/learn-terms/learn-terms' }) },
+  onLearnHandChart() { wx.navigateTo({ url: '/pages/learn-hand-chart/learn-hand-chart' }) },
+  onLearnRules()     { wx.navigateTo({ url: '/pages/learn-rules/learn-rules' }) },
   onClearCache() {
     wx.clearStorageSync()
     wx.showToast({ title: '已清除', icon: 'success' })

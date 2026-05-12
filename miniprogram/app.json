@@ -5,6 +5,7 @@
     "pages/game-join/game-join",
     "pages/game-detail/game-detail",
     "pages/game-settle/game-settle",
+    "pages/game-review/game-review",
     "pages/history/history",
     "pages/stats/stats",
     "pages/learn-index/learn-index",
@@ -33,12 +34,6 @@
         "text": "首页",
         "iconPath": "images/tab-home.png",
         "selectedIconPath": "images/tab-home-active.png"
-      },
-      {
-        "pagePath": "pages/learn-index/learn-index",
-        "text": "学习",
-        "iconPath": "images/tab-learn.png",
-        "selectedIconPath": "images/tab-learn-active.png"
       },
       {
         "pagePath": "pages/profile/profile",

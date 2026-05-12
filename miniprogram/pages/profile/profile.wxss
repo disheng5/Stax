@@ -13,6 +13,7 @@
 .nickname-input { flex: 1; height: 64rpx; font-size: 30rpx; }
 
 .row { display: flex; justify-content: space-between; align-items: center; padding: 32rpx; }
+.section-title { font-size: 24rpx; color: var(--text-sub); margin: 24rpx 8rpx 8rpx; padding-left: 8rpx; }
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; margin-bottom: 24rpx; }
 .stat-item { background: var(--card); border-radius: var(--radius-md); padding: 24rpx 16rpx; text-align: center; box-shadow: var(--shadow-card); }
 .stat-item .num { font-size: 36rpx; font-weight: 700; margin-bottom: 6rpx; }

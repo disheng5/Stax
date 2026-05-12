@@ -23,6 +23,19 @@
   <view class="card row" bindtap="onHistory">
     <text>战绩历史</text><text class="text-sub">›</text>
   </view>
+
+  <view class="section-title">学习</view>
+  <view class="card row" bindtap="onLearnTerms">
+    <text>术语词典</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onLearnHandChart">
+    <text>起手牌表</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onLearnRules">
+    <text>规则速览</text><text class="text-sub">›</text>
+  </view>
+
+  <view class="section-title">设置</view>
   <view class="card row" bindtap="onClearCache">
     <text>清除缓存</text><text class="text-sub">›</text>
   </view>
