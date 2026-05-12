@@ -1,28 +1,148 @@
 // pages/game-detail/game-detail.js — 牌局详情（核心页）
+const app = getApp()
+
 Page({
   data: {
     gameId: '',
     game: null,
     isHost: false,
+    myOpenid: '',
     loading: true
   },
-  onLoad(options) {
-    this.setData({ gameId: options.id || options.code || '' })
-    // TODO: 监听云数据库 watch（Spec §5.1）
+
+  async onLoad(options) {
+    this.setData({ gameId: options.id || '' })
+    await this._ensureOpenid()
+    this._startWatch()
   },
+
+  onShow() {
+    // 返回时若 watch 因 onUnload 关闭过，重新挂载
+    if (!this.watcher && this.data.gameId) this._startWatch()
+  },
+
   onUnload() {
-    if (this.watcher) { try { this.watcher.close() } catch (_) {} }
+    if (this.watcher) { try { this.watcher.close() } catch (_) {} this.watcher = null }
   },
-  onRebuy(e)     { /* TODO recordTransaction rebuy */ },
-  onAddOn(e)     { /* TODO recordTransaction addOn */ },
-  onEliminate(e) { /* TODO recordTransaction eliminate */ },
-  onPause()      { /* TODO 暂停/恢复盲注 */ },
-  onEndGame()    { wx.navigateTo({ url: '/pages/game-settle/game-settle?id=' + this.data.gameId }) },
-  onShare() {
+
+  async _ensureOpenid() {
+    if (app.globalData.openid) {
+      this.setData({ myOpenid: app.globalData.openid })
+      return
+    }
+    try {
+      const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
+      if (res && res.result && res.result.openid) {
+        app.globalData.openid = res.result.openid
+        this.setData({ myOpenid: res.result.openid })
+      }
+    } catch (err) {
+      console.error('[whoami]', err)
+    }
+  },
+
+  _startWatch() {
+    const db = wx.cloud.database()
+    if (!this.data.gameId) {
+      this.setData({ loading: false })
+      return
+    }
+    this.watcher = db
+      .collection('games')
+      .doc(this.data.gameId)
+      .watch({
+        onChange: snapshot => {
+          if (snapshot.docs && snapshot.docs.length) {
+            const game = snapshot.docs[0]
+            const myOpenid = this.data.myOpenid
+            const isHost = !!myOpenid && game.hostOpenid === myOpenid
+            this.setData({ game, isHost, loading: false })
+          } else {
+            this.setData({ game: null, loading: false })
+          }
+        },
+        onError: err => {
+          console.error('[watch] error', err)
+          this.setData({ loading: false })
+          wx.showToast({ title: '实时同步失败，请重试', icon: 'none' })
+        }
+      })
+  },
+
+  // ===== 庄家操作 =====
+  async _record(type, playerOpenid, amount = 0) {
+    if (!this.data.isHost) return
+    wx.showLoading({ title: '处理中…' })
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'recordTransaction',
+        data: { gameId: this.data.gameId, type, playerOpenid, amount }
+      })
+      wx.hideLoading()
+      if (!res.result || !res.result.ok) {
+        wx.showToast({ title: (res.result && res.result.error) || '操作失败', icon: 'none' })
+      }
+    } catch (err) {
+      wx.hideLoading()
+      console.error(err)
+      wx.showToast({ title: '网络异常', icon: 'none' })
+    }
+  },
+
+  onRebuy(e)     { this._promptAmount('Rebuy', e.detail.openid, 'rebuy') },
+  onAddOn(e)     { this._promptAmount('Add-on', e.detail.openid, 'addOn') },
+  onEliminate(e) {
+    const openid = e.detail.openid
+    wx.showModal({
+      title: '确认淘汰',
+      content: '确认将该玩家标记为淘汰？',
+      success: r => { if (r.confirm) this._record('eliminate', openid) }
+    })
+  },
+
+  _promptAmount(title, openid, type) {
+    const def = String(this.data.game.buyIn)
+    wx.showModal({
+      title: `${title} 金额`,
+      editable: true,
+      placeholderText: def,
+      success: r => {
+        if (!r.confirm) return
+        const amount = Number(r.content || def) || 0
+        if (amount <= 0) { wx.showToast({ title: '金额需 > 0', icon: 'none' }); return }
+        this._record(type, openid, amount)
+      }
+    })
+  },
+
+  onPause()  { this._record('pauseToggle', this.data.myOpenid) },
+  onLevelUp(){ this._record('levelUp', this.data.myOpenid) },
+
+  onTimeUp() {
+    if (!this.data.isHost) return
+    const next = this.data.game.blindStructure[this.data.game.currentLevel + 1]
+    wx.showModal({
+      title: '盲注时间到',
+      content: next ? `升至下一级 ${next.sb}/${next.bb}？` : '已到顶级，是否重置计时？',
+      success: r => { if (r.confirm) this.onLevelUp() }
+    })
+  },
+
+  onEndGame() {
+    if (!this.data.isHost) {
+      wx.showToast({ title: '仅庄家可结算', icon: 'none' }); return
+    }
+    wx.navigateTo({ url: '/pages/game-settle/game-settle?id=' + this.data.gameId })
+  },
+
+  onCopyCode() {
+    wx.setClipboardData({ data: this.data.game.inviteCode, success: () => wx.showToast({ title: '邀请码已复制' }) })
+  },
+
+  onShareAppMessage() {
     return {
       title: `邀你加入「${this.data.game?.name || 'Stax 牌局'}」`,
       path: '/pages/game-join/game-join?code=' + (this.data.game?.inviteCode || '')
     }
-  },
-  onShareAppMessage() { return this.onShare() }
+  }
 })
