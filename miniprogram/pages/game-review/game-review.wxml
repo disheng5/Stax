@@ -1,0 +1,35 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="brain">🧠</view>
+    <view class="text-sub">AI 正在啄磨你今晚的牌路…</view>
+  </view>
+
+  <block wx:elif="{{review}}">
+    <view class="card hero">
+      <view class="header">
+        <text class="ai-tag">🤖 AI 点评</text>
+        <text class="provider text-sub" wx:if="{{provider !== 'template'}}">by {{provider}}</text>
+        <text class="provider text-sub" wx:else>规则版</text>
+      </view>
+      <view class="review">{{review}}</view>
+    </view>
+
+    <view class="card facts" wx:if="{{facts}}">
+      <view class="title">本局事实</view>
+      <view class="fact-row"><text class="text-sub">玩家数</text><text>{{facts.playerCount}} 人</text></view>
+      <view class="fact-row"><text class="text-sub">时长</text><text>{{facts.durationMin}} 分钟</text></view>
+      <view class="fact-row"><text class="text-sub">总池</text><text class="text-gold">{{facts.totalPot}}</text></view>
+      <view class="fact-row"><text class="text-sub">补码次数</text><text>{{facts.totalRebuys}}</text></view>
+      <view class="fact-row" wx:if="{{facts.bigWinner}}"><text class="text-sub">最大赢家</text><text class="text-success">{{facts.bigWinner.nickname}} +{{facts.bigWinner.profit}}</text></view>
+      <view class="fact-row" wx:if="{{facts.bigLoser}}"><text class="text-sub">最大输家</text><text class="text-danger">{{facts.bigLoser.nickname}} {{facts.bigLoser.profit}}</text></view>
+    </view>
+
+    <view class="actions">
+      <button class="btn btn--ghost"   bindtap="onCopy">复制点评</button>
+      <button class="btn btn--ghost"   bindtap="onRetry">换一段</button>
+      <button class="btn btn--primary" open-type="share">分享好友</button>
+    </view>
+
+    <view class="text-sub disclaimer">AI 点评仅供娱乐参考，不构成牌技指导建议。</view>
+  </block>
+</view>

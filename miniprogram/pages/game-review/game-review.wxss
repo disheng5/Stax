@@ -1,0 +1,18 @@
+.loading-state { display: flex; flex-direction: column; align-items: center; padding: 200rpx 0; gap: 32rpx; }
+.brain { font-size: 120rpx; animation: pulse 1.5s infinite; }
+@keyframes pulse { 50% { transform: scale(1.1); opacity: 0.6; } }
+
+.hero { background: linear-gradient(135deg, var(--table-green), #094a36); color: #fff; }
+.hero .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
+.hero .ai-tag { font-size: 26rpx; opacity: 0.9; }
+.hero .provider { color: rgba(255, 255, 255, 0.6); font-size: 22rpx; }
+.hero .review { font-size: 30rpx; line-height: 1.7; letter-spacing: 0.5rpx; }
+
+.facts .title { font-size: 28rpx; font-weight: 600; margin-bottom: 16rpx; }
+.fact-row { display: flex; justify-content: space-between; padding: 12rpx 0; font-size: 26rpx; border-bottom: 1rpx solid var(--border); }
+.fact-row:last-child { border: none; }
+
+.actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.actions .btn { flex: 1; }
+
+.disclaimer { text-align: center; padding: 32rpx 0; font-size: 22rpx; }
