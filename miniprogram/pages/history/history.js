@@ -48,5 +48,17 @@ Page({
   onOpenGame(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })
+  },
+
+  onShareAppMessage() {
+    const games = this.data.games
+    if (!games.length) return { title: 'Stax · 长河筹略', path: '/pages/index/index' }
+    const total = games.reduce((s, g) => s + (g.myProfit || 0), 0)
+    const wins = games.filter(g => (g.myProfit || 0) > 0).length
+    const winRate = Math.round((wins * 100) / games.length)
+    return {
+      title: `我打了 ${games.length} 局 ${total >= 0 ? '盈利' : '亏损'} ${Math.abs(total)}（胜率 ${winRate}%）— Stax 战绩`,
+      path: '/pages/index/index'
+    }
   }
 })

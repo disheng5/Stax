@@ -10,3 +10,4 @@
 .actions { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 48rpx; }
 .section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
 .game-name { font-size: 32rpx; font-weight: 500; margin-bottom: 8rpx; }
+.share-cta { margin-top: 60rpx; padding-top: 40rpx; border-top: 2rpx solid var(--border); }

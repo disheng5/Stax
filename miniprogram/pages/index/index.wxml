@@ -19,4 +19,13 @@
     </view>
   </block>
   <empty-state wx:elif="{{!loading}}" title="还没有进行中的牌局" desc="点击上方按钮创建或加入" />
+
+  <view class="share-cta">
+    <button class="btn btn--ghost btn--block" open-type="share">
+      🎴 邀请朋友一起打牌
+    </button>
+    <view class="text-sub" style="text-align:center;margin-top:12rpx;font-size:22rpx;">
+      记账 · 计时 · AA · AI 复盘 · 战绩分析
+    </view>
+  </view>
 </view>

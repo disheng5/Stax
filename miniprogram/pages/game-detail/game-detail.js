@@ -189,9 +189,13 @@ Page({
   },
 
   onShareAppMessage() {
+    const g = this.data.game
+    const playerN = g?.players?.length || 0
+    const pot = g?.totalPot || 0
     return {
-      title: `邀你加入「${this.data.game?.name || 'Stax 牌局'}」`,
-      path: '/pages/game-join/game-join?code=' + (this.data.game?.inviteCode || '')
+      title: `「${g?.name || 'Stax 牌局'}」${playerN} 人在打，总池 ${pot}`,
+      path: '/pages/game-join/game-join?code=' + (g?.inviteCode || ''),
+      imageUrl: ''   // 可后续加结算图作为分享图
     }
   }
 })

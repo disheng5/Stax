@@ -47,6 +47,14 @@ Page({
   async onRetry() { await this._fetch() },
 
   onShareAppMessage() {
-    return { title: 'Stax AI 给我的牌局点评，看看准不准 😎', path: '/pages/index/index' }
+    const f = this.data.facts || {}
+    let title = 'Stax AI 给我的牌局点评，看看准不准 😎'
+    if (f.bigWinner) {
+      title = `今晚 MVP 是 ${f.bigWinner.nickname}，独吞 ${f.bigWinner.profit} —— Stax AI 复盘`
+    } else if (f.me && f.me.profit !== undefined) {
+      const v = f.me.profit
+      title = v > 0 ? `我今晚 +${v}，AI 怎么夸我的？戳进来看 🍻` : `我今晚 ${v}，AI 都看不下去了 😅`
+    }
+    return { title, path: '/pages/index/index' }
   }
 })

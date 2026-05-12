@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "战绩历史",
+  "enableShareAppMessage": true,
   "usingComponents": { "empty-state": "/components/empty-state/empty-state" }
 }
