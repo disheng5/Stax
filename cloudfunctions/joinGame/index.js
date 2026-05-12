@@ -1,14 +1,62 @@
 // cloudfunctions/joinGame/index.js — 加入牌局
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+const db = cloud.database()
+const _ = db.command
 
-exports.main = async (event, context) => {
+exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { inviteCode } = event
-  // TODO:
-  //   1. 按 inviteCode 查找 ongoing 牌局
-  //   2. 若已在 players 中则返回 gameId
-  //   3. 否则 push 新 player（含 totalBuyIn = buyIn, buyInCount = 1, joinedAt = now）
-  //   4. 写一条 transactions(buyIn) 流水
-  return { ok: true, openid: OPENID, inviteCode, todo: 'joinGame skeleton' }
+  const { inviteCode, nickname = '玩家', avatar = '' } = event
+
+  if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
+
+  const found = await db
+    .collection('games')
+    .where({ inviteCode, status: 'ongoing' })
+    .limit(1)
+    .get()
+
+  if (!found.data.length) return { ok: false, error: 'GAME_NOT_FOUND' }
+  const game = found.data[0]
+
+  // 已在则直接返回
+  const exists = (game.players || []).find(p => p.openid === OPENID)
+  if (exists) return { ok: true, gameId: game._id, alreadyJoined: true }
+
+  const now = new Date()
+  const player = {
+    openid: OPENID,
+    nickname,
+    avatar,
+    buyInCount: 1,
+    totalBuyIn: game.buyIn,
+    currentStack: game.buyIn,
+    finalStack: null,
+    profit: 0,
+    joinedAt: now,
+    eliminatedAt: null
+  }
+
+  await db
+    .collection('games')
+    .doc(game._id)
+    .update({
+      data: {
+        players: _.push([player]),
+        totalPot: _.inc(game.buyIn)
+      }
+    })
+
+  await db.collection('transactions').add({
+    data: {
+      gameId: game._id,
+      type: 'buyIn',
+      playerOpenid: OPENID,
+      amount: game.buyIn,
+      operatorOpenid: OPENID,
+      timestamp: now
+    }
+  })
+
+  return { ok: true, gameId: game._id }
 }
