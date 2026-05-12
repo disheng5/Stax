@@ -126,7 +126,7 @@ Page({
     wx.navigateTo({ url: '/pages/game-review/game-review?id=' + this.data.gameId })
   },
 
-  // ===== 生成结算图（Canvas 2d） =====
+  // ===== 生成结算图（Canvas 2d，美化版） =====
   async onSaveImage() {
     if (!this.data.canSubmit) {
       wx.showToast({ title: '需 Σ profit = 0 才能出图', icon: 'none' }); return
@@ -140,12 +140,17 @@ Page({
           const canvas = res[0].node
           const ctx = canvas.getContext('2d')
           const dpr = wx.getSystemInfoSync().pixelRatio || 2
-          const W = 360, H = 600
+          const W = 360
+          const rowH = 48
+          const headH = 110
+          const aaH = this.data.extraCost > 0 ? 36 : 0
+          const txH = (this.data.transfers.length || 1) * 24 + 30
+          const H = headH + 26 + this.data.playerProfits.length * rowH + aaH + 30 + txH + 50
           canvas.width = W * dpr
           canvas.height = H * dpr
           ctx.scale(dpr, dpr)
-          this._draw(ctx, W, H)
-          await new Promise(r => setTimeout(r, 50))
+          await this._drawPretty(ctx, canvas, W, H)
+          await new Promise(r => setTimeout(r, 80))
           const file = await wx.canvasToTempFilePath({ canvas, fileType: 'png', quality: 1 })
           await wx.saveImageToPhotosAlbum({ filePath: file.tempFilePath })
           wx.hideLoading(); wx.showToast({ title: '已保存到相册' })
@@ -156,50 +161,154 @@ Page({
       })
   },
 
-  _draw(ctx, W, H) {
-    ctx.fillStyle = '#F5F2EA'; ctx.fillRect(0, 0, W, H)
-    ctx.fillStyle = '#0B6E4F'; ctx.fillRect(0, 0, W, 80)
-    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 22px sans-serif'
-    ctx.fillText('Stax · 长河筹略', 20, 35)
-    ctx.font = '14px sans-serif'; ctx.fillText(this.data.game.name || '牌局结算', 20, 60)
-    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'
-    ctx.fillText(formatDateTime(new Date()), 20, 100)
+  async _drawPretty(ctx, canvas, W, H) {
+    // ===== 背景渐变（牌桌绿 → 深绿） =====
+    const bg = ctx.createLinearGradient(0, 0, 0, H)
+    bg.addColorStop(0, '#0B6E4F')
+    bg.addColorStop(1, '#063A28')
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, W, H)
 
+    // ===== 顶部装饰：扑克花色水印 =====
+    ctx.save()
+    ctx.globalAlpha = 0.08
+    ctx.fillStyle = '#FFFFFF'
+    ctx.font = '120px sans-serif'
+    ctx.fillText('♠', -10, 100)
+    ctx.fillText('♥', W - 100, 100)
+    ctx.restore()
+
+    // ===== 标题区 =====
+    ctx.fillStyle = '#FFFFFF'
+    ctx.font = 'bold 26px sans-serif'
+    ctx.fillText('Stax · 长河筹略', 20, 40)
+    ctx.font = '14px sans-serif'
+    ctx.fillStyle = '#C9A961'
+    ctx.fillText("Hold'em, held right.", 20, 60)
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.fillText(this.data.game.name || '牌局结算', 20, 88)
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.font = '11px sans-serif'
+    const dt = new Date()
+    const dtStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+    ctx.fillText(dtStr, 20, 104)
+
+    // ===== 玩家盈亏列表（白色卡） =====
     let y = 130
-    ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#1A1A1A'
-    ctx.fillText('玩家盈亏', 20, y); y += 18
-    ctx.font = '12px sans-serif'
-    this.data.playerProfits.forEach(p => {
-      ctx.fillStyle = '#1A1A1A'; ctx.fillText(p.nickname || '玩家', 20, y)
-      ctx.fillStyle = '#666';    ctx.fillText(`买入 ${p.totalBuyIn}`, 110, y)
-      if (p.share > 0) { ctx.fillStyle = '#999'; ctx.fillText(`AA -${p.share}`, 200, y) }
-      ctx.fillStyle = p.finalProfit >= 0 ? '#0B6E4F' : '#C8102E'
-      ctx.fillText((p.finalProfit > 0 ? '+' : '') + p.finalProfit, 280, y)
-      y += 22
-    })
+    const cardX = 14
+    const cardW = W - 28
+    const cardH = 26 + this.data.playerProfits.length * 48 + 14
+    this._roundRect(ctx, cardX, y, cardW, cardH, 12)
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.fill()
 
-    if (this.data.extraCost > 0) {
-      y += 10
-      ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#C9A961'
-      const modeLabel = this.data.aaMode === 'even' ? '人均 AA' : '赢家比例 AA'
-      ctx.fillText(`额外费用 ${this.data.extraCost}（${modeLabel}）`, 20, y)
-      y += 18
+    ctx.fillStyle = '#0B6E4F'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.fillText('玩家盈亏', cardX + 16, y + 22)
+
+    let py = y + 42
+    for (const p of this.data.playerProfits) {
+      // 头像占位圆
+      ctx.fillStyle = '#0B6E4F'
+      ctx.beginPath()
+      ctx.arc(cardX + 28, py + 14, 14, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#FFFFFF'
+      ctx.font = 'bold 12px sans-serif'
+      const initial = (p.nickname || '?').charAt(0).toUpperCase()
+      ctx.textAlign = 'center'
+      ctx.fillText(initial, cardX + 28, py + 19)
+      ctx.textAlign = 'start'
+
+      // 昵称 + 买入
+      ctx.fillStyle = '#1A1A1A'
+      ctx.font = 'bold 13px sans-serif'
+      ctx.fillText(p.nickname || '玩家', cardX + 52, py + 14)
+      ctx.fillStyle = '#888888'
+      ctx.font = '11px sans-serif'
+      let extra = `买入 ${p.totalBuyIn} · ${p.buyInCount} 次`
+      if (p.share > 0) extra += ` · AA -${p.share}`
+      ctx.fillText(extra, cardX + 52, py + 28)
+
+      // 盈亏
+      const profit = p.finalProfit
+      ctx.fillStyle = profit > 0 ? '#0B6E4F' : profit < 0 ? '#C8102E' : '#888888'
+      ctx.font = 'bold 18px sans-serif'
+      ctx.textAlign = 'right'
+      ctx.fillText((profit > 0 ? '+' : '') + profit, cardX + cardW - 16, py + 22)
+      ctx.textAlign = 'start'
+
+      py += 48
     }
 
-    y += 10
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 14px sans-serif'
-    ctx.fillText('清算建议', 20, y); y += 18
-    ctx.font = '12px sans-serif'
+    y += cardH + 16
+
+    // ===== AA 标识（如有） =====
+    if (this.data.extraCost > 0) {
+      const modeLabel = this.data.aaMode === 'winnerByRatio' ? '赢家按比例' : '人均 AA'
+      ctx.fillStyle = '#C9A961'
+      ctx.font = 'bold 12px sans-serif'
+      ctx.fillText(`💰 额外费用 ${this.data.extraCost}（${modeLabel}）`, cardX + 4, y + 12)
+      y += 24
+    }
+
+    // ===== 清算建议卡 =====
+    const txCardH = (this.data.transfers.length || 1) * 24 + 36
+    this._roundRect(ctx, cardX, y, cardW, txCardH, 12)
+    ctx.fillStyle = 'rgba(201, 169, 97, 0.18)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(201, 169, 97, 0.5)'
+    ctx.lineWidth = 1
+    this._roundRect(ctx, cardX, y, cardW, txCardH, 12)
+    ctx.stroke()
+
+    ctx.fillStyle = '#C9A961'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.fillText('清算建议', cardX + 16, y + 22)
+
+    let ty = y + 44
     if (!this.data.transfers.length) {
-      ctx.fillStyle = '#666'; ctx.fillText('无需转账', 20, y)
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'
+      ctx.font = '12px sans-serif'
+      ctx.fillText('🎉 无需转账，账已平', cardX + 16, ty)
     } else {
+      ctx.font = '12px sans-serif'
       this.data.transfers.forEach(t => {
-        ctx.fillStyle = '#1A1A1A'; ctx.fillText(`${t.from}  →  ${t.to}`, 20, y)
-        ctx.fillStyle = '#C9A961'; ctx.fillText(String(t.amount), 280, y)
-        y += 20
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText(`${t.from}  →  ${t.to}`, cardX + 16, ty)
+        ctx.fillStyle = '#C9A961'
+        ctx.textAlign = 'right'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.fillText(String(t.amount), cardX + cardW - 16, ty)
+        ctx.font = '12px sans-serif'
+        ctx.textAlign = 'start'
+        ty += 24
       })
     }
-    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'
-    ctx.fillText("Hold'em, held right.  ·  Stax", 20, H - 20)
+
+    // ===== 页脚 =====
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('— Stax · Hold\'em, held right. —', W / 2, H - 18)
+    ctx.textAlign = 'start'
+  },
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + w, y,     x + w, y + h, r)
+    ctx.arcTo(x + w, y + h, x,     y + h, r)
+    ctx.arcTo(x,     y + h, x,     y,     r)
+    ctx.arcTo(x,     y,     x + w, y,     r)
+    ctx.closePath()
+  },
+
+  // ===== 旧的简化绘图保留作 fallback（虽然已不使用） =====
+  _draw(ctx, W, H) {
+    ctx.fillStyle = '#F5F2EA'; ctx.fillRect(0, 0, W, H)
   }
 })
