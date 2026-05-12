@@ -2,7 +2,7 @@
   <view class="card">
     <view class="en">{{term.termEn}}</view>
     <view class="cn text-sub">{{term.termCn}}</view>
-    <view class="cat text-gold">{{term.category}}</view>
+    <view class="cat text-gold">{{categoryLabel[term.category]}}</view>
   </view>
   <view class="card">
     <view class="title">释义</view>
@@ -13,3 +13,4 @@
     <view class="text-sub">{{term.example}}</view>
   </view>
 </view>
+<view wx:elif="{{!loading}}" class="text-sub" style="padding:120rpx;text-align:center;">未找到该术语</view>

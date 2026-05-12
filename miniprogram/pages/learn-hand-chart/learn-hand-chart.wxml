@@ -1,15 +1,23 @@
 <view class="container">
   <view class="legend">
-    <view class="dot premium"></view><text>顶级</text>
-    <view class="dot strong"></view><text>强</text>
-    <view class="dot playable"></view><text>可玩</text>
-    <view class="dot marginal"></view><text>边缘</text>
-    <view class="dot trash"></view><text>弃</text>
-  </view>
-  <view class="grid">
-    <view class="cell {{cell.tier}}" wx:for="{{matrix}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
-      <view wx:for="{{row}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci" class="cell {{cell.tier}}">{{cell.hand}}</view>
+    <view class="legend-item" wx:for="{{legend}}" wx:key="tier">
+      <view class="dot {{item.tier}}"></view><text>{{item.label}}</text>
     </view>
   </view>
-  <view class="text-sub" wx:if="{{loading}}">加载中…</view>
+  <view class="grid">
+    <block wx:for="{{matrix}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
+      <view class="cell {{cell.tier}}" wx:for="{{row}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci"
+        data-ri="{{ri}}" data-ci="{{ci}}" bindtap="onCellTap">{{cell.hand}}</view>
+    </block>
+  </view>
+  <view class="text-sub" wx:if="{{loading}}" style="text-align:center;padding:32rpx;">加载中…</view>
+
+  <view class="popup" wx:if="{{picked}}" bindtap="onClosePicked">
+    <view class="popup-card" catchtap>
+      <view class="hand">{{picked.hand}}</view>
+      <view class="tier {{picked.tier}}">{{picked.tier}}</view>
+      <view class="rec text-sub">{{picked.recommendation || ''}}</view>
+      <button class="btn btn--ghost" bindtap="onClosePicked">关闭</button>
+    </view>
+  </view>
 </view>

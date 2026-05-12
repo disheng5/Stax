@@ -1,6 +1,7 @@
 .search { height: 72rpx; padding: 0 24rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-md); margin-bottom: 16rpx; }
-.tabs { display: flex; gap: 12rpx; flex-wrap: wrap; margin-bottom: 16rpx; }
-.tab { padding: 12rpx 24rpx; border-radius: 24rpx; background: var(--border); font-size: 24rpx; color: var(--text-sub); }
+.tabs { white-space: nowrap; margin-bottom: 16rpx; }
+.tab { display: inline-block; padding: 12rpx 24rpx; border-radius: 24rpx; background: var(--border); font-size: 24rpx; color: var(--text-sub); margin-right: 12rpx; }
 .tab.active { background: var(--table-green); color: #fff; }
-.term { display: flex; justify-content: space-between; align-items: baseline; padding: 24rpx; }
+.term { display: flex; justify-content: space-between; align-items: center; padding: 24rpx; }
 .term .en { font-size: 28rpx; font-weight: 500; }
+.term .cat { font-size: 20rpx; padding: 4rpx 12rpx; background: var(--border); border-radius: 8rpx; color: var(--text-sub); }

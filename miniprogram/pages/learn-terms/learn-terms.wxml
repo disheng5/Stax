@@ -1,12 +1,16 @@
 <view class="container">
   <input class="search" placeholder="搜索中英术语" value="{{keyword}}" bindinput="onSearch" />
-  <view class="tabs">
+  <scroll-view scroll-x class="tabs">
     <view class="tab {{!category ? 'active' : ''}}" data-k="" bindtap="onCategory">全部</view>
-    <view class="tab {{category === item ? 'active' : ''}}" wx:for="{{categories}}" wx:key="*this" data-k="{{item}}" bindtap="onCategory">{{item}}</view>
-  </view>
+    <view class="tab {{category === item ? 'active' : ''}}" wx:for="{{categories}}" wx:key="*this" data-k="{{item}}" bindtap="onCategory">{{categoryLabel[item]}}</view>
+  </scroll-view>
 
-  <view class="card term" wx:for="{{terms}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpen">
-    <view class="en">{{item.termEn}}</view>
-    <view class="cn text-sub">{{item.termCn}}</view>
+  <view class="card term" wx:for="{{filtered}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpen">
+    <view class="left">
+      <view class="en">{{item.termEn}}</view>
+      <view class="cn text-sub">{{item.termCn}}</view>
+    </view>
+    <view class="cat">{{categoryLabel[item.category]}}</view>
   </view>
+  <view class="text-sub" wx:if="{{!loading && !filtered.length}}" style="text-align:center;padding:60rpx;">没有匹配的术语</view>
 </view>
