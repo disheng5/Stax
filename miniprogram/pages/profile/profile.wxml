@@ -1,10 +1,14 @@
 <view class="container">
-  <view class="card user" bindtap="onAuth">
-    <image class="avatar" src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}" />
-    <view>
-      <view class="nick">{{userInfo.nickName || '点击授权登录'}}</view>
-      <view class="text-sub">完善资料后可参与牌局</view>
+  <view class="card user">
+    <button class="avatar-wrap" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <image class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view class="avatar-tip text-sub">点击更换头像</view>
+    </button>
+    <view class="nickname-row">
+      <text class="label">昵称</text>
+      <input class="nickname-input" type="nickname" value="{{nickname}}" placeholder="点击输入微信昵称" bindinput="onNicknameInput" />
     </view>
+    <button class="btn btn--primary btn--block" wx:if="{{editing}}" bindtap="onSaveProfile">保存资料</button>
   </view>
 
   <view class="stat-grid">
