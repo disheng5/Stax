@@ -7,6 +7,12 @@
     </view>
   </view>
 
+  <view class="stat-grid">
+    <view class="stat-item"><view class="num">{{stats.totalGames}}</view><view class="text-sub">总场次</view></view>
+    <view class="stat-item"><view class="num text-gold">{{stats.totalProfit}}</view><view class="text-sub">累计盈亏</view></view>
+    <view class="stat-item"><view class="num">{{stats.winRate}}%</view><view class="text-sub">胜率</view></view>
+  </view>
+
   <view class="card row" bindtap="onStats">
     <text>数据看板</text><text class="text-sub">›</text>
   </view>
