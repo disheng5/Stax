@@ -21,8 +21,25 @@
     <player-card
       wx:for="{{game.players}}" wx:key="openid"
       player="{{item}}" isHost="{{isHost}}" gameStatus="{{game.status}}"
+      isSelf="{{item.openid === myOpenid}}"
       bind:rebuy="onRebuy" bind:addon="onAddOn" bind:eliminate="onEliminate"
+      bind:selfrebuy="onSelfRebuy"
     />
+  </view>
+
+  <view class="section-title" wx:if="{{recentTx.length}}">最近流水</view>
+  <view class="card tx-list" wx:if="{{recentTx.length}}">
+    <view class="tx {{tx.revoked ? 'revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
+      <view class="tx-main">
+        <text class="tx-type">{{txTypeLabel[tx.type]}}</text>
+        <text class="tx-name">{{tx.nickname}}</text>
+        <text class="tx-amount" wx:if="{{tx.amount}}">{{tx.amount}}</text>
+        <text class="tx-by text-sub" wx:if="{{!tx.byHost && (tx.type === 'rebuy' || tx.type === 'addOn')}}"> 自助</text>
+      </view>
+      <button wx:if="{{isHost && !tx.revoked && (tx.type === 'rebuy' || tx.type === 'addOn')}}"
+              class="btn btn--ghost btn-tiny" data-id="{{tx._id}}" bindtap="onRevokeTx">撤销</button>
+      <text class="text-sub" wx:elif="{{tx.revoked}}">已撤销</text>
+    </view>
   </view>
 
   <view class="host-actions" wx:if="{{isHost && game.status === 'ongoing'}}">
