@@ -1,0 +1,5 @@
+<view class="timer-bar">
+  <view class="level">Lv.{{currentLevel + 1}}</view>
+  <view class="blinds">{{currentBlind.sb}} / {{currentBlind.bb}}</view>
+  <view class="countdown {{paused ? 'paused' : ''}}">{{remaining}}</view>
+</view>

@@ -1,0 +1,6 @@
+<view class="empty">
+  <image class="icon" src="{{icon}}" mode="aspectFit" />
+  <view class="title">{{title}}</view>
+  <view class="desc text-sub" wx:if="{{desc}}">{{desc}}</view>
+  <button wx:if="{{actionText}}" class="btn btn--primary" bindtap="onAction">{{actionText}}</button>
+</view>

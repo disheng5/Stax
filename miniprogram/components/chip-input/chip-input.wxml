@@ -1,0 +1,8 @@
+<view class="chip-input">
+  <view class="label" wx:if="{{label}}">{{label}}</view>
+  <view class="row">
+    <button class="step" bindtap="onMinus">-</button>
+    <input class="num" type="number" value="{{value}}" bindinput="onInput" />
+    <button class="step" bindtap="onPlus">+</button>
+  </view>
+</view>

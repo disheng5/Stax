@@ -1,0 +1,19 @@
+.player-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  background: var(--card);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: var(--shadow-card);
+}
+.player-card.eliminated { opacity: 0.55; }
+.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; background: var(--border); }
+.info { flex: 1; }
+.nickname { font-size: 30rpx; font-weight: 500; }
+.stats { margin-top: 6rpx; }
+.stack { font-size: 36rpx; font-weight: 600; color: var(--gold); }
+.actions { width: 100%; display: flex; gap: 12rpx; margin-top: 12rpx; }
+.btn-sm { height: 60rpx; padding: 0 20rpx; font-size: 24rpx; flex: 1; }
