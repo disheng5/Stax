@@ -11,6 +11,7 @@
     "pages/learn-terms/learn-terms",
     "pages/learn-term-detail/learn-term-detail",
     "pages/learn-hand-chart/learn-hand-chart",
+    "pages/learn-rules/learn-rules",
     "pages/profile/profile",
     "pages/about/about"
   ],
