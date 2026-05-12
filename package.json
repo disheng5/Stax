@@ -7,9 +7,10 @@
     "lint": "eslint \"miniprogram/**/*.js\" \"cloudfunctions/**/*.js\"",
     "format": "prettier --write \"**/*.{js,json,wxml,wxss}\"",
     "test": "node tests/settle.test.js && node tests/invite-code.test.js && node tests/aa.test.js",
+    "test:mock": "node scripts/test-mock.js",
     "compliance": "node scripts/compliance-check.js",
     "gen:images": "node scripts/gen-images.js",
-    "check": "npm run test && npm run compliance"
+    "check": "npm run test && npm run test:mock && npm run compliance"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
