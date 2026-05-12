@@ -1,8 +1,10 @@
-<!-- components/player-card/player-card.wxml -->
-<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}}">
+<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}}">
   <image class="avatar" src="{{player.avatar || '/images/default-avatar.png'}}" />
   <view class="info">
-    <view class="nickname">{{player.nickname}}</view>
+    <view class="nickname">
+      {{player.nickname}}
+      <text class="me-tag" wx:if="{{isSelf}}">我</text>
+    </view>
     <view class="stats text-sub">
       买入 {{player.totalBuyIn}} · 次数 {{player.buyInCount}}
     </view>
@@ -10,9 +12,14 @@
   <view class="stack" wx:if="{{!player.eliminatedAt}}">{{player.currentStack || player.totalBuyIn}}</view>
   <view class="stack text-danger" wx:else>已淘汰</view>
 
+  <!-- 庄家操作：可对任意玩家 rebuy/addOn/淘汰 -->
   <view class="actions" wx:if="{{isHost && gameStatus === 'ongoing' && !player.eliminatedAt}}">
-    <button class="btn btn--ghost btn-sm" bindtap="onRebuy">Rebuy</button>
-    <button class="btn btn--ghost btn-sm" bindtap="onAddOn">Add-on</button>
+    <button class="btn btn--ghost btn-sm" bindtap="onRebuy">代补</button>
     <button class="btn btn--danger btn-sm" bindtap="onEliminate">淘汰</button>
+  </view>
+
+  <!-- 参与人自助：只能给自己加买入 -->
+  <view class="actions" wx:if="{{isSelf && !isHost && gameStatus === 'ongoing' && !player.eliminatedAt}}">
+    <button class="btn btn--primary btn-sm" bindtap="onSelfRebuy">+ 我要补码</button>
   </view>
 </view>
