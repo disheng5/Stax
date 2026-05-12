@@ -8,10 +8,12 @@ Page({
     avatarUrl: DEFAULT_AVATAR,
     nickname: '',
     editing: false,
+    demoMode: false,
     stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, winRate: 0 }
   },
 
   async onShow() {
+    this.setData({ demoMode: !!app.globalData.demoMode })
     const cached = wx.getStorageSync('user_profile') || {}
     if (cached.nickname) this.setData({ nickname: cached.nickname })
     if (cached.avatarUrl) this.setData({ avatarUrl: cached.avatarUrl })
@@ -95,5 +97,18 @@ Page({
     wx.clearStorageSync()
     wx.showToast({ title: '已清除', icon: 'success' })
     this.setData({ avatarUrl: DEFAULT_AVATAR, nickname: '' })
+  },
+
+  onResetDemo() {
+    wx.showModal({
+      title: '重置 Demo 数据',
+      content: '将清空当前 mock 数据并恢复初始 5 局历史 + 1 局进行中，仅在 Demo 模式生效',
+      success: r => {
+        if (!r.confirm) return
+        app.resetDemo()
+        wx.showToast({ title: '已重置', icon: 'success' })
+        setTimeout(() => this._refresh(), 100)
+      }
+    })
   }
 })

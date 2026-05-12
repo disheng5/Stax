@@ -1,4 +1,8 @@
 <view class="container">
+  <view wx:if="{{demoMode}}" class="demo-banner">
+    🧪 Demo 模式 · 数据保存在内存中、刷新即重置 · 真实环境请配置 envId
+  </view>
+
   <view class="card user">
     <button class="avatar-wrap" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
       <image class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
@@ -38,6 +42,9 @@
   <view class="section-title">设置</view>
   <view class="card row" bindtap="onClearCache">
     <text>清除缓存</text><text class="text-sub">›</text>
+  </view>
+  <view wx:if="{{demoMode}}" class="card row" bindtap="onResetDemo">
+    <text class="text-gold">🧪 重置 Demo 数据</text><text class="text-sub">›</text>
   </view>
   <view class="card row" bindtap="onAbout">
     <text>关于 Stax</text><text class="text-sub">›</text>
