@@ -1,0 +1,1016 @@
+[
+  {
+    "hand": "AA",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "AKs",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "AQs",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "AJs",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "ATs",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "A9s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A8s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A7s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A6s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A5s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A4s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A3s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "A2s",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "AKo",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "KK",
+    "tier": "premium",
+    "position": "any",
+    "recommendation": "任何位置都可加注，遇 3-bet 可继续推进"
+  },
+  {
+    "hand": "KQs",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "KJs",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "KTs",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "K9s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "K8s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "K7s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "K6s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "K5s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "K4s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "K3s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "K2s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "AQo",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "KQo",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "QQ",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "QJs",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "QTs",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "Q9s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "Q8s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q7s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q6s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q5s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q4s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q3s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "Q2s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "AJo",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "KJo",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "QJo",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "JJ",
+    "tier": "strong",
+    "position": "any",
+    "recommendation": "前/中/后位均可开池加注"
+  },
+  {
+    "hand": "JTs",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "J9s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "J8s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J7s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J6s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J5s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J4s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J3s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "J2s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "ATo",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "KTo",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "QTo",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "JTo",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "TT",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "T9s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "T8s",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T7s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "T6s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "T5s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "T4s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "T3s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "T2s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A9o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K9o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q9o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J9o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T9o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "99",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "98s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "97s",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "96s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "95s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "94s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "93s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "92s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A8o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K8o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q8o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J8o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T8o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "98o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "88",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "87s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "86s",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "85s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "84s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "83s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "82s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A7o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K7o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q7o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J7o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T7o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "97o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "87o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "77",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "76s",
+    "tier": "playable",
+    "position": "any",
+    "recommendation": "中后位开池，遭压可弃"
+  },
+  {
+    "hand": "75s",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "74s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "73s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "72s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A6o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K6o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q6o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J6o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T6o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "96o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "86o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "76o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "66",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "65s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "64s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "63s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "62s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A5o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K5o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q5o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J5o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T5o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "95o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "85o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "75o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "65o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "55",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "54s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "53s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "52s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A4o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K4o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q4o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J4o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T4o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "94o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "84o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "74o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "64o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "54o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "44",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "43s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "42s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A3o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K3o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q3o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J3o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T3o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "93o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "83o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "73o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "63o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "53o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "43o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "33",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "32s",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "A2o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "K2o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "Q2o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "J2o",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  },
+  {
+    "hand": "T2o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "92o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "82o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "72o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "62o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "52o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "42o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "32o",
+    "tier": "trash",
+    "position": "any",
+    "recommendation": "直接弃牌"
+  },
+  {
+    "hand": "22",
+    "tier": "marginal",
+    "position": "any",
+    "recommendation": "仅后位偷盲或可玩，前位放掉"
+  }
+]

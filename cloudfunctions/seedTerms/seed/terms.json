@@ -1,0 +1,64 @@
+[
+  { "termEn": "Texas Hold'em", "termCn": "德州扑克", "category": "rule", "definition": "最流行的扑克变体：每位玩家发两张底牌，与公共牌组合出最佳五张牌型。", "example": "今晚我们玩 No-Limit Texas Hold'em。" },
+  { "termEn": "No-Limit", "termCn": "无限注", "category": "rule", "definition": "下注上限即玩家的所有筹码，可随时 all-in。", "example": "NLHE = No-Limit Hold'em。" },
+  { "termEn": "Pot-Limit", "termCn": "底池限注", "category": "rule", "definition": "单次下注最多等于当前底池金额。", "example": "PLO 是底池限注奥马哈。" },
+  { "termEn": "Fixed-Limit", "termCn": "固定限注", "category": "rule", "definition": "每条街下注金额固定，不可加注超额。", "example": "Limit Hold'em 适合学习基础。" },
+  { "termEn": "Hand", "termCn": "一手牌 / 牌型", "category": "rule", "definition": "一局游戏，或玩家最终组合出的五张牌。", "example": "他这一手牌赢得很漂亮。" },
+
+  { "termEn": "Blinds", "termCn": "盲注", "category": "rule", "definition": "庄家位左侧两名玩家的强制下注，分小盲与大盲。", "example": "盲注每 20 分钟升一级。" },
+  { "termEn": "Small Blind", "termCn": "小盲注", "category": "rule", "definition": "庄家位左侧第一位的强制下注，通常为大盲一半。", "example": "我在 SB 位置先付 5 块。" },
+  { "termEn": "Big Blind", "termCn": "大盲注", "category": "rule", "definition": "庄家位左侧第二位的强制下注，是基础下注单位。", "example": "BB 100 意味着筹码量 100 个大盲。" },
+  { "termEn": "Ante", "termCn": "底注", "category": "rule", "definition": "每位玩家在每手牌前都强制投入的小额筹码，刺激行动。", "example": "进入 Lv5 后开始有 ante。" },
+  { "termEn": "Button", "termCn": "庄家位 / 按钮位", "category": "position", "definition": "标记本局名义庄家的圆形按钮，最后一个行动，位置最有利。", "example": "On the button 是最赚钱的位置。" },
+
+  { "termEn": "UTG", "termCn": "枪口位", "category": "position", "definition": "Under the Gun，大盲左侧第一位，前位中最早行动者。", "example": "UTG 范围要紧，避免做弱牌。" },
+  { "termEn": "Cutoff", "termCn": "切牌位", "category": "position", "definition": "庄家位右侧的位置，仅次于按钮，攻击性强。", "example": "CO 偷盲很常见。" },
+  { "termEn": "Hijack", "termCn": "抢劫位", "category": "position", "definition": "切牌位右侧，属于晚期位置之一。", "example": "HJ 可适度扩大开池范围。" },
+  { "termEn": "Early Position (EP)", "termCn": "前位", "category": "position", "definition": "UTG 周围的早期位置，行动顺序靠前，需收紧范围。", "example": "EP 只玩前 8% 起手牌。" },
+  { "termEn": "Late Position (LP)", "termCn": "后位", "category": "position", "definition": "CO 与 BTN 等晚期位置，可看清前面行动后再决定。", "example": "LP 是利润最高的位置。" },
+
+  { "termEn": "Pre-flop", "termCn": "翻牌前", "category": "rule", "definition": "发完底牌、未发公共牌的下注圈。", "example": "Preflop 加注到 3 个大盲。" },
+  { "termEn": "Flop", "termCn": "翻牌", "category": "rule", "definition": "公共牌前三张同时翻开。", "example": "Flop 来了 K-7-2 彩虹。" },
+  { "termEn": "Turn", "termCn": "转牌", "category": "rule", "definition": "翻牌后翻开的第四张公共牌。", "example": "Turn 是关键决策点。" },
+  { "termEn": "River", "termCn": "河牌", "category": "rule", "definition": "最后一张公共牌，决定胜负。", "example": "River 改变了结果。" },
+  { "termEn": "Showdown", "termCn": "摊牌", "category": "rule", "definition": "河牌后剩余玩家亮牌比大小决定底池归属。", "example": "Showdown 时按手强度由强到弱依次亮牌。" },
+
+  { "termEn": "Fold", "termCn": "弃牌", "category": "action", "definition": "放弃当前手牌，退出本局。", "example": "Fold 就是认输保命。" },
+  { "termEn": "Check", "termCn": "过牌", "category": "action", "definition": "在没有人下注时选择不投筹码并保留行动权。", "example": "翻牌后我先 check 看对手意图。" },
+  { "termEn": "Call", "termCn": "跟注", "category": "action", "definition": "投入与当前最大下注相等的筹码继续游戏。", "example": "面对小注我选择 call。" },
+  { "termEn": "Bet", "termCn": "下注", "category": "action", "definition": "在无人下注时主动投入筹码。", "example": "我在 flop 下注 1/2 底池。" },
+  { "termEn": "Raise", "termCn": "加注", "category": "action", "definition": "在已有下注后将其抬高。", "example": "Raise 到 3 倍大盲。" },
+
+  { "termEn": "Re-raise / 3-bet", "termCn": "再加注 / 三注", "category": "action", "definition": "对加注进行的反加注。", "example": "他 open，我 3-bet 到 9bb。" },
+  { "termEn": "All-in", "termCn": "全下", "category": "action", "definition": "推入手中所有筹码。", "example": "All-in 没有回头路。" },
+  { "termEn": "Limp", "termCn": "蹩入", "category": "action", "definition": "翻牌前仅 call 大盲不加注，被视为弱化打法。", "example": "Open-limp 通常是新手特征。" },
+  { "termEn": "Continuation Bet (C-bet)", "termCn": "持续下注", "category": "action", "definition": "翻牌前加注者在翻牌圈继续下注。", "example": "C-bet 60% 底池施压。" },
+  { "termEn": "Check-Raise", "termCn": "过牌加注", "category": "action", "definition": "先 check 引诱对手下注后再加注，威慑力强。", "example": "Check-raise 通常代表强牌或大半诈唬。" },
+
+  { "termEn": "Hole Cards", "termCn": "底牌 / 起手牌", "category": "hand", "definition": "玩家手中的两张私有牌。", "example": "底牌 AA 是最好的起手牌。" },
+  { "termEn": "Pocket Pair", "termCn": "口袋对子", "category": "hand", "definition": "底牌为同点数的对子。", "example": "Pocket Kings = KK。" },
+  { "termEn": "Suited", "termCn": "同花", "category": "hand", "definition": "两张底牌花色相同，组成同花潜力。", "example": "AKs = A♠K♠。" },
+  { "termEn": "Offsuit", "termCn": "非同花", "category": "hand", "definition": "两张底牌花色不同。", "example": "AKo 是非同花 AK。" },
+  { "termEn": "Connector", "termCn": "连张", "category": "hand", "definition": "两张点数相邻的底牌，有顺子潜力。", "example": "76s 是经典的同花连张。" },
+
+  { "termEn": "Top Pair", "termCn": "顶对", "category": "hand", "definition": "底牌之一与翻牌中最大公共牌组成的对子。", "example": "K-7-2 翻牌、底牌 AK 即顶对顶踢脚。" },
+  { "termEn": "Overpair", "termCn": "超对", "category": "hand", "definition": "口袋对子大于翻牌中所有公共牌。", "example": "QQ 在 9-8-2 翻牌是超对。" },
+  { "termEn": "Set", "termCn": "暗三条", "category": "hand", "definition": "口袋对子在翻牌击中三条。", "example": "Set 是隐藏性极强的强牌。" },
+  { "termEn": "Trips", "termCn": "明三条", "category": "hand", "definition": "底牌单张配合公共牌中两张同点形成三条。", "example": "Trips 比 set 易被对手识破。" },
+  { "termEn": "Straight", "termCn": "顺子", "category": "hand", "definition": "五张连续点数的牌（不计花色）。", "example": "9-T-J-Q-K 是 King-high 顺子。" },
+
+  { "termEn": "Flush", "termCn": "同花", "category": "hand", "definition": "五张同花色的牌，不要求连续。", "example": "Nut flush = 同花最大牌（A 高）。" },
+  { "termEn": "Full House", "termCn": "葫芦", "category": "hand", "definition": "三条 + 对子的组合。", "example": "AAA-22 称 'Aces full of Twos'。" },
+  { "termEn": "Quads", "termCn": "四条", "category": "hand", "definition": "四张同点数加任一张踢脚。", "example": "Quad Aces 几乎不可战胜。" },
+  { "termEn": "Straight Flush", "termCn": "同花顺", "category": "hand", "definition": "五张同花色且连续的牌。", "example": "9♥T♥J♥Q♥K♥。" },
+  { "termEn": "Royal Flush", "termCn": "皇家同花顺", "category": "hand", "definition": "T-J-Q-K-A 同花色，扑克中最大牌型。", "example": "Royal Flush 千手难遇一次。" },
+
+  { "termEn": "Pot Odds", "termCn": "底池赔率", "category": "concept", "definition": "需要跟注金额 ÷ 跟注后底池的比例，用于判断跟注是否盈利。", "example": "需要跟 100 赢 400 → 底池赔率 4:1。" },
+  { "termEn": "Equity", "termCn": "权益", "category": "concept", "definition": "你当前手牌赢下底池的概率百分比。", "example": "对 KK 时 AA 的 equity 约 80%。" },
+  { "termEn": "Outs", "termCn": "出路牌", "category": "concept", "definition": "能让你成牌的剩余未知牌张数。", "example": "同花听牌有 9 个 outs。" },
+  { "termEn": "Bluff", "termCn": "诈唬", "category": "concept", "definition": "用弱牌持续施压迫使对手弃牌。", "example": "Stone-cold bluff 风险高收益高。" },
+  { "termEn": "Semi-Bluff", "termCn": "半诈唬", "category": "concept", "definition": "持有听牌时下注，既可让对手弃牌也可补牌成强牌。", "example": "翻牌持同花听 + 卡顺听是经典半诈唬。" },
+
+  { "termEn": "ICM", "termCn": "独立筹码模型", "category": "concept", "definition": "锦标赛中将筹码价值换算为奖金权益的模型。", "example": "Bubble 阶段决策需考虑 ICM。" },
+  { "termEn": "Variance", "termCn": "方差 / 波动", "category": "concept", "definition": "短期结果与长期期望之间的随机偏差。", "example": "样本不足时 variance 会放大胜负差距。" }
+]
