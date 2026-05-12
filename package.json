@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "lint": "eslint \"miniprogram/**/*.js\" \"cloudfunctions/**/*.js\"",
-    "format": "prettier --write \"**/*.{js,json,wxml,wxss}\""
+    "format": "prettier --write \"**/*.{js,json,wxml,wxss}\"",
+    "test": "node tests/settle.test.js && node tests/invite-code.test.js"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
