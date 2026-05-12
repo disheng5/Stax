@@ -16,6 +16,27 @@
     <view class="text-sub" wx:if="{{diff !== 0}}">需为 0 才能提交结算</view>
   </view>
 
+  <!-- AA 分摊 -->
+  <view class="card">
+    <view class="title">额外费用 AA（可选）</view>
+    <view class="text-sub" style="margin-bottom:12rpx;">用于场地 / 酒水 / 口粮 等顺场费用</view>
+    <view class="row aa-row">
+      <text class="label">总额</text>
+      <input class="num" type="digit" placeholder="0" value="{{extraCost || ''}}" bindinput="onExtraCostInput" />
+    </view>
+    <view class="presets" wx:if="{{extraCost > 0}}">
+      <view class="preset {{aaMode === 'even' ? 'active' : ''}}" data-k="even" bindtap="onAaModeChange">人均 AA</view>
+      <view class="preset {{aaMode === 'winnerByRatio' ? 'active' : ''}}" data-k="winnerByRatio" bindtap="onAaModeChange">赢家按比例</view>
+      <view class="preset {{aaMode === 'none' ? 'active' : ''}}" data-k="none" bindtap="onAaModeChange">不分摊</view>
+    </view>
+    <view wx:if="{{extraCost > 0 && aaMode !== 'none'}}" style="margin-top:16rpx;">
+      <view class="share-row" wx:for="{{shares}}" wx:key="openid">
+        <text class="text-sub">{{item.nickname}}</text>
+        <text class="text-gold">-{{item.share}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="card" wx:if="{{transfers.length}}">
     <view class="title">清算建议（{{transfers.length}} 笔转账）</view>
     <view class="transfer" wx:for="{{transfers}}" wx:key="index">
@@ -33,6 +54,10 @@
     <button class="btn btn--ghost"   bindtap="onSaveImage" disabled="{{!canSubmit}}">生成结算图</button>
     <button class="btn btn--primary" bindtap="onSubmit"    disabled="{{!canSubmit || submitting || submitted}}">{{submitted ? '已结算' : '提交结算'}}</button>
   </view>
+
+  <button wx:if="{{submitted}}" class="btn btn--ghost btn--block ai-btn" bindtap="onAIReview">
+    🤖 看看 AI 怎么点评今晚
+  </button>
 </view>
 
-<canvas type="2d" id="settle-canvas" style="width:360px;height:540px;position:fixed;left:-9999px;top:0;"></canvas>
+<canvas type="2d" id="settle-canvas" style="width:360px;height:600px;position:fixed;left:-9999px;top:0;"></canvas>
