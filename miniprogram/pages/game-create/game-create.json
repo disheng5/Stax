@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "创建牌局",
+  "usingComponents": {
+    "chip-input": "/components/chip-input/chip-input"
+  }
+}

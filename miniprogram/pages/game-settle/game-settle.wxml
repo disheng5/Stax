@@ -1,0 +1,30 @@
+<view class="container" wx:if="{{game}}">
+  <view class="card">
+    <view class="title">输入每位玩家的最终筹码</view>
+    <view class="row" wx:for="{{game.players}}" wx:key="openid">
+      <view class="name">{{item.nickname}}</view>
+      <view class="text-sub">买入 {{item.totalBuyIn}}</view>
+      <input class="num" type="number" data-openid="{{item.openid}}" bindinput="onStackInput" />
+    </view>
+  </view>
+
+  <view class="card {{diff !== 0 ? 'warn' : ''}}">
+    <view>Σ profit = <text class="{{diff === 0 ? 'text-success' : 'text-danger'}}">{{diff}}</text></view>
+    <view class="text-sub" wx:if="{{diff !== 0}}">需为 0 才能提交</view>
+  </view>
+
+  <view class="card" wx:if="{{transfers.length}}">
+    <view class="title">清算建议（最少转账）</view>
+    <view class="transfer" wx:for="{{transfers}}" wx:key="index">
+      <text>{{item.from}}</text>
+      <text class="arrow">→</text>
+      <text>{{item.to}}</text>
+      <text class="amount text-gold">{{item.amount}}</text>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="btn btn--ghost"   bindtap="onSaveImage">生成结算图</button>
+    <button class="btn btn--primary" bindtap="onSubmit">提交结算</button>
+  </view>
+</view>

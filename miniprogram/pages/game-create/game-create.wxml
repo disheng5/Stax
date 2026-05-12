@@ -1,0 +1,29 @@
+<view class="container">
+  <view class="card">
+    <view class="label">局名</view>
+    <input class="text-input" value="{{name}}" bindinput="onNameInput" />
+  </view>
+
+  <view class="card">
+    <chip-input label="标准买入额" value="{{buyIn}}" step="50" min="10" bindchange="onBuyInChange" />
+  </view>
+
+  <view class="card">
+    <view class="label">盲注结构</view>
+    <view class="presets">
+      <view class="preset {{blindPreset === 'fast' ? 'active' : ''}}" data-k="fast" bindtap="onPresetTap">快速 5/10</view>
+      <view class="preset {{blindPreset === 'standard' ? 'active' : ''}}" data-k="standard" bindtap="onPresetTap">标准 10/20</view>
+      <view class="preset {{blindPreset === 'custom' ? 'active' : ''}}" data-k="custom" bindtap="onPresetTap">自定义</view>
+    </view>
+    <block wx:if="{{blindPreset === 'custom'}}">
+      <chip-input label="小盲 SB" value="{{customSb}}" step="5"  min="1" bindchange="onSbChange" />
+      <chip-input label="大盲 BB" value="{{customBb}}" step="10" min="2" bindchange="onBbChange" />
+    </block>
+  </view>
+
+  <view class="card">
+    <chip-input label="盲注级别提升间隔（分钟）" value="{{blindUpMinutes}}" step="5" min="5" max="60" bindchange="onUpChange" />
+  </view>
+
+  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">生成牌局并获取邀请码</button>
+</view>

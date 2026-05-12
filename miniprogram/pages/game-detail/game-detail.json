@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "牌局",
+  "enableShareAppMessage": true,
+  "usingComponents": {
+    "blind-timer":  "/components/blind-timer/blind-timer",
+    "player-card":  "/components/player-card/player-card",
+    "empty-state":  "/components/empty-state/empty-state"
+  }
+}

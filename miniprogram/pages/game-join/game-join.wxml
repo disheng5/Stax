@@ -1,0 +1,9 @@
+<view class="container">
+  <view class="card">
+    <view class="label">邀请码</view>
+    <input class="code-input" placeholder="输入 6 位邀请码" maxlength="6" value="{{code}}" bindinput="onCodeInput" />
+  </view>
+  <button class="btn btn--ghost   btn--block" bindtap="onScan">扫码加入</button>
+  <view style="height: 24rpx" />
+  <button class="btn btn--primary btn--block" bindtap="onSubmit">加入</button>
+</view>

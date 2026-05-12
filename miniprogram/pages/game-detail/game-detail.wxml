@@ -1,0 +1,29 @@
+<view class="container" wx:if="{{game}}">
+  <blind-timer
+    currentLevel="{{game.currentLevel}}"
+    blindStructure="{{game.blindStructure}}"
+    blindUpMinutes="{{game.blindUpMinutes}}"
+  />
+
+  <view class="meta-row">
+    <view>邀请码 <text class="code">{{game.inviteCode}}</text></view>
+    <view>总池 <text class="text-gold">{{game.totalPot || 0}}</text></view>
+  </view>
+
+  <view class="players">
+    <player-card
+      wx:for="{{game.players}}" wx:key="openid"
+      player="{{item}}" isHost="{{isHost}}" gameStatus="{{game.status}}"
+      bind:rebuy="onRebuy" bind:addon="onAddOn" bind:eliminate="onEliminate"
+    />
+  </view>
+
+  <view class="host-actions" wx:if="{{isHost && game.status === 'ongoing'}}">
+    <button class="btn btn--ghost"   bindtap="onPause">暂停/恢复</button>
+    <button class="btn btn--danger"  bindtap="onEndGame">结束并结算</button>
+  </view>
+
+  <button class="btn btn--primary btn--block" open-type="share">复制邀请链接 / 分享</button>
+</view>
+
+<empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />

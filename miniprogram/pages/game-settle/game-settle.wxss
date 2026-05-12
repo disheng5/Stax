@@ -1,0 +1,11 @@
+.title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
+.row { display: flex; align-items: center; gap: 16rpx; padding: 16rpx 0; border-bottom: 2rpx solid var(--border); }
+.row:last-child { border: none; }
+.name { flex: 1; font-size: 28rpx; }
+.num { width: 180rpx; text-align: right; padding: 0 16rpx; height: 64rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-sm); }
+.warn { border: 2rpx solid var(--danger); }
+.transfer { display: flex; align-items: center; gap: 16rpx; padding: 12rpx 0; }
+.transfer .arrow { color: var(--text-sub); }
+.transfer .amount { margin-left: auto; font-weight: 600; }
+.actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.actions .btn { flex: 1; }

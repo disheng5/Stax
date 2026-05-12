@@ -1,0 +1,6 @@
+.label { font-size: 26rpx; color: var(--text-sub); margin-bottom: 12rpx; }
+.code-input {
+  height: 100rpx; font-size: 56rpx; text-align: center; letter-spacing: 16rpx;
+  background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-md);
+  font-family: 'Courier New', monospace;
+}
