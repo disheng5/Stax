@@ -31,13 +31,19 @@ stax/
 
 ## 本地开发
 1. 安装[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)
-2. 导入本仓库目录，AppID 填写自有小程序 AppID（个人主体）
-3. 在 `miniprogram/app.js` 中将 `your-env-id` 替换为云开发环境 ID
-4. 右上角「云开发」→ 部署 5 个云函数；执行 `seedTerms` 初始化术语词典
-5. 建立 6 个数据库集合：`users / games / transactions / terms / handRanks`，权限按 Spec §2.6 配置
+2. 导入本仓库目录，AppID 填写自有小程序 AppID（个人主体）或测试号
+3. **直接编译即可看到完整 UI 跑起来**（默认 Demo 模式，0 配置 0 依赖）
+4. 想接真实云：在 `miniprogram/app.js` 把 `ENV_ID` 替换为云开发环境 ID，按 `docs/DEPLOY.md` 部署 7 个云函数
+
+## 验证
+```
+npm install
+npm run check       # 28 项验证：单元测试 + Mock E2E + 合规扫描
+npm run test:mock   # 仅跑 Mock 全链路（不依赖任何外部环境）
+```
 
 ## 部署步骤
-详见 `docs/DEPLOY.md`（待补全）。
+详见 `docs/DEPLOY.md`。演示流程见 `docs/DEMO.md`。
 
 ## License
 MIT
