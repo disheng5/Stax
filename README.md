@@ -43,7 +43,9 @@ npm run test:mock   # 仅跑 Mock 全链路（不依赖任何外部环境）
 ```
 
 ## 部署步骤
-详见 `docs/DEPLOY.md`。演示流程见 `docs/DEMO.md`。
+- 云开发部署：`docs/CLOUD_SETUP.md`
+- 提审指南：`docs/DEPLOY.md`
+- 演示流程：`docs/DEMO.md`
 
 ## License
 MIT
