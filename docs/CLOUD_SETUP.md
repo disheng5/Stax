@@ -141,25 +141,63 @@ termAi
 1. 云开发控制台 → 左侧 **云函数**
 2. 找到 `seedTerms`
 3. 点 **云端测试**
-4. 入参填：
+
+为了避免云端测试 3 秒超时，建议分两次执行。
+
+### 5.1 先初始化术语
+
+入参：
 
 ```json
 {
-  "reset": true
+  "reset": true,
+  "only": "terms"
 }
 ```
-
-5. 点运行
 
 成功返回应类似：
 
 ```json
 {
   "ok": true,
-  "termsInserted": 50,
+  "mode": "terms",
+  "termsCleared": 0,
+  "termsInserted": 50
+}
+```
+
+### 5.2 再初始化起手牌表
+
+入参：
+
+```json
+{
+  "reset": true,
+  "only": "handRanks"
+}
+```
+
+成功返回应类似：
+
+```json
+{
+  "ok": true,
+  "mode": "handRanks",
+  "handRanksCleared": 0,
   "handRanksInserted": 169
 }
 ```
+
+也可以一次性跑：
+
+```json
+{
+  "reset": true,
+  "only": "all"
+}
+```
+
+但如果遇到 3 秒超时，就按上面分两次跑。
 
 然后去数据库里确认：
 
