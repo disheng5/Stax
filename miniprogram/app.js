@@ -8,7 +8,7 @@
 //   - 0 配置就能在开发者工具里看到完整 UI 跑起来
 //   - 含 1 个进行中牌局、5 局历史、10 个术语、169 起手牌
 //   - 数据在内存中，刷新即重置；可在「我的」→「重置 Demo 数据」手动重置
-const ENV_ID = 'STAX_REPLACE_ME_BEFORE_DEPLOY'
+const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 
 App({
   onLaunch() {
