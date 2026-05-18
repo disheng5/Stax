@@ -11,9 +11,15 @@
 .transfer .amount { margin-left: auto; font-weight: 600; }
 .actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .actions .btn { flex: 1; }
-.aa-row .label { font-size: 26rpx; color: var(--text-sub); width: 80rpx; }
+.aa-row .label { font-size: 26rpx; color: var(--text-sub); width: 100rpx; }
+.payer-picker { flex: 1; height: 64rpx; line-height: 64rpx; padding: 0 16rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-sm); text-align: right; }
 .presets { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .preset { flex: 1; text-align: center; padding: 16rpx 0; border: 2rpx solid var(--border); border-radius: var(--radius-sm); font-size: 24rpx; color: var(--text-sub); }
 .preset.active { border-color: var(--table-green); color: var(--table-green); background: rgba(11,110,79,0.08); }
 .share-row { display: flex; justify-content: space-between; padding: 6rpx 0; font-size: 24rpx; }
 .ai-btn { margin-top: 24rpx; }
+.muted-card { opacity: 0.72; }
+.settle-poster { padding-bottom: 24rpx; }
+.poster-image { width: 100%; border-radius: var(--radius-md); overflow: hidden; background: var(--table-green); }
+.poster-actions { display: flex; gap: 16rpx; margin-top: 20rpx; }
+.poster-actions .btn { flex: 1; }

@@ -11,11 +11,15 @@ const _ = db.command
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { gameId, type, playerOpenid, amount = 0, txId } = event
+  const { gameId, type, playerOpenid, amount = 0, hands: handsInput, txId } = event
 
   if (!gameId || !type) return { ok: false, error: 'INVALID_PARAMS' }
 
-  const got = await db.collection('games').doc(gameId).get().catch(() => null)
+  const got = await db
+    .collection('games')
+    .doc(gameId)
+    .get()
+    .catch(() => null)
   if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
   const game = got.data
   if (game.status !== 'ongoing') return { ok: false, error: 'GAME_ENDED' }
@@ -33,21 +37,37 @@ exports.main = async event => {
       if (!isHost && targetOpenid !== OPENID) return { ok: false, error: 'CAN_ONLY_BUY_FOR_SELF' }
       const idx = players.findIndex(p => p.openid === targetOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+      const buyIn = Number(game.buyIn) || 0
+      const hands =
+        Number(handsInput) > 0
+          ? Math.floor(Number(handsInput))
+          : buyIn > 0
+            ? Math.max(1, Math.round(amount / buyIn))
+            : 1
       players[idx] = {
         ...players[idx],
-        buyInCount: players[idx].buyInCount + 1,
+        buyInCount: players[idx].buyInCount + hands,
         totalBuyIn: players[idx].totalBuyIn + amount,
         currentStack: (players[idx].currentStack || 0) + amount,
         eliminatedAt: null
       }
-      await db.collection('games').doc(gameId).update({
-        data: { players, totalPot: _.inc(amount) }
-      })
+      await db
+        .collection('games')
+        .doc(gameId)
+        .update({
+          data: { players, totalPot: _.inc(amount) }
+        })
       const tx = await db.collection('transactions').add({
         data: {
-          gameId, type, playerOpenid: targetOpenid, amount,
-          operatorOpenid: OPENID, byHost: isHost,
-          revoked: false, timestamp: now
+          gameId,
+          type,
+          playerOpenid: targetOpenid,
+          amount,
+          operatorOpenid: OPENID,
+          byHost: isHost,
+          revoked: false,
+          timestamp: now,
+          meta: { hands }
         }
       })
       return { ok: true, txId: tx._id }
@@ -56,25 +76,37 @@ exports.main = async event => {
     case 'revoke': {
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
       if (!txId) return { ok: false, error: 'TX_REQUIRED' }
-      const txGot = await db.collection('transactions').doc(txId).get().catch(() => null)
+      const txGot = await db
+        .collection('transactions')
+        .doc(txId)
+        .get()
+        .catch(() => null)
       if (!txGot || !txGot.data) return { ok: false, error: 'TX_NOT_FOUND' }
       const tx = txGot.data
       if (tx.revoked) return { ok: false, error: 'ALREADY_REVOKED' }
-      if (!['rebuy', 'addOn'].includes(tx.type)) return { ok: false, error: 'CANT_REVOKE_THIS_TYPE' }
+      if (!['rebuy', 'addOn'].includes(tx.type))
+        return { ok: false, error: 'CANT_REVOKE_THIS_TYPE' }
       const idx = players.findIndex(p => p.openid === tx.playerOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+      const hands = Math.max(1, tx.meta?.hands || Math.round(tx.amount / (game.buyIn || tx.amount)))
       players[idx] = {
         ...players[idx],
-        buyInCount: Math.max(1, players[idx].buyInCount - 1),
+        buyInCount: Math.max(1, players[idx].buyInCount - hands),
         totalBuyIn: Math.max(0, players[idx].totalBuyIn - tx.amount),
         currentStack: Math.max(0, (players[idx].currentStack || 0) - tx.amount)
       }
-      await db.collection('games').doc(gameId).update({
-        data: { players, totalPot: _.inc(-tx.amount) }
-      })
-      await db.collection('transactions').doc(txId).update({
-        data: { revoked: true, revokedAt: now, revokedBy: OPENID }
-      })
+      await db
+        .collection('games')
+        .doc(gameId)
+        .update({
+          data: { players, totalPot: _.inc(-tx.amount) }
+        })
+      await db
+        .collection('transactions')
+        .doc(txId)
+        .update({
+          data: { revoked: true, revokedAt: now, revokedBy: OPENID }
+        })
       return { ok: true }
     }
 
@@ -86,9 +118,14 @@ exports.main = async event => {
       await db.collection('games').doc(gameId).update({ data: { players } })
       await db.collection('transactions').add({
         data: {
-          gameId, type, playerOpenid, amount: 0,
-          operatorOpenid: OPENID, byHost: true,
-          revoked: false, timestamp: now
+          gameId,
+          type,
+          playerOpenid,
+          amount: 0,
+          operatorOpenid: OPENID,
+          byHost: true,
+          revoked: false,
+          timestamp: now
         }
       })
       return { ok: true }
@@ -111,9 +148,12 @@ exports.main = async event => {
     case 'levelUp': {
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
       const next = Math.min((game.currentLevel || 0) + 1, game.blindStructure.length - 1)
-      await db.collection('games').doc(gameId).update({
-        data: { currentLevel: next, levelStartedAt: now, pausedAccumMs: 0 }
-      })
+      await db
+        .collection('games')
+        .doc(gameId)
+        .update({
+          data: { currentLevel: next, levelStartedAt: now, pausedAccumMs: 0 }
+        })
       return { ok: true }
     }
 

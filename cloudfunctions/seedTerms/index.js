@@ -11,7 +11,11 @@ const handRanks = require('./seed/handRanks.json')
 async function clearCollection(name) {
   let removed = 0
   for (;;) {
-    const list = await db.collection(name).limit(100).get().catch(() => ({ data: [] }))
+    const list = await db
+      .collection(name)
+      .limit(100)
+      .get()
+      .catch(() => ({ data: [] }))
     if (!list.data.length) break
     await Promise.all(list.data.map(doc => db.collection(name).doc(doc._id).remove()))
     removed += list.data.length
@@ -19,12 +23,13 @@ async function clearCollection(name) {
   return removed
 }
 
-async function bulkInsert(name, rows, concurrency = 30) {
+async function bulkInsert(name, rows, batchSize = 1000) {
   let inserted = 0
-  for (let i = 0; i < rows.length; i += concurrency) {
-    const batch = rows.slice(i, i + concurrency)
-    await Promise.all(batch.map(row => db.collection(name).add({ data: row })))
-    inserted += batch.length
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize)
+    const res = await db.collection(name).add({ data: batch })
+    const ids = res && res.ids ? res.ids.length : batch.length
+    inserted += ids
   }
   return inserted
 }
@@ -35,11 +40,13 @@ exports.main = async event => {
 
   if (reset) {
     if (only === 'all' || only === 'terms') result.termsCleared = await clearCollection('terms')
-    if (only === 'all' || only === 'handRanks') result.handRanksCleared = await clearCollection('handRanks')
+    if (only === 'all' || only === 'handRanks')
+      result.handRanksCleared = await clearCollection('handRanks')
   }
 
   if (only === 'all' || only === 'terms') result.termsInserted = await bulkInsert('terms', terms)
-  if (only === 'all' || only === 'handRanks') result.handRanksInserted = await bulkInsert('handRanks', handRanks)
+  if (only === 'all' || only === 'handRanks')
+    result.handRanksInserted = await bulkInsert('handRanks', handRanks)
 
   return result
 }

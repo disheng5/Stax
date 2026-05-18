@@ -1,9 +1,30 @@
 <view class="container">
-  <view class="card">
+  <view class="invite-hero card" wx:if="{{game}}">
+    <view class="eyebrow">朋友邀请你加入</view>
+    <view class="game-name">{{game.name}}</view>
+    <view class="game-meta">
+      <text>{{game.players.length}} 人</text>
+      <text>买入 {{game.buyIn}}</text>
+      <text>{{game.smallBlind}}/{{game.bigBlind}}</text>
+    </view>
+    <view class="invite-code">{{game.inviteCode}}</view>
+  </view>
+
+  <view class="card" wx:else>
     <view class="label">邀请码</view>
     <input class="code-input" placeholder="输入 6 位邀请码" maxlength="6" value="{{code}}" bindinput="onCodeInput" />
+    <view class="text-sub lookup-state" wx:if="{{loadingGame}}">正在查找牌局…</view>
+    <view class="text-sub lookup-state" wx:elif="{{code.length === 6}}">未找到进行中的牌局</view>
   </view>
-  <button class="btn btn--ghost   btn--block" bindtap="onScan">扫码加入</button>
-  <view style="height: 24rpx" />
-  <button class="btn btn--primary btn--block" bindtap="onSubmit">加入</button>
+
+  <view class="primary-actions" wx:if="{{game}}">
+    <button class="btn btn--primary btn--block" bindtap="onJoinAsPlayer" disabled="{{submitting}}">上桌</button>
+    <button class="btn btn--ghost btn--block" bindtap="onJoinAsViewer" disabled="{{submitting}}">先围观</button>
+  </view>
+
+  <view wx:else>
+    <button class="btn btn--ghost btn--block" bindtap="onScan">扫码加入</button>
+    <view style="height: 24rpx" />
+    <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">加入</button>
+  </view>
 </view>

@@ -1,16 +1,19 @@
 <view class="container">
-  <view class="card" wx:for="{{games}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
-    <view class="head">
-      <view class="name">{{item.name}}</view>
-      <view class="profit {{item.myProfit >= 0 ? 'text-success' : 'text-danger'}}">{{item.myProfitFormatted}}</view>
+  <view class="card record" wx:for="{{games}}" wx:key="_id">
+    <view class="record-main" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="head">
+        <view class="name">{{item.name}}</view>
+        <view class="profit {{item.myProfit >= 0 ? 'text-success' : 'text-danger'}}">{{item.myProfitFormatted}}</view>
+      </view>
+      <view class="meta text-sub">
+        <text>{{item.dateStr}}</text>
+        <text>·</text>
+        <text>{{item.players.length}} 人</text>
+        <text>·</text>
+        <text>{{item.durationStr}}</text>
+      </view>
     </view>
-    <view class="meta text-sub">
-      <text>{{item.dateStr}}</text>
-      <text>·</text>
-      <text>{{item.players.length}} 人</text>
-      <text>·</text>
-      <text>{{item.durationStr}}</text>
-    </view>
+    <view class="del-btn" catchtap="onDeleteRecord" data-id="{{item._id}}" data-name="{{item.name}}">删除</view>
   </view>
   <empty-state wx:if="{{!loading && !games.length}}" title="还没有战绩" desc="参与一场牌局后会显示在这里" />
 </view>

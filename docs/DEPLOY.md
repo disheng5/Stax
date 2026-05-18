@@ -6,12 +6,12 @@
 
 ## 一、准备工作
 
-| 项 | 要求 |
-|---|---|
-| 微信小程序 AppID | 个人主体即可，[注册入口](https://mp.weixin.qq.com/wxopen/waregister) |
-| 开发者工具 | 1.06+ ；[下载](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html) |
-| 云开发环境 | 在 mp.weixin.qq.com 后台「开发」→「云开发」→「开通」；记下 **环境 ID** |
-| Node.js | ≥ 14（仅本地跑单元测试需要） |
+| 项               | 要求                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| 微信小程序 AppID | 个人主体即可，[注册入口](https://mp.weixin.qq.com/wxopen/waregister)                    |
+| 开发者工具       | 1.06+ ；[下载](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html) |
+| 云开发环境       | 在 mp.weixin.qq.com 后台「开发」→「云开发」→「开通」；记下 **环境 ID**                  |
+| Node.js          | ≥ 14（仅本地跑单元测试需要）                                                            |
 
 ---
 
@@ -32,6 +32,7 @@
 > 更直接的逐步部署清单见 `docs/CLOUD_SETUP.md`。下面是原始说明。
 
 ### 3.1 建库（5 个集合）
+
 打开开发者工具 →「云开发」→「数据库」→「集合管理」→「+」逐个新建：
 
 ```
@@ -43,19 +44,21 @@ handRanks
 ```
 
 ### 3.2 配置权限（Spec §2.6）
+
 对每个集合点「数据权限」，按下表配置：
 
-| 集合 | 推荐权限 |
-|---|---|
-| `users` | 仅创建者可读写（`only-creator`） |
-| `games` | 所有人可读，仅创建者可写（`read-only-creator-write`） |
-| `transactions` | 仅创建者可读写 |
-| `terms` | 所有人可读，仅管理员可写 |
-| `handRanks` | 所有人可读，仅管理员可写 |
+| 集合           | 推荐权限                                              |
+| -------------- | ----------------------------------------------------- |
+| `users`        | 仅创建者可读写（`only-creator`）                      |
+| `games`        | 所有人可读，仅创建者可写（`read-only-creator-write`） |
+| `transactions` | 仅创建者可读写                                        |
+| `terms`        | 所有人可读，仅管理员可写                              |
+| `handRanks`    | 所有人可读，仅管理员可写                              |
 
 > 真正的"庄家可写、玩家可读"细粒度规则由云函数（`recordTransaction` / `settleGame`）在服务端校验 `hostOpenid === OPENID`，无需在 DB 规则里实现。
 
-### 3.3 部署 6 个云函数
+### 3.3 部署 9 个云函数
+
 对 `cloudfunctions/` 下每个目录右键 → **上传并部署：云端安装依赖**：
 
 ```
@@ -65,9 +68,13 @@ recordTransaction
 settleGame
 seedTerms
 whoami
+aiReview
+termAi
+deleteGameRecord
 ```
 
 ### 3.4 灌入种子数据
+
 在「云开发」→「云函数」→ `seedTerms` → **云端测试** → 入参留空 `{}` → 调用。
 返回 `{ ok: true, termsInserted: 50, handRanksInserted: 169 }` 即成功。
 
@@ -105,9 +112,9 @@ grep -RIn --exclude-dir=.git -E "赌|赢钱|下注|赌资" .
 2. 登录 [mp.weixin.qq.com](https://mp.weixin.qq.com) →「版本管理」→「开发版本」→「提交审核」。
 3. **必填项**：
    - 类目：`工具 → 实用工具`
-   - 简介：示例 — *Stax 长河筹略：朋友局德州扑克筹码记账、盲注计时与战绩统计工具，附扑克术语词典。*
+   - 简介：示例 — _Stax 长河筹略：朋友局德州扑克筹码记账、盲注计时与战绩统计工具，附扑克术语词典。_
    - 功能页面截图 5 张：建议截 `首页 / 创建 / 牌局详情 / 结算 / 学习首页`
-   - 测试账号：可选填庄家与玩家两个微信号，并附文字说明 *"测试时请使用'创建牌局'生成邀请码，再用第二个账号'加入牌局'"*
+   - 测试账号：可选填庄家与玩家两个微信号，并附文字说明 _"测试时请使用'创建牌局'生成邀请码，再用第二个账号'加入牌局'"_
    - 隐私协议：见 `docs/PRIVACY.md`
 
 4. 审核通过后「发布」即上线。
@@ -134,4 +141,5 @@ A：替换 `miniprogram/images/tab-*.png` 为你的 PNG（建议 81×81，单色
 ---
 
 ## 八、版本历史
+
 - v0.1.0（MVP）：P0 全量 + P1 学习模块；6 个云函数；50 条术语 + 169 起手牌种子

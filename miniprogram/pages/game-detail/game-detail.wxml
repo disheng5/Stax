@@ -1,30 +1,66 @@
 <view class="container" wx:if="{{game}}">
-  <blind-timer
-    currentLevel="{{game.currentLevel}}"
-    blindStructure="{{game.blindStructure}}"
-    blindUpMinutes="{{game.blindUpMinutes}}"
-    levelStartedAt="{{game.levelStartedAt}}"
-    paused="{{game.paused}}"
-    pausedAt="{{game.pausedAt}}"
-    pausedAccumMs="{{game.pausedAccumMs}}"
-    isHost="{{isHost}}"
-    bind:timeup="onTimeUp"
-  />
-
-  <view class="meta-row">
-    <view bindtap="onCopyCode">邀请码 <text class="code">{{game.inviteCode}}</text></view>
-    <view>总池 <text class="text-gold">{{game.totalPot || 0}}</text></view>
+  <view class="timer-toggle" bindtap="onToggleTimer">
+    <text>盲注计时</text>
+    <text class="text-sub">{{showTimer ? '收起' : '需要时展开'}}</text>
   </view>
 
-  <view class="section-title">玩家（{{game.players.length}}）</view>
-  <view class="players">
-    <player-card
-      wx:for="{{game.players}}" wx:key="openid"
-      player="{{item}}" isHost="{{isHost}}" gameStatus="{{game.status}}"
-      isSelf="{{item.openid === myOpenid}}"
-      bind:rebuy="onRebuy" bind:addon="onAddOn" bind:eliminate="onEliminate"
-      bind:selfrebuy="onSelfRebuy"
+  <view wx:if="{{showTimer}}">
+    <blind-timer
+      currentLevel="{{game.currentLevel}}"
+      blindStructure="{{game.blindStructure}}"
+      blindUpMinutes="{{game.blindUpMinutes}}"
+      levelStartedAt="{{game.levelStartedAt}}"
+      paused="{{game.paused}}"
+      pausedAt="{{game.pausedAt}}"
+      pausedAccumMs="{{game.pausedAccumMs}}"
+      isHost="{{isHost}}"
+      bind:timeup="onTimeUp"
     />
+    <view class="timer-actions" wx:if="{{isHost && !viewerMode && game.status === 'ongoing'}}">
+      <button class="btn btn--ghost timer-btn" bindtap="onPause">{{game.paused ? '恢复计时' : '暂停计时'}}</button>
+      <button class="btn btn--ghost timer-btn" bindtap="onLevelUp">升盲</button>
+    </view>
+  </view>
+
+  <view class="game-top card">
+    <view class="top-title">{{game.name || 'Stax 牌局'}}</view>
+    <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}</view>
+    <view class="top-actions">
+      <view class="invite-chip" bindtap="onCopyCode">邀请码 {{game.inviteCode}}</view>
+      <button class="share-small" open-type="share">邀请</button>
+    </view>
+  </view>
+
+  <view class="notice" wx:if="{{game.players.length <= 1}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
+
+  <view class="viewer-note card" wx:if="{{viewerMode && !isPlayer}}">
+    <view class="viewer-title">朋友邀你加入</view>
+    <view class="text-sub">点击下方按钮直接上桌，或继续围观。</view>
+    <view class="viewer-actions">
+      <button class="btn btn--primary" bindtap="onJoinAsPlayer" disabled="{{joining}}">上桌</button>
+      <button class="btn btn--ghost" bindtap="onCopyCode">复制邀请码</button>
+    </view>
+  </view>
+
+  <view class="section-head">
+    <view class="section-title">积分情况</view>
+    <view class="text-sub">{{game.checkedOutCount || 0}}/{{game.players.length}} 已下桌</view>
+  </view>
+  <view class="table-head">
+    <text>玩家</text>
+    <text>手数</text>
+    <text>码量</text>
+    <text>盈亏</text>
+  </view>
+  <view class="players">
+      <player-card
+        wx:for="{{game.players}}" wx:key="openid"
+        player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
+        isSelf="{{item.openid === myOpenid && !viewerMode}}"
+        canSelfOperate="{{game.playerOpsShared !== false}}"
+        bind:rebuy="onRebuy" bind:addon="onAddOn" bind:eliminate="onEliminate"
+        bind:selfrebuy="onSelfRebuy" bind:settleself="onSettleSelf"
+      />
   </view>
 
   <view class="section-title" wx:if="{{recentTx.length}}">最近流水</view>
@@ -42,13 +78,15 @@
     </view>
   </view>
 
-  <view class="host-actions" wx:if="{{isHost && game.status === 'ongoing'}}">
-    <button class="btn btn--ghost"  bindtap="onPause">{{game.paused ? '恢复' : '暂停'}}</button>
-    <button class="btn btn--ghost"  bindtap="onLevelUp">手动升盲</button>
-    <button class="btn btn--danger" bindtap="onEndGame">结束并结算</button>
+  <view class="host-panel" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">
+    <view class="settle-entry card" wx:if="{{isHost || game.playerOpsShared === false}}">
+      <view>
+        <view class="settle-title">最终结算</view>
+        <view class="text-sub">房主处理费用、确认账平并生成结果</view>
+      </view>
+      <button class="btn btn--danger settle-btn" bindtap="onEndGame">结算</button>
+    </view>
   </view>
-
-  <button class="btn btn--primary btn--block" open-type="share">分享邀请</button>
 </view>
 
 <empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />

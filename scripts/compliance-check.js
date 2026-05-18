@@ -7,10 +7,11 @@ const BLACKLIST = ['赌博', '赢钱', '赌资', '虚拟筹码买卖']
 // 出现在反向声明的允许位置（白名单）
 // 命中规则：文件路径完全匹配 + 当前行包含 context 之一
 const ALLOW = [
-  { file: 'README.md',                  contexts: ['严禁用于任何形式的赌博活动'] },
-  { file: 'docs/PRIVACY.md',            contexts: ['严禁用于任何形式的赌博活动'] },
-  { file: 'docs/DEPLOY.md',             contexts: ['全代码搜索', 'grep -RIn'] },
-  { file: 'miniprogram/app.js',         contexts: ['严禁用于任何形式的赌博活动'] },
+  { file: 'README.md', contexts: ['严禁用于任何形式的赌博活动'] },
+  { file: 'docs/PRIVACY.md', contexts: ['严禁用于任何形式的赌博活动'] },
+  { file: 'docs/DEPLOY.md', contexts: ['全代码搜索', 'grep -RIn'] },
+  { file: 'docs/RELEASE_CHECKLIST.md', contexts: ['grep -RIn', '反向声明', '严禁用于赌博活动'] },
+  { file: 'miniprogram/app.js', contexts: ['严禁用于任何形式的赌博活动'] },
   { file: 'miniprogram/pages/about/about.wxml', contexts: ['严禁用于任何形式的赌博活动'] }
 ]
 
@@ -29,7 +30,7 @@ const files = walk(root)
 const hits = []
 for (const f of files) {
   const rel = path.relative(root, f)
-  if (rel.startsWith('scripts/compliance-check.js')) continue   // 跳过自身
+  if (rel.startsWith('scripts/compliance-check.js')) continue // 跳过自身
   const lines = fs.readFileSync(f, 'utf8').split('\n')
   lines.forEach((line, i) => {
     for (const word of BLACKLIST) {

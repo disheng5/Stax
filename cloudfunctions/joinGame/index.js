@@ -6,18 +6,18 @@ const _ = db.command
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { inviteCode, nickname = '玩家', avatar = '' } = event
+  const { inviteCode, nickname = '玩家', avatar = '', mode = 'player' } = event
 
   if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
 
-  const found = await db
-    .collection('games')
-    .where({ inviteCode, status: 'ongoing' })
-    .limit(1)
-    .get()
+  const found = await db.collection('games').where({ inviteCode, status: 'ongoing' }).limit(1).get()
 
   if (!found.data.length) return { ok: false, error: 'GAME_NOT_FOUND' }
   const game = found.data[0]
+
+  if (mode === 'viewer') {
+    return { ok: true, gameId: game._id, viewer: true }
+  }
 
   // 已在则直接返回
   const exists = (game.players || []).find(p => p.openid === OPENID)

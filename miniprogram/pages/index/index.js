@@ -1,12 +1,18 @@
 // pages/index/index.js — 首页
 const app = getApp()
 const { formatProfit } = require('../../utils/format.js')
+const SUNZI = require('../../utils/sunzi.js')
 
 Page({
   data: {
     ongoingGames: [],
     loading: true,
-    myStats: null
+    myStats: null,
+    quote: { text: '', from: '' }
+  },
+
+  onLoad() {
+    this.setData({ quote: SUNZI[Math.floor(Math.random() * SUNZI.length)] })
   },
 
   async onShow() {
@@ -23,12 +29,17 @@ Page({
         app.globalData.openid = res.result.openid
         app.globalData.userDoc = res.result.user
       }
-    } catch (err) { console.error('[whoami]', err) }
+    } catch (err) {
+      console.error('[whoami]', err)
+    }
   },
 
   async _fetchOngoing() {
     const openid = app.globalData.openid
-    if (!openid) { this.setData({ loading: false }); return }
+    if (!openid) {
+      this.setData({ loading: false })
+      return
+    }
     try {
       const db = wx.cloud.database()
       const _ = db.command
@@ -55,9 +66,15 @@ Page({
     }
   },
 
-  onCreate()  { wx.navigateTo({ url: '/pages/game-create/game-create' }) },
-  onJoin()    { wx.navigateTo({ url: '/pages/game-join/game-join' }) },
-  onHistory() { wx.navigateTo({ url: '/pages/history/history' }) },
+  onCreate() {
+    wx.navigateTo({ url: '/pages/game-create/game-create' })
+  },
+  onJoin() {
+    wx.navigateTo({ url: '/pages/game-join/game-join' })
+  },
+  onHistory() {
+    wx.navigateTo({ url: '/pages/history/history' })
+  },
   onOpenGame(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })

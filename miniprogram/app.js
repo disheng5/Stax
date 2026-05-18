@@ -77,7 +77,7 @@ App({
     openid: null,
     userDoc: null,
     demoMode: false,
-    defaultBuyIn: 100,
-    defaultBlind: { sb: 10, bb: 20, blindUpMinutes: 20 }
+    defaultBuyIn: 500,
+    defaultBlind: { sb: 5, bb: 5, blindUpMinutes: 999 }
   }
 })

@@ -5,25 +5,31 @@
   </view>
 
   <view class="card">
-    <chip-input label="标准买入额" value="{{buyIn}}" step="50" min="10" bindchange="onBuyInChange" />
+    <view class="label">每手码量</view>
+    <input class="amount-input" type="digit" value="{{buyIn}}" bindinput="onBuyInInput" />
   </view>
 
   <view class="card">
-    <view class="label">盲注结构</view>
-    <view class="presets">
-      <view class="preset {{blindPreset === 'fast' ? 'active' : ''}}" data-k="fast" bindtap="onPresetTap">快速 5/10</view>
-      <view class="preset {{blindPreset === 'standard' ? 'active' : ''}}" data-k="standard" bindtap="onPresetTap">标准 10/20</view>
-      <view class="preset {{blindPreset === 'custom' ? 'active' : ''}}" data-k="custom" bindtap="onPresetTap">自定义</view>
+    <view class="label">大小盲</view>
+    <view class="row-input">
+      <view>
+        <view class="sub-label">小盲</view>
+        <input class="small-input" type="digit" value="{{smallBlind}}" bindinput="onSbInput" />
+      </view>
+      <view>
+        <view class="sub-label">大盲</view>
+        <input class="small-input" type="digit" value="{{bigBlind}}" bindinput="onBbInput" />
+      </view>
     </view>
-    <block wx:if="{{blindPreset === 'custom'}}">
-      <chip-input label="小盲 SB" value="{{customSb}}" step="5"  min="1" bindchange="onSbChange" />
-      <chip-input label="大盲 BB" value="{{customBb}}" step="10" min="2" bindchange="onBbChange" />
-    </block>
   </view>
 
-  <view class="card">
-    <chip-input label="盲注级别提升间隔（分钟）" value="{{blindUpMinutes}}" step="5" min="5" max="60" bindchange="onUpChange" />
+  <view class="card permission-card">
+    <view>
+      <view class="label">权限共享</view>
+      <view class="text-sub">允许玩家自己补码、自己结算下桌</view>
+    </view>
+    <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#0B6E4F" />
   </view>
 
-  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">生成牌局并获取邀请码</button>
+  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">开局</button>
 </view>

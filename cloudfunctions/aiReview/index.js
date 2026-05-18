@@ -16,7 +16,11 @@ exports.main = async event => {
   const { gameId } = event
   if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
 
-  const got = await db.collection('games').doc(gameId).get().catch(() => null)
+  const got = await db
+    .collection('games')
+    .doc(gameId)
+    .get()
+    .catch(() => null)
   if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
   const game = got.data
   if (game.status !== 'ended') return { ok: false, error: 'GAME_NOT_ENDED' }
@@ -39,11 +43,18 @@ exports.main = async event => {
 function buildFacts(game, viewerOpenid) {
   const players = (game.players || []).slice()
   const me = players.find(p => p.openid === viewerOpenid)
-  const winners = players.filter(p => (p.finalProfit ?? p.profit) > 0).sort((a, b) => (b.finalProfit ?? b.profit) - (a.finalProfit ?? a.profit))
-  const losers  = players.filter(p => (p.finalProfit ?? p.profit) < 0).sort((a, b) => (a.finalProfit ?? a.profit) - (b.finalProfit ?? b.profit))
+  const winners = players
+    .filter(p => (p.finalProfit ?? p.profit) > 0)
+    .sort((a, b) => (b.finalProfit ?? b.profit) - (a.finalProfit ?? a.profit))
+  const losers = players
+    .filter(p => (p.finalProfit ?? p.profit) < 0)
+    .sort((a, b) => (a.finalProfit ?? a.profit) - (b.finalProfit ?? b.profit))
   const totalRebuys = players.reduce((s, p) => s + (p.buyInCount - 1), 0)
-  const durationMin = game.endedAt && game.startedAt ? Math.round((new Date(game.endedAt) - new Date(game.startedAt)) / 60000) : 0
-  const totalPot = (game.totalPot || players.reduce((s, p) => s + p.totalBuyIn, 0))
+  const durationMin =
+    game.endedAt && game.startedAt
+      ? Math.round((new Date(game.endedAt) - new Date(game.startedAt)) / 60000)
+      : 0
+  const totalPot = game.totalPot || players.reduce((s, p) => s + p.totalBuyIn, 0)
   return {
     name: game.name,
     playerCount: players.length,
@@ -51,55 +62,91 @@ function buildFacts(game, viewerOpenid) {
     totalPot,
     totalRebuys,
     extraCost: game.extraCost || 0,
-    aaMode: game.aaMode || 'none',
-    me: me ? { nickname: me.nickname, profit: me.finalProfit ?? me.profit, buyInCount: me.buyInCount } : null,
+    expenseMode: game.expenseMode || game.aaMode || 'none',
+    me: me
+      ? { nickname: me.nickname, profit: me.finalProfit ?? me.profit, buyInCount: me.buyInCount }
+      : null,
     bigWinner: winners[0] || null,
-    bigLoser:  losers[0]  || null,
+    bigLoser: losers[0] || null,
     winners: winners.map(p => ({ nickname: p.nickname, profit: p.finalProfit ?? p.profit })),
-    losers:  losers.map(p  => ({ nickname: p.nickname, profit: p.finalProfit ?? p.profit }))
+    losers: losers.map(p => ({ nickname: p.nickname, profit: p.finalProfit ?? p.profit }))
   }
 }
 
-// ===== 规则模板（牙贱口 + 推股，<= 250 字） =====
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// ===== 规则模板（更风趣牙贱口，<= 280 字） =====
 function templateReview(f) {
   const lines = []
-  // 开场
-  if (f.durationMin) {
-    lines.push(`聊了整整 ${f.durationMin} 分钟，${f.playerCount} 个人围着桌子转了 ${Math.round(f.durationMin / 30)} 圈，确认过眼神，是有故事的人。`)
-  } else {
-    lines.push(`${f.playerCount} 个人凑了一局，速战速决。`)
-  }
 
-  // 大赢家
+  const openers = f.durationMin
+    ? [
+        `${f.durationMin} 分钟，${f.playerCount} 个人，桌上发生的事比《孙子兵法》还精彩。`,
+        `${f.durationMin} 分钟一场，${f.playerCount} 人围炉夜话，话题只有一个：「为什么是我」。`,
+        `打了 ${f.durationMin} 分钟，${f.playerCount} 个人轮流给彼此上课，学费已结清。`
+      ]
+    : [
+        `${f.playerCount} 个人速战速决，今晚地板和钱包都没怎么热起来。`,
+        `${f.playerCount} 人闪击战，一杯茶还没凉，账已经算完。`
+      ]
+  lines.push(pick(openers))
+
   if (f.bigWinner) {
     const w = f.bigWinner
     const wPct = f.totalPot ? Math.round((w.profit / f.totalPot) * 100) : 0
-    lines.push(`今晚的 MVP 是 ${w.nickname}，独吞 ${w.profit}（约占总池 ${wPct}%），运气和算计都拿满分。`)
+    const winnerLines = [
+      `今晚 MVP：${w.nickname}，独吞 ${w.profit}（约 ${wPct}% 总池），孙子说"善战者，致人而不致于人"，说的就是他。`,
+      `${w.nickname} +${w.profit}，赢得不像兵法，倒像玄学，下次记得带上他。`,
+      `${w.nickname} 笑收 ${w.profit}，建议宵夜由他买，毕竟"取用于国，因粮于敌"。`
+    ]
+    lines.push(pick(winnerLines))
   }
-  // 大输家
+
   if (f.bigLoser) {
-    lines.push(`心态最稳的是 ${f.bigLoser.nickname}，${f.bigLoser.profit} 也能笑着结账，下次可以少点儿冲动 all-in。`)
+    const loserLines = [
+      `${f.bigLoser.nickname} ${f.bigLoser.profit}，输得最稳的人往往是下次最稳的赢家。`,
+      `心态奖颁给 ${f.bigLoser.nickname}：${f.bigLoser.profit}，下次记住"小敌之坚，大敌之擒也"，别硬刚。`,
+      `${f.bigLoser.nickname} 今晚 ${f.bigLoser.profit}，复盘三件事就够：位置、对手、自己别上头。`
+    ]
+    lines.push(pick(loserLines))
   }
-  // 补码次数
-  if (f.totalRebuys >= f.playerCount) {
-    lines.push(`全场补了 ${f.totalRebuys} 次码，几乎人均一次，看来今晚都打得相当"投入"。`)
+
+  if (f.totalRebuys >= f.playerCount * 2) {
+    lines.push(`全场补了 ${f.totalRebuys} 次码，人均两轮起步，今晚的 ATM 不是机器，是你们。`)
+  } else if (f.totalRebuys >= f.playerCount) {
+    lines.push(`全场 ${f.totalRebuys} 次补码，看来"将能而君不御者胜"，谁也不肯先认怂。`)
   } else if (f.totalRebuys === 0) {
-    lines.push(`全场零补码，不是太稳就是太怂，下次大胆点。`)
+    lines.push(`全场零补码，要么个个紧得像保险柜，要么牌实在不肯给力，下次大胆点。`)
   }
 
-  // 个人观察
   if (f.me) {
-    if (f.me.profit > 0)       lines.push(`你今晚 +${f.me.profit}，赢了这顿宵夜，明天继续保持耐心选位。`)
-    else if (f.me.profit < 0)  lines.push(`你今晚 ${f.me.profit}，先复盘一下哪几手 marginal 牌跟得太松——位置、人数、对手风格三件事，下次先想清楚再投筹码。`)
-    else                       lines.push(`你今晚账面持平，全身而退也是一种胜利。`)
+    if (f.me.profit > 0) {
+      lines.push(
+        pick([
+          `你今晚 +${f.me.profit}，宵夜随便点，毕竟"兵贵胜，不贵久"，及时收手最帅。`,
+          `你 +${f.me.profit}，赢家发言权拉满，记得收着点。`
+        ])
+      )
+    } else if (f.me.profit < 0) {
+      lines.push(
+        pick([
+          `你今晚 ${f.me.profit}，回家路上想想哪几手 marginal 跟得太松，位置 / 人数 / 风格三件事缺一不可。`,
+          `你 ${f.me.profit}，没事，"多算胜，少算不胜"，下次先算完再下注。`
+        ])
+      )
+    } else {
+      lines.push(`你今晚账面持平，不输就是赢，回家睡个好觉。`)
+    }
   }
 
-  // AA
   if (f.extraCost > 0) {
-    lines.push(`额外 ${f.extraCost} 块${f.aaMode === 'winnerByRatio' ? '由赢家按比例担了' : '人均 AA 解决'}，结账清清爽爽。`)
+    const label = f.expenseMode === 'winner' ? '水上 AA' : '全员 AA'
+    lines.push(`其他费用 ${f.extraCost} 按「${label}」记账，不进盈亏，结账请坦坦荡荡。`)
   }
 
-  return lines.join(' ').slice(0, 280)
+  return lines.join(' ').slice(0, 320)
 }
 
 // ===== 混元接入 stub =====

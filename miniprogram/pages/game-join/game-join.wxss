@@ -1,6 +1,65 @@
-.label { font-size: 26rpx; color: var(--text-sub); margin-bottom: 12rpx; }
-.code-input {
-  height: 100rpx; font-size: 56rpx; text-align: center; letter-spacing: 16rpx;
-  background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-md);
+.invite-hero {
+  text-align: center;
+  padding: 40rpx 32rpx;
+}
+
+.eyebrow {
+  color: var(--text-sub);
+  font-size: 24rpx;
+}
+
+.game-name {
+  margin-top: 10rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.game-meta {
+  display: flex;
+  justify-content: center;
+  gap: 18rpx;
+  margin-top: 16rpx;
+  color: var(--text-sub);
+  font-size: 24rpx;
+}
+
+.invite-code {
+  display: inline-block;
+  margin-top: 28rpx;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(11, 110, 79, 0.08);
+  color: var(--table-green);
   font-family: 'Courier New', monospace;
+  font-size: 32rpx;
+  font-weight: 700;
+  letter-spacing: 6rpx;
+}
+
+.label {
+  margin-bottom: 12rpx;
+  color: var(--text-sub);
+  font-size: 26rpx;
+}
+
+.code-input {
+  height: 100rpx;
+  border: 2rpx solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 56rpx;
+  letter-spacing: 16rpx;
+  text-align: center;
+}
+
+.lookup-state {
+  margin-top: 14rpx;
+  text-align: center;
+}
+
+.primary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }

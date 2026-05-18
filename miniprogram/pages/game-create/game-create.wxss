@@ -1,12 +1,51 @@
-.label { font-size: 26rpx; color: var(--text-sub); margin-bottom: 12rpx; }
+.label {
+  margin-bottom: 12rpx;
+  color: var(--text-sub);
+  font-size: 26rpx;
+}
+
+.sub-label {
+  margin-bottom: 8rpx;
+  color: var(--text-sub);
+  font-size: 23rpx;
+}
+
+.text-input,
+.amount-input,
+.small-input {
+  height: 76rpx;
+  padding: 0 20rpx;
+  border: 2rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-sizing: border-box;
+}
+
 .text-input {
-  height: 72rpx; padding: 0 20rpx; background: #fff;
-  border: 2rpx solid var(--border); border-radius: var(--radius-sm);
+  width: 100%;
 }
-.presets { display: flex; gap: 16rpx; margin-bottom: 16rpx; }
-.preset {
-  flex: 1; text-align: center; padding: 20rpx 0;
-  border: 2rpx solid var(--border); border-radius: var(--radius-sm);
-  font-size: 26rpx; color: var(--text-sub);
+
+.amount-input {
+  width: 100%;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--table-green);
 }
-.preset.active { border-color: var(--table-green); color: var(--table-green); background: rgba(11,110,79,0.08); }
+
+.row-input {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+}
+
+.small-input {
+  width: 100%;
+  text-align: center;
+}
+
+.permission-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}

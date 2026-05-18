@@ -3,12 +3,16 @@
     <view class="logo">Stax</view>
     <view class="slogan">Hold'em, held right.</view>
     <view class="zh-name">长河筹略</view>
+    <view class="quote">
+      <view class="quote-text">「{{quote.text}}」</view>
+      <view class="quote-from">— {{quote.from}}</view>
+    </view>
   </view>
 
   <view class="actions">
-    <button class="btn btn--primary btn--block" bindtap="onCreate">创建牌局</button>
-    <button class="btn btn--ghost   btn--block" bindtap="onJoin">加入牌局</button>
-    <button class="btn btn--ghost   btn--block" bindtap="onHistory">我的战绩</button>
+    <view class="action-btn action-btn--primary" bindtap="onCreate">开局</view>
+    <view class="action-btn action-btn--ghost" bindtap="onJoin">加入</view>
+    <view class="action-btn action-btn--ghost" bindtap="onHistory">战绩</view>
   </view>
 
   <view class="section-title">进行中的牌局</view>
@@ -21,11 +25,7 @@
   <empty-state wx:elif="{{!loading}}" title="还没有进行中的牌局" desc="点击上方按钮创建或加入" />
 
   <view class="share-cta">
-    <button class="btn btn--ghost btn--block" open-type="share">
-      🎴 邀请朋友一起打牌
-    </button>
-    <view class="text-sub" style="text-align:center;margin-top:12rpx;font-size:22rpx;">
-      记账 · 计时 · AA · AI 复盘 · 战绩分析
-    </view>
+    <button class="btn btn--ghost btn--block share-btn" open-type="share">分享 Stax</button>
+    <view class="share-desc">记账 · 计时 · AA · AI 复盘 · 战绩分析</view>
   </view>
 </view>

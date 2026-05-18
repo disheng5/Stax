@@ -14,10 +14,7 @@ function genCode(len = 6) {
 async function uniqueCode() {
   for (let i = 0; i < 8; i++) {
     const code = genCode()
-    const dup = await db
-      .collection('games')
-      .where({ inviteCode: code, status: 'ongoing' })
-      .count()
+    const dup = await db.collection('games').where({ inviteCode: code, status: 'ongoing' }).count()
     if (dup.total === 0) return code
   }
   throw new Error('GENERATE_CODE_FAILED')
@@ -29,7 +26,13 @@ function buildBlindStructure(sb, bb, levels = 12) {
   let curBb = bb
   for (let i = 0; i < levels; i++) {
     out.push({ sb: curSb, bb: curBb, ante: i >= 4 ? Math.floor(curBb / 4) : 0 })
-    if (i % 2 === 1) { curSb *= 2; curBb *= 2 } else { curSb = Math.floor(curSb * 1.5); curBb = Math.floor(curBb * 1.5) }
+    if (i % 2 === 1) {
+      curSb *= 2
+      curBb *= 2
+    } else {
+      curSb = Math.floor(curSb * 1.5)
+      curBb = Math.floor(curBb * 1.5)
+    }
   }
   return out
 }
@@ -38,17 +41,17 @@ exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
   const {
     name,
-    buyIn = 100,
-    smallBlind = 10,
-    bigBlind = 20,
-    blindUpMinutes = 20,
+    buyIn = 500,
+    smallBlind = 5,
+    bigBlind = 5,
+    blindUpMinutes = 999,
+    playerOpsShared = true,
     nickname = '庄家',
     avatar = ''
   } = event
 
   if (!name || typeof name !== 'string') return { ok: false, error: 'INVALID_NAME' }
   if (buyIn <= 0 || smallBlind <= 0 || bigBlind <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
-  if (bigBlind < smallBlind * 2) return { ok: false, error: 'INVALID_BLIND_RATIO' }
 
   const inviteCode = await uniqueCode()
   const now = new Date()
@@ -62,6 +65,7 @@ exports.main = async event => {
     smallBlind,
     bigBlind,
     blindUpMinutes,
+    playerOpsShared: playerOpsShared !== false,
     blindStructure,
     currentLevel: 0,
     levelStartedAt: now,

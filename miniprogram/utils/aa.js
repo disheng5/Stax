@@ -17,7 +17,8 @@ function settleRound(value) {
 }
 
 function aaEven(players, totalCost) {
-  if (!players.length || totalCost <= 0) return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+  if (!players.length || totalCost <= 0)
+    return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
   const base = Math.floor(totalCost / players.length)
   let remain = totalCost - base * players.length
   const shares = players.map((p, i) => ({
@@ -54,12 +55,13 @@ function aaWinnerByRatio(players, totalCost) {
   return shares
 }
 
-// 把 AA 分摊合并到最终 profit，再生成转账方案
-// 输入：原 profit + share；输出：调整后 profit（profit -= share）
+// 费用分摊只作为费用单展示，不影响牌局真实水上水下。
 function applyShares(players, shares) {
   const map = {}
-  shares.forEach(s => { map[s.openid] = s.share })
-  return players.map(p => ({ ...p, share: map[p.openid] || 0, finalProfit: p.profit - (map[p.openid] || 0) }))
+  shares.forEach(s => {
+    map[s.openid] = s.share
+  })
+  return players.map(p => ({ ...p, share: map[p.openid] || 0, finalProfit: p.profit }))
 }
 
 module.exports = { aaEven, aaWinnerByRatio, applyShares }

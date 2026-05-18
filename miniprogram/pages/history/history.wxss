@@ -1,4 +1,43 @@
-.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.name { font-size: 30rpx; font-weight: 500; }
-.profit { font-size: 32rpx; font-weight: 600; }
-.meta { display: flex; gap: 12rpx; }
+.record {
+  position: relative;
+  padding-right: 96rpx;
+}
+
+.record-main {
+  width: 100%;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.name {
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.profit {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.meta {
+  display: flex;
+  gap: 12rpx;
+}
+
+.del-btn {
+  position: absolute;
+  top: 50%;
+  right: 16rpx;
+  transform: translateY(-50%);
+  padding: 8rpx 16rpx;
+  border: 2rpx solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 22rpx;
+  line-height: 1.4;
+}

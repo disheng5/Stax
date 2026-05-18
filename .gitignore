@@ -7,3 +7,5 @@ dist/
 miniprogram_npm/
 project.private.config.json
 cloudfunctions/*/node_modules/
+.neeko/
+HrsLIdxx-*.png

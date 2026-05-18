@@ -1,16 +1,30 @@
 // components/blind-timer/blind-timer.js — 盲注计时器（断线可恢复）
-function pad(n) { return n < 10 ? '0' + n : '' + n }
+function pad(n) {
+  return n < 10 ? '0' + n : '' + n
+}
+function toMs(value) {
+  if (!value) return NaN
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') return new Date(value).getTime()
+  if (typeof value === 'object') {
+    if (typeof value.getTime === 'function') return value.getTime()
+    if (typeof value.toDate === 'function') return value.toDate().getTime()
+    if (typeof value.$date === 'string') return new Date(value.$date).getTime()
+  }
+  return new Date(value).getTime()
+}
 
 Component({
   properties: {
     levelStartedAt: { type: null, value: null },
     blindUpMinutes: { type: Number, value: 20 },
-    currentLevel:   { type: Number, value: 0 },
-    blindStructure: { type: Array,  value: [] },
-    paused:         { type: Boolean, value: false },
-    pausedAt:       { type: null, value: null },
-    pausedAccumMs:  { type: Number, value: 0 },
-    isHost:         { type: Boolean, value: false }
+    currentLevel: { type: Number, value: 0 },
+    blindStructure: { type: Array, value: [] },
+    paused: { type: Boolean, value: false },
+    pausedAt: { type: null, value: null },
+    pausedAccumMs: { type: Number, value: 0 },
+    isHost: { type: Boolean, value: false }
   },
   data: {
     remaining: '00:00',
@@ -26,19 +40,36 @@ Component({
     }
   },
   lifetimes: {
-    attached() { this._tick(); this._timer = setInterval(() => this._tick(), 1000) },
-    detached() { if (this._timer) clearInterval(this._timer) }
+    attached() {
+      this._tick()
+      this._timer = setInterval(() => this._tick(), 1000)
+    },
+    detached() {
+      if (this._timer) clearInterval(this._timer)
+    }
   },
   methods: {
     _tick() {
       const { levelStartedAt, blindUpMinutes, paused, pausedAt, pausedAccumMs } = this.data
-      if (!levelStartedAt) { this.setData({ remaining: '--:--' }); return }
-      const start = new Date(levelStartedAt).getTime()
+      if (!levelStartedAt) {
+        this.setData({ remaining: '--:--' })
+        return
+      }
+      const start = toMs(levelStartedAt)
       const now = Date.now()
-      let pausedMs = pausedAccumMs || 0
-      if (paused && pausedAt) pausedMs += now - new Date(pausedAt).getTime()
+      let pausedMs = Number(pausedAccumMs) || 0
+      if (paused && pausedAt) pausedMs += now - toMs(pausedAt)
+      const totalMs = Number(blindUpMinutes) * 60 * 1000
+      if (
+        !Number.isFinite(start) ||
+        !Number.isFinite(pausedMs) ||
+        !Number.isFinite(totalMs) ||
+        totalMs <= 0
+      ) {
+        this.setData({ remaining: '--:--' })
+        return
+      }
       const elapsed = now - start - pausedMs
-      const totalMs = blindUpMinutes * 60 * 1000
       const left = Math.max(0, totalMs - elapsed)
       const s = Math.floor(left / 1000)
       this.setData({ remaining: `${pad(Math.floor(s / 60))}:${pad(s % 60)}` })

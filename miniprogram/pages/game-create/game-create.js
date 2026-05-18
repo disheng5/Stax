@@ -1,5 +1,4 @@
 // pages/game-create/game-create.js — 创建牌局
-const { BLIND_PRESETS } = require('../../utils/constants.js')
 const { formatDate } = require('../../utils/format.js')
 const { readLocalProfile } = require('../../utils/user.js')
 const app = getApp()
@@ -7,51 +6,56 @@ const app = getApp()
 Page({
   data: {
     name: '',
-    buyIn: 100,
-    blindPreset: 'standard',
-    customSb: 10,
-    customBb: 20,
-    blindUpMinutes: 20,
+    buyIn: 500,
+    smallBlind: 5,
+    bigBlind: 5,
+    blindUpMinutes: 999,
+    playerOpsShared: true,
     submitting: false
   },
+
   onLoad() {
-    const def = app.globalData.defaultBlind
+    const def = app.globalData.defaultBlind || { sb: 5, bb: 5, blindUpMinutes: 999 }
     this.setData({
       name: formatDate(new Date()) + ' 牌局',
-      buyIn: app.globalData.defaultBuyIn,
-      customSb: def.sb,
-      customBb: def.bb,
-      blindUpMinutes: def.blindUpMinutes
+      buyIn: app.globalData.defaultBuyIn || 500,
+      smallBlind: def.sb || 5,
+      bigBlind: def.bb || 5,
+      blindUpMinutes: 999
     })
   },
-  onNameInput(e)  { this.setData({ name: e.detail.value }) },
-  onBuyInChange(e){ this.setData({ buyIn: e.detail.value }) },
-  onPresetTap(e)  {
-    const k = e.currentTarget.dataset.k
-    this.setData({ blindPreset: k })
-    if (k === 'fast')     this.setData({ customSb: 5, customBb: 10 })
-    if (k === 'standard') this.setData({ customSb: 10, customBb: 20 })
+
+  onNameInput(e) {
+    this.setData({ name: e.detail.value })
   },
-  onSbChange(e)   { this.setData({ customSb: e.detail.value }) },
-  onBbChange(e)   { this.setData({ customBb: e.detail.value }) },
-  onUpChange(e)   { this.setData({ blindUpMinutes: e.detail.value }) },
+  onBuyInInput(e) {
+    this.setData({ buyIn: Number(e.detail.value) || 0 })
+  },
+  onSbInput(e) {
+    this.setData({ smallBlind: Number(e.detail.value) || 0 })
+  },
+  onBbInput(e) {
+    this.setData({ bigBlind: Number(e.detail.value) || 0 })
+  },
+  onPlayerOpsSharedChange(e) {
+    this.setData({ playerOpsShared: !!e.detail.value })
+  },
 
   async onSubmit() {
-    if (!this.data.name.trim()) { wx.showToast({ title: '请填写局名', icon: 'none' }); return }
-    if (this.data.customBb < this.data.customSb * 2) {
-      wx.showToast({ title: '大盲需 ≥ 2 倍小盲', icon: 'none' }); return
+    if (!this.data.name.trim()) {
+      wx.showToast({ title: '请填写局名', icon: 'none' })
+      return
+    }
+    if (this.data.buyIn <= 0) {
+      wx.showToast({ title: '买入额需大于 0', icon: 'none' })
+      return
+    }
+    if (this.data.smallBlind <= 0 || this.data.bigBlind <= 0) {
+      wx.showToast({ title: '大小盲需大于 0', icon: 'none' })
+      return
     }
 
     const profile = readLocalProfile()
-    if (!profile.nickname) {
-      wx.showModal({
-        title: '请先完善资料',
-        content: '需要昵称头像才能在牌局中显示，请先去「我的」设置',
-        confirmText: '去设置',
-        success: r => { if (r.confirm) wx.switchTab({ url: '/pages/profile/profile' }) }
-      })
-      return
-    }
     this.setData({ submitting: true })
     wx.showLoading({ title: '创建中…' })
     try {
@@ -60,11 +64,12 @@ Page({
         data: {
           name: this.data.name.trim(),
           buyIn: Number(this.data.buyIn),
-          smallBlind: Number(this.data.customSb),
-          bigBlind: Number(this.data.customBb),
+          smallBlind: Number(this.data.smallBlind),
+          bigBlind: Number(this.data.bigBlind),
           blindUpMinutes: Number(this.data.blindUpMinutes),
-          nickname: profile.nickname,
-          avatar: profile.avatar
+          playerOpsShared: this.data.playerOpsShared,
+          nickname: profile.nickname || '玩家',
+          avatar: profile.avatar || ''
         }
       })
       wx.hideLoading()
@@ -77,9 +82,7 @@ Page({
         title: '牌局已创建',
         content: `邀请码：${inviteCode}\n点击确定进入牌局`,
         showCancel: false,
-        success: () => {
-          wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
-        }
+        success: () => wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
       })
     } catch (err) {
       wx.hideLoading()

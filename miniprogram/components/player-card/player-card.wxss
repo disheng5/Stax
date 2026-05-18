@@ -1,21 +1,88 @@
 .player-card {
+  background: var(--card);
+  border-bottom: 2rpx solid var(--border);
+  padding: 18rpx 0;
+}
+
+.player-card.eliminated {
+  opacity: 0.55;
+}
+
+.player-card.me {
+  background: rgba(11, 110, 79, 0.04);
+}
+
+.main-row {
+  display: grid;
+  grid-template-columns: 1fr 88rpx 132rpx 118rpx;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.player-cell {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16rpx;
-  background: var(--card);
-  border-radius: var(--radius-md);
-  padding: 24rpx;
-  margin-bottom: 16rpx;
-  box-shadow: var(--shadow-card);
+  min-width: 0;
 }
-.player-card.eliminated { opacity: 0.55; }
-.player-card.me { border: 2rpx solid var(--table-green); }
-.avatar { width: 80rpx; height: 80rpx; border-radius: 50%; background: var(--border); }
-.info { flex: 1; }
-.nickname { font-size: 30rpx; font-weight: 500; }
-.me-tag { display: inline-block; margin-left: 8rpx; padding: 2rpx 10rpx; background: var(--table-green); color: #fff; font-size: 20rpx; border-radius: 8rpx; }
-.stats { margin-top: 6rpx; }
-.stack { font-size: 36rpx; font-weight: 600; color: var(--gold); }
-.actions { width: 100%; display: flex; gap: 12rpx; margin-top: 12rpx; }
-.btn-sm { height: 60rpx; padding: 0 20rpx; font-size: 24rpx; flex: 1; line-height: 60rpx; }
+
+.avatar {
+  flex-shrink: 0;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.name-wrap {
+  min-width: 0;
+  margin-left: 14rpx;
+}
+
+.nickname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 27rpx;
+  font-weight: 500;
+}
+
+.me-tag {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 1rpx 8rpx;
+  background: var(--table-green);
+  color: #fff;
+  font-size: 19rpx;
+  border-radius: 8rpx;
+}
+
+.status {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+}
+
+.metric,
+.profit {
+  text-align: right;
+  font-size: 27rpx;
+  font-weight: 500;
+}
+
+.profit {
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  padding-left: 78rpx;
+}
+
+.btn-sm {
+  flex: 1;
+  height: 58rpx;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  line-height: 58rpx;
+}

@@ -3,7 +3,7 @@ const { formatDate, formatDuration, formatProfit } = require('../../utils/format
 const app = getApp()
 
 Page({
-  data: { games: [], loading: true },
+  data: { games: [], loading: true, deleting: false },
 
   async onShow() {
     if (!app.globalData.openid) {
@@ -17,7 +17,10 @@ Page({
 
   async _fetch() {
     const openid = app.globalData.openid
-    if (!openid) { this.setData({ loading: false }); return }
+    if (!openid) {
+      this.setData({ loading: false })
+      return
+    }
     try {
       const db = wx.cloud.database()
       const _ = db.command
@@ -27,17 +30,19 @@ Page({
         .orderBy('endedAt', 'desc')
         .limit(50)
         .get()
-      const games = res.data.map(g => {
-        const me = (g.players || []).find(p => p.openid === openid) || { profit: 0 }
-        const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
-        return {
-          ...g,
-          myProfit: me.profit || 0,
-          myProfitFormatted: formatProfit(me.profit || 0),
-          dateStr: formatDate(g.endedAt || g.startedAt),
-          durationStr: formatDuration(dur)
-        }
-      })
+      const games = res.data
+        .filter(g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid)))
+        .map(g => {
+          const me = (g.players || []).find(p => p.openid === openid) || { profit: 0 }
+          const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
+          return {
+            ...g,
+            myProfit: me.profit || 0,
+            myProfitFormatted: formatProfit(me.profit || 0),
+            dateStr: formatDate(g.endedAt || g.startedAt),
+            durationStr: formatDuration(dur)
+          }
+        })
       this.setData({ games, loading: false })
     } catch (err) {
       console.error(err)
@@ -48,6 +53,41 @@ Page({
   onOpenGame(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })
+  },
+
+  onDeleteRecord(e) {
+    const id = e.currentTarget.dataset.id
+    const name = e.currentTarget.dataset.name || '这场记录'
+    wx.showModal({
+      title: '删除战绩',
+      content: `从你的战绩中移除「${name}」？该操作仅对你可见，不影响其他玩家。`,
+      confirmText: '删除',
+      confirmColor: '#C8102E',
+      success: async r => {
+        if (!r.confirm) return
+        this.setData({ deleting: true })
+        wx.showLoading({ title: '删除中…' })
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'deleteGameRecord',
+            data: { gameId: id }
+          })
+          wx.hideLoading()
+          if (!res.result?.ok) {
+            wx.showToast({ title: res.result?.error || '删除失败', icon: 'none' })
+            return
+          }
+          wx.showToast({ title: '已删除' })
+          await this._fetch()
+        } catch (err) {
+          wx.hideLoading()
+          console.error(err)
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        } finally {
+          this.setData({ deleting: false })
+        }
+      }
+    })
   },
 
   onShareAppMessage() {

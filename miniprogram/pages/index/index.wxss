@@ -1,13 +1,111 @@
 .hero {
-  text-align: center; padding: 80rpx 0 60rpx;
-  background: linear-gradient(180deg, var(--table-green), transparent);
+  text-align: center;
+  padding: 70rpx 30rpx 50rpx;
+  background: linear-gradient(180deg, var(--table-green), rgba(11, 110, 79, 0.56));
   border-radius: var(--radius-lg);
-  color: #fff; margin-bottom: 32rpx;
+  color: #fff;
+  margin-bottom: 32rpx;
 }
-.hero .logo   { font-size: 80rpx; font-weight: 700; letter-spacing: 8rpx; }
-.hero .slogan { font-size: 26rpx; opacity: 0.85; margin-top: 12rpx; }
-.hero .zh-name{ font-size: 28rpx; margin-top: 8rpx; color: var(--gold); }
-.actions { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 48rpx; }
-.section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
-.game-name { font-size: 32rpx; font-weight: 500; margin-bottom: 8rpx; }
-.share-cta { margin-top: 60rpx; padding-top: 40rpx; border-top: 2rpx solid var(--border); }
+
+.hero .logo {
+  font-size: 76rpx;
+  font-weight: 700;
+  letter-spacing: 8rpx;
+}
+
+.hero .slogan {
+  font-size: 25rpx;
+  opacity: 0.85;
+  margin-top: 10rpx;
+}
+
+.hero .zh-name {
+  font-size: 28rpx;
+  margin-top: 6rpx;
+  color: var(--gold);
+  letter-spacing: 4rpx;
+}
+
+.quote {
+  margin: 30rpx auto 0;
+  max-width: 540rpx;
+  padding-top: 26rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.18);
+}
+
+.quote-text {
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 1.55;
+  opacity: 0.92;
+}
+
+.quote-from {
+  margin-top: 8rpx;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 21rpx;
+}
+
+.actions {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 48rpx;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 0;
+  height: 88rpx;
+  border-radius: var(--radius-md);
+  font-size: 30rpx;
+  font-weight: 500;
+  text-align: center;
+  line-height: 88rpx;
+}
+
+.action-btn--primary {
+  background: var(--table-green);
+  color: #fff;
+}
+
+.action-btn--ghost {
+  background: transparent;
+  color: var(--table-green);
+  border: 2rpx solid var(--table-green);
+  line-height: 84rpx;
+}
+
+.action-btn:active {
+  opacity: 0.85;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.game-name {
+  font-size: 32rpx;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+
+.share-cta {
+  margin-top: 60rpx;
+  padding-top: 40rpx;
+  border-top: 2rpx solid var(--border);
+}
+
+.share-btn {
+  height: 76rpx;
+  font-size: 27rpx;
+  line-height: 76rpx;
+}
+
+.share-desc {
+  text-align: center;
+  margin-top: 12rpx;
+  color: var(--text-sub);
+  font-size: 22rpx;
+}
