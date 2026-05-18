@@ -38,6 +38,8 @@ exports.main = async event => {
   // 扣减用户战绩
   if (game.status === 'ended') {
     const myProfit = Number(me.finalProfit ?? me.profit ?? 0) || 0
+    const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
+    const score = Math.round(myProfit / ratio)
     const userQ = await db.collection('users').where({ _openid: OPENID }).limit(1).get()
     if (userQ.data.length) {
       const u = userQ.data[0]
@@ -48,8 +50,8 @@ exports.main = async event => {
         .update({
           data: {
             'stats.totalGames': Math.max(0, (s.totalGames || 0) - 1),
-            'stats.totalProfit': (s.totalProfit || 0) - myProfit,
-            'stats.wins': Math.max(0, (s.wins || 0) - (myProfit > 0 ? 1 : 0))
+            'stats.totalProfit': (s.totalProfit || 0) - score,
+            'stats.wins': Math.max(0, (s.wins || 0) - (score > 0 ? 1 : 0))
           }
         })
     }

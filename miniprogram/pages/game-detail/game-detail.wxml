@@ -24,7 +24,7 @@
 
   <view class="game-top card">
     <view class="top-title">{{game.name || 'Stax 牌局'}}</view>
-    <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}</view>
+    <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · 码:积 {{game.scoreRatio}}:1</text></view>
     <view class="top-actions">
       <view class="invite-chip" bindtap="onCopyCode">邀请码 {{game.inviteCode}}</view>
       <button class="share-small" open-type="share">邀请</button>
@@ -67,14 +67,20 @@
   <view class="card tx-list" wx:if="{{recentTx.length}}">
     <view class="tx {{tx.revoked ? 'revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
       <view class="tx-main">
-        <text class="tx-type">{{txTypeLabel[tx.type]}}</text>
-        <text class="tx-name">{{tx.nickname}}</text>
-        <text class="tx-amount" wx:if="{{tx.amount}}">{{tx.amount}}</text>
-        <text class="tx-by text-sub" wx:if="{{!tx.byHost && (tx.type === 'rebuy' || tx.type === 'addOn')}}"> 自助</text>
+        <view class="tx-line">
+          <text class="tx-type">{{txTypeLabel[tx.type]}}</text>
+          <text class="tx-name">{{tx.nickname}}</text>
+          <text class="tx-by text-sub" wx:if="{{!tx.byHost && (tx.type === 'rebuy' || tx.type === 'addOn')}}">自助</text>
+          <text class="tx-time text-sub">{{tx.timeStr}}</text>
+        </view>
+        <view class="tx-sub text-sub" wx:if="{{tx.type === 'buyIn' || tx.type === 'rebuy' || tx.type === 'addOn'}}">
+          买了 {{tx.hands}} 手 · 共 {{tx.accHands}} 手 · 总码量 {{tx.accAmount}}
+        </view>
+        <view class="tx-sub text-sub" wx:elif="{{tx.type === 'settlePartial' || tx.type === 'settle'}}">
+          下桌筹码 {{tx.amount}}
+        </view>
       </view>
-      <button wx:if="{{isHost && !tx.revoked && (tx.type === 'rebuy' || tx.type === 'addOn')}}"
-              class="btn btn--ghost btn-tiny" data-id="{{tx._id}}" bindtap="onRevokeTx">撤销</button>
-      <text class="text-sub" wx:elif="{{tx.revoked}}">已撤销</text>
+      <text class="text-sub" wx:if="{{tx.revoked}}">已撤销</text>
     </view>
   </view>
 
@@ -90,3 +96,19 @@
 </view>
 
 <empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />
+
+<view class="hands-mask" wx:if="{{handsPicker.show}}" bindtap="onHandsClose">
+  <view class="hands-sheet" catchtap="onHandsStop">
+    <view class="hands-title">{{handsPicker.title}} 几手</view>
+    <view class="hands-row">
+      <view class="hands-step minus {{handsPicker.hands <= 1 ? 'disabled' : ''}}" bindtap="onHandsMinus">−</view>
+      <input class="hands-input" type="number" value="{{handsPicker.hands}}" bindinput="onHandsInput" confirm-type="done" />
+      <view class="hands-step plus {{handsPicker.hands >= 99 ? 'disabled' : ''}}" bindtap="onHandsPlus">+</view>
+    </view>
+    <view class="hands-hint text-sub">每手 {{game.buyIn}} · 共 {{handsPicker.hands * game.buyIn}}</view>
+    <view class="hands-actions">
+      <view class="hands-btn cancel" bindtap="onHandsClose">取消</view>
+      <view class="hands-btn confirm" bindtap="onHandsConfirm">确定</view>
+    </view>
+  </view>
+</view>

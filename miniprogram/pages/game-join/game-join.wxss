@@ -1,6 +1,6 @@
 .invite-hero {
   text-align: center;
-  padding: 40rpx 32rpx;
+  padding: 44rpx 32rpx 36rpx;
 }
 
 .eyebrow {
@@ -9,15 +9,19 @@
 }
 
 .game-name {
-  margin-top: 10rpx;
-  font-size: 40rpx;
+  margin-top: 12rpx;
+  font-size: 38rpx;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .game-meta {
   display: flex;
   justify-content: center;
-  gap: 18rpx;
+  flex-wrap: wrap;
+  gap: 14rpx 22rpx;
   margin-top: 16rpx;
   color: var(--text-sub);
   font-size: 24rpx;
@@ -25,13 +29,13 @@
 
 .invite-code {
   display: inline-block;
-  margin-top: 28rpx;
-  padding: 12rpx 22rpx;
+  margin-top: 26rpx;
+  padding: 14rpx 26rpx;
   border-radius: 999rpx;
   background: rgba(11, 110, 79, 0.08);
   color: var(--table-green);
   font-family: 'Courier New', monospace;
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 700;
   letter-spacing: 6rpx;
 }
@@ -43,23 +47,25 @@
 }
 
 .code-input {
-  height: 100rpx;
+  height: 110rpx;
   border: 2rpx solid var(--border);
   border-radius: var(--radius-md);
   background: #fff;
   font-family: 'Courier New', monospace;
-  font-size: 56rpx;
-  letter-spacing: 16rpx;
+  font-size: 52rpx;
+  letter-spacing: 14rpx;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .lookup-state {
   margin-top: 14rpx;
   text-align: center;
+  font-size: 24rpx;
 }
 
 .primary-actions {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 18rpx;
 }

@@ -23,6 +23,16 @@
     </view>
   </view>
 
+  <view class="card ratio-card">
+    <view class="ratio-head">
+      <view class="label">积分换算比例</view>
+      <picker class="ratio-picker" mode="selector" range="{{ratioOptions}}" value="{{ratioIndex}}" bindchange="onRatioChange">
+        <view class="ratio-tag">{{scoreRatio}} : 1<text class="arrow">›</text></view>
+      </picker>
+    </view>
+    <view class="ratio-hint text-sub">码量 {{scoreRatio}} = 积分 1，仅用于战绩换算，不涉及任何金钱</view>
+  </view>
+
   <view class="card permission-card">
     <view>
       <view class="label">权限共享</view>

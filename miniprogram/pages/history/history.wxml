@@ -11,9 +11,16 @@
         <text>{{item.players.length}} 人</text>
         <text>·</text>
         <text>{{item.durationStr}}</text>
+        <text wx:if="{{item.scoreRatio > 1}}">·</text>
+        <text wx:if="{{item.scoreRatio > 1}}">码:积 {{item.scoreRatio}}:1</text>
       </view>
     </view>
-    <view class="del-btn" catchtap="onDeleteRecord" data-id="{{item._id}}" data-name="{{item.name}}">删除</view>
+    <view class="del-icon" catchtap="onDeleteRecord" data-id="{{item._id}}" data-name="{{item.name}}" hover-class="del-hover">
+      <view class="trash">
+        <view class="trash-lid"></view>
+        <view class="trash-body"></view>
+      </view>
+    </view>
   </view>
   <empty-state wx:if="{{!loading && !games.length}}" title="还没有战绩" desc="参与一场牌局后会显示在这里" />
 </view>

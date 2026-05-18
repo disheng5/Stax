@@ -18,8 +18,8 @@
   <view class="section-title">进行中的牌局</view>
   <block wx:if="{{ongoingGames.length}}">
     <view class="card" wx:for="{{ongoingGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
-      <view class="game-name">{{item.name}}</view>
-      <view class="text-sub">{{item.players.length}} 人 · {{item.inviteCode}}</view>
+      <view class="game-name ellipsis">{{item.name}}</view>
+      <view class="text-sub">{{item.players.length}} 人 · 邀请码 {{item.inviteCode}}</view>
     </view>
   </block>
   <empty-state wx:elif="{{!loading}}" title="还没有进行中的牌局" desc="点击上方按钮创建或加入" />

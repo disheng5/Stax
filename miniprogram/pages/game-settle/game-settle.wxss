@@ -1,25 +1,155 @@
-.title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
-.row { display: flex; align-items: center; gap: 16rpx; padding: 16rpx 0; border-bottom: 2rpx solid var(--border); }
-.row:last-child { border: none; }
-.name-col { flex: 1; min-width: 0; }
-.name { font-size: 28rpx; }
-.num { width: 180rpx; text-align: right; padding: 0 16rpx; height: 64rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-sm); }
-.profit { width: 120rpx; text-align: right; font-weight: 600; font-size: 28rpx; }
-.warn { border: 2rpx solid var(--danger); }
-.transfer { display: flex; align-items: center; gap: 16rpx; padding: 12rpx 0; }
-.transfer .arrow { color: var(--text-sub); }
-.transfer .amount { margin-left: auto; font-weight: 600; }
-.actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
-.actions .btn { flex: 1; }
-.aa-row .label { font-size: 26rpx; color: var(--text-sub); width: 100rpx; }
-.payer-picker { flex: 1; height: 64rpx; line-height: 64rpx; padding: 0 16rpx; background: #fff; border: 2rpx solid var(--border); border-radius: var(--radius-sm); text-align: right; }
-.presets { display: flex; gap: 12rpx; margin-top: 16rpx; }
-.preset { flex: 1; text-align: center; padding: 16rpx 0; border: 2rpx solid var(--border); border-radius: var(--radius-sm); font-size: 24rpx; color: var(--text-sub); }
-.preset.active { border-color: var(--table-green); color: var(--table-green); background: rgba(11,110,79,0.08); }
-.share-row { display: flex; justify-content: space-between; padding: 6rpx 0; font-size: 24rpx; }
-.ai-btn { margin-top: 24rpx; }
-.muted-card { opacity: 0.72; }
-.settle-poster { padding-bottom: 24rpx; }
-.poster-image { width: 100%; border-radius: var(--radius-md); overflow: hidden; background: var(--table-green); }
-.poster-actions { display: flex; gap: 16rpx; margin-top: 20rpx; }
-.poster-actions .btn { flex: 1; }
+.title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.row:last-child {
+  border: none;
+}
+
+.name-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 28rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.num {
+  width: 180rpx;
+  text-align: right;
+  padding: 0 16rpx;
+  height: 68rpx;
+  background: #fff;
+  border: 2rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.profit {
+  width: 120rpx;
+  text-align: right;
+  font-weight: 600;
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.warn {
+  border: 2rpx solid var(--danger);
+}
+
+.transfer {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 14rpx 0;
+  font-size: 26rpx;
+}
+
+.transfer .arrow {
+  color: var(--text-sub);
+}
+
+.transfer .amount {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.actions .btn {
+  flex: 1;
+}
+
+.aa-row .label {
+  font-size: 26rpx;
+  color: var(--text-sub);
+  width: 100rpx;
+  flex-shrink: 0;
+}
+
+.presets {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.preset {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border: 2rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 24rpx;
+  color: var(--text-sub);
+}
+
+.preset.active {
+  border-color: var(--table-green);
+  color: var(--table-green);
+  background: rgba(11, 110, 79, 0.08);
+}
+
+.share-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+  padding: 6rpx 0;
+  font-size: 24rpx;
+}
+
+.share-row text:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-btn {
+  margin-top: 24rpx;
+}
+
+.muted-card {
+  opacity: 0.72;
+}
+
+.settle-poster {
+  padding-bottom: 24rpx;
+}
+
+.poster-image {
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--table-green);
+}
+
+.poster-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.poster-actions .btn {
+  flex: 1;
+}

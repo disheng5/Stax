@@ -35,10 +35,14 @@ Page({
         .map(g => {
           const me = (g.players || []).find(p => p.openid === openid) || { profit: 0 }
           const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
+          const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+          const rawProfit = me.finalProfit ?? me.profit ?? 0
+          const score = Math.round(rawProfit / ratio)
           return {
             ...g,
-            myProfit: me.profit || 0,
-            myProfitFormatted: formatProfit(me.profit || 0),
+            myProfit: score,
+            myProfitFormatted: formatProfit(score),
+            scoreRatio: ratio,
             dateStr: formatDate(g.endedAt || g.startedAt),
             durationStr: formatDuration(dur)
           }

@@ -1,47 +1,48 @@
 .hero {
   text-align: center;
-  padding: 70rpx 30rpx 50rpx;
+  padding: 64rpx 36rpx 48rpx;
   background: linear-gradient(180deg, var(--table-green), rgba(11, 110, 79, 0.56));
   border-radius: var(--radius-lg);
   color: #fff;
-  margin-bottom: 32rpx;
+  margin-bottom: 36rpx;
 }
 
 .hero .logo {
-  font-size: 76rpx;
+  font-size: 72rpx;
   font-weight: 700;
   letter-spacing: 8rpx;
+  line-height: 1.1;
 }
 
 .hero .slogan {
-  font-size: 25rpx;
+  font-size: 24rpx;
   opacity: 0.85;
-  margin-top: 10rpx;
+  margin-top: 12rpx;
 }
 
 .hero .zh-name {
-  font-size: 28rpx;
+  font-size: 26rpx;
   margin-top: 6rpx;
   color: var(--gold);
   letter-spacing: 4rpx;
 }
 
 .quote {
-  margin: 30rpx auto 0;
+  margin: 32rpx auto 0;
   max-width: 540rpx;
-  padding-top: 26rpx;
+  padding-top: 24rpx;
   border-top: 2rpx solid rgba(255, 255, 255, 0.18);
 }
 
 .quote-text {
   color: #fff;
-  font-size: 26rpx;
-  line-height: 1.55;
+  font-size: 25rpx;
+  line-height: 1.6;
   opacity: 0.92;
 }
 
 .quote-from {
-  margin-top: 8rpx;
+  margin-top: 10rpx;
   color: rgba(255, 255, 255, 0.6);
   font-size: 21rpx;
 }
@@ -49,18 +50,18 @@
 .actions {
   display: flex;
   gap: 16rpx;
-  margin-bottom: 48rpx;
+  margin-bottom: 40rpx;
 }
 
 .action-btn {
   flex: 1;
   min-width: 0;
-  height: 88rpx;
+  height: 96rpx;
   border-radius: var(--radius-md);
   font-size: 30rpx;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
-  line-height: 88rpx;
+  line-height: 96rpx;
 }
 
 .action-btn--primary {
@@ -69,10 +70,10 @@
 }
 
 .action-btn--ghost {
-  background: transparent;
+  background: #fff;
   color: var(--table-green);
   border: 2rpx solid var(--table-green);
-  line-height: 84rpx;
+  line-height: 92rpx;
 }
 
 .action-btn:active {
@@ -80,32 +81,33 @@
 }
 
 .section-title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
-  margin-bottom: 16rpx;
+  color: var(--text-sub);
+  margin: 0 4rpx 16rpx;
 }
 
 .game-name {
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 500;
-  margin-bottom: 8rpx;
+  margin-bottom: 6rpx;
 }
 
 .share-cta {
   margin-top: 60rpx;
-  padding-top: 40rpx;
+  padding-top: 32rpx;
   border-top: 2rpx solid var(--border);
 }
 
 .share-btn {
   height: 76rpx;
-  font-size: 27rpx;
+  font-size: 26rpx;
   line-height: 76rpx;
 }
 
 .share-desc {
   text-align: center;
-  margin-top: 12rpx;
+  margin-top: 14rpx;
   color: var(--text-sub);
   font-size: 22rpx;
 }

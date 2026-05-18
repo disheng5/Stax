@@ -63,6 +63,8 @@ const handlers = {
     smallBlind = 5,
     bigBlind = 5,
     blindUpMinutes = 20,
+    playerOpsShared = true,
+    scoreRatio = 1,
     nickname = '庄家',
     avatar = ''
   }) {
@@ -92,6 +94,8 @@ const handlers = {
         smallBlind,
         bigBlind,
         blindUpMinutes,
+        playerOpsShared: playerOpsShared !== false,
+        scoreRatio: Number(scoreRatio) > 0 ? Number(scoreRatio) : 1,
         blindStructure,
         currentLevel: 0,
         levelStartedAt: now,

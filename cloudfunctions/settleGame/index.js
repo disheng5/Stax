@@ -137,7 +137,9 @@ exports.main = async event => {
   }
 
   if (ended) {
+    const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
     for (const p of players) {
+      const score = Math.round((p.finalProfit || 0) / ratio)
       const userQ = await db.collection('users').where({ _openid: p.openid }).limit(1).get()
       if (!userQ.data.length) {
         await db.collection('users').add({
@@ -147,10 +149,10 @@ exports.main = async event => {
             createdAt: now,
             stats: {
               totalGames: 1,
-              totalProfit: p.finalProfit,
-              biggestWin: Math.max(0, p.finalProfit),
-              biggestLoss: Math.min(0, p.finalProfit),
-              wins: p.finalProfit > 0 ? 1 : 0
+              totalProfit: score,
+              biggestWin: Math.max(0, score),
+              biggestLoss: Math.min(0, score),
+              wins: score > 0 ? 1 : 0
             }
           }
         })
@@ -169,10 +171,10 @@ exports.main = async event => {
           .update({
             data: {
               'stats.totalGames': s.totalGames + 1,
-              'stats.totalProfit': s.totalProfit + p.finalProfit,
-              'stats.biggestWin': Math.max(s.biggestWin || 0, p.finalProfit),
-              'stats.biggestLoss': Math.min(s.biggestLoss || 0, p.finalProfit),
-              'stats.wins': (s.wins || 0) + (p.finalProfit > 0 ? 1 : 0)
+              'stats.totalProfit': s.totalProfit + score,
+              'stats.biggestWin': Math.max(s.biggestWin || 0, score),
+              'stats.biggestLoss': Math.min(s.biggestLoss || 0, score),
+              'stats.wins': (s.wins || 0) + (score > 0 ? 1 : 0)
             }
           })
       }

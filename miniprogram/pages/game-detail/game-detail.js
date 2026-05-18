@@ -23,7 +23,8 @@ Page({
     viewerMode: false,
     isPlayer: false,
     showTimer: false,
-    joining: false
+    joining: false,
+    handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 }
   },
 
   async onLoad(options) {
@@ -110,13 +111,54 @@ Page({
         .collection('transactions')
         .where({ gameId: this.data.gameId })
         .orderBy('timestamp', 'desc')
-        .limit(10)
+        .limit(30)
         .get()
       const nameMap = {}
       ;(this.data.game?.players || []).forEach(p => {
         nameMap[p.openid] = p.nickname
       })
-      const recentTx = res.data.map(t => ({ ...t, nickname: nameMap[t.playerOpenid] || '某玩家' }))
+      const buyIn = Number(this.data.game?.buyIn || 0)
+      // 按时间正序累计每位玩家到此为止的总手数与总码量
+      const asc = res.data.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      const totalHands = {}
+      const totalAmount = {}
+      const handsMap = {}
+      const accHandsMap = {}
+      const accAmountMap = {}
+      asc.forEach(t => {
+        const isBuy =
+          t.type === 'buyIn' || ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked)
+        const isRevoke =
+          t.type === 'revoke' || ((t.type === 'rebuy' || t.type === 'addOn') && t.revoked)
+        let h = 0
+        if (t.type === 'buyIn') h = 1
+        else if (t.type === 'rebuy' || t.type === 'addOn') {
+          h =
+            Number(t.meta?.hands) ||
+            (buyIn > 0 ? Math.max(1, Math.round((t.amount || 0) / buyIn)) : 1)
+        }
+        handsMap[t._id] = h
+        if (isBuy) {
+          totalHands[t.playerOpenid] = (totalHands[t.playerOpenid] || 0) + h
+          totalAmount[t.playerOpenid] = (totalAmount[t.playerOpenid] || 0) + (Number(t.amount) || 0)
+        }
+        accHandsMap[t._id] = totalHands[t.playerOpenid] || 0
+        accAmountMap[t._id] = totalAmount[t.playerOpenid] || 0
+      })
+      const recentTx = res.data.slice(0, 10).map(t => {
+        const d = t.timestamp ? new Date(t.timestamp) : null
+        const timeStr = d
+          ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          : ''
+        return {
+          ...t,
+          nickname: nameMap[t.playerOpenid] || '某玩家',
+          hands: handsMap[t._id] || 0,
+          accHands: accHandsMap[t._id] || 0,
+          accAmount: accAmountMap[t._id] || 0,
+          timeStr
+        }
+      })
       this.setData({ recentTx })
     } catch (err) {
       console.error(err)
@@ -204,21 +246,42 @@ Page({
   },
 
   _promptAmount(title, openid, type) {
-    const buyIn = Number(this.data.game.buyIn || 0)
-    wx.showModal({
-      title: `${title} 几手`,
-      editable: true,
-      placeholderText: '1',
-      success: r => {
-        if (!r.confirm) return
-        const hands = Math.floor(Number(r.content || 1) || 0)
-        if (hands <= 0) {
-          wx.showToast({ title: '手数需 > 0', icon: 'none' })
-          return
-        }
-        this._record(type, openid, hands * buyIn, { hands })
-      }
+    this.setData({
+      handsPicker: { show: true, title, openid, type, hands: 1 }
     })
+  },
+
+  onHandsClose() {
+    this.setData({ 'handsPicker.show': false })
+  },
+
+  onHandsStop() {
+    /* 阻止冒泡 */
+  },
+
+  onHandsMinus() {
+    const cur = this.data.handsPicker.hands || 1
+    if (cur <= 1) return
+    this.setData({ 'handsPicker.hands': cur - 1 })
+  },
+
+  onHandsPlus() {
+    const cur = this.data.handsPicker.hands || 1
+    if (cur >= 99) return
+    this.setData({ 'handsPicker.hands': cur + 1 })
+  },
+
+  onHandsInput(e) {
+    const v = Math.max(1, Math.min(99, Math.floor(Number(e.detail.value) || 1)))
+    this.setData({ 'handsPicker.hands': v })
+  },
+
+  onHandsConfirm() {
+    const { openid, type, hands } = this.data.handsPicker
+    const n = Math.max(1, Math.floor(Number(hands) || 1))
+    const buyIn = Number(this.data.game.buyIn || 0)
+    this.setData({ 'handsPicker.show': false })
+    this._record(type, openid, n * buyIn, { hands: n })
   },
 
   onPause() {

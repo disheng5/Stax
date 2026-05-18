@@ -11,6 +11,9 @@ Page({
     bigBlind: 5,
     blindUpMinutes: 999,
     playerOpsShared: true,
+    scoreRatio: 1,
+    ratioOptions: [1, 5, 10, 20, 50, 100],
+    ratioIndex: 0,
     submitting: false
   },
 
@@ -21,7 +24,9 @@ Page({
       buyIn: app.globalData.defaultBuyIn || 500,
       smallBlind: def.sb || 5,
       bigBlind: def.bb || 5,
-      blindUpMinutes: 999
+      blindUpMinutes: 999,
+      scoreRatio: app.globalData.defaultScoreRatio || 1,
+      ratioIndex: 0
     })
   },
 
@@ -39,6 +44,11 @@ Page({
   },
   onPlayerOpsSharedChange(e) {
     this.setData({ playerOpsShared: !!e.detail.value })
+  },
+  onRatioChange(e) {
+    const idx = Number(e.detail.value)
+    const ratio = this.data.ratioOptions[idx] || 1
+    this.setData({ ratioIndex: idx, scoreRatio: ratio })
   },
 
   async onSubmit() {
@@ -68,6 +78,7 @@ Page({
           bigBlind: Number(this.data.bigBlind),
           blindUpMinutes: Number(this.data.blindUpMinutes),
           playerOpsShared: this.data.playerOpsShared,
+          scoreRatio: Number(this.data.scoreRatio) || 1,
           nickname: profile.nickname || '玩家',
           avatar: profile.avatar || ''
         }

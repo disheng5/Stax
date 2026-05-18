@@ -1,10 +1,13 @@
 .record {
-  position: relative;
-  padding-right: 96rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding-right: 22rpx;
 }
 
 .record-main {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .head {
@@ -12,32 +15,100 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12rpx;
+  gap: 16rpx;
 }
 
 .name {
+  flex: 1;
+  min-width: 0;
   font-size: 30rpx;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profit {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 30rpx;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .meta {
   display: flex;
-  gap: 12rpx;
+  flex-wrap: wrap;
+  gap: 8rpx 14rpx;
+  font-size: 22rpx;
 }
 
-.del-btn {
+.del-icon {
+  flex-shrink: 0;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+}
+
+.del-hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0.9;
+}
+
+.trash {
+  position: relative;
+  width: 22rpx;
+  height: 24rpx;
+}
+
+.trash-lid {
   position: absolute;
-  top: 50%;
-  right: 16rpx;
-  transform: translateY(-50%);
-  padding: 8rpx 16rpx;
-  border: 2rpx solid var(--danger);
-  border-radius: var(--radius-sm);
-  color: var(--danger);
-  font-size: 22rpx;
-  line-height: 1.4;
+  top: -5rpx;
+  left: -3rpx;
+  width: 28rpx;
+  height: 5rpx;
+  background: #999;
+  border-radius: 2rpx;
+}
+
+.trash-lid::after {
+  content: '';
+  position: absolute;
+  top: -3rpx;
+  left: 8rpx;
+  width: 12rpx;
+  height: 3rpx;
+  background: #999;
+  border-radius: 1rpx;
+}
+
+.trash-body {
+  position: absolute;
+  top: 4rpx;
+  left: 0;
+  width: 22rpx;
+  height: 22rpx;
+  border: 2rpx solid #999;
+  border-top: none;
+  border-radius: 0 0 4rpx 4rpx;
+}
+
+.trash-body::before,
+.trash-body::after {
+  content: '';
+  position: absolute;
+  top: 3rpx;
+  width: 2rpx;
+  height: 12rpx;
+  background: #999;
+}
+
+.trash-body::before {
+  left: 7rpx;
+}
+
+.trash-body::after {
+  right: 7rpx;
 }
