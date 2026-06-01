@@ -9,7 +9,14 @@ Page({
     nickname: '',
     editing: false,
     demoMode: false,
+    firstTime: false,
     stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, winRate: 0 }
+  },
+
+  onLoad(options) {
+    if (options.firstTime === '1') {
+      this.setData({ firstTime: true, editing: true })
+    }
   },
 
   async onShow() {
@@ -24,16 +31,58 @@ Page({
     try {
       const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
       const user = res?.result?.user
-      if (user?.stats) {
-        const s = user.stats
-        const winRate = s.totalGames > 0 ? Math.round(((s.wins || 0) * 1000) / s.totalGames) / 10 : 0
-        this.setData({ stats: { ...s, winRate } })
-      }
+      const openid = res.result.openid
       if (user?.nickname && !this.data.nickname) this.setData({ nickname: user.nickname })
-      if (user?.avatar  && this.data.avatarUrl === DEFAULT_AVATAR) this.setData({ avatarUrl: user.avatar })
-      app.globalData.openid = res.result.openid
+      if (user?.avatar && this.data.avatarUrl === DEFAULT_AVATAR)
+        this.setData({ avatarUrl: user.avatar })
+      app.globalData.openid = openid
       app.globalData.userDoc = user
-    } catch (err) { console.error(err) }
+      await this._computeRealStats(openid)
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  async _computeRealStats(openid) {
+    try {
+      const db = wx.cloud.database()
+      const _ = db.command
+      const all = []
+      for (let skip = 0; skip < 200; skip += 20) {
+        const r = await db
+          .collection('games')
+          .where({ status: 'ended', players: _.elemMatch({ openid }) })
+          .orderBy('endedAt', 'asc')
+          .skip(skip)
+          .limit(20)
+          .get()
+        all.push(...r.data)
+        if (r.data.length < 20) break
+      }
+      const filtered = all.filter(
+        g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
+      )
+      let totalProfit = 0,
+        biggestWin = 0,
+        biggestLoss = 0,
+        wins = 0
+      filtered.forEach(g => {
+        const me = (g.players || []).find(p => p.openid === openid)
+        if (!me) return
+        const raw = me.finalProfit ?? me.profit ?? 0
+        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+        const score = Math.round(raw / ratio)
+        totalProfit += score
+        if (score > biggestWin) biggestWin = score
+        if (score < biggestLoss) biggestLoss = score
+        if (score > 0) wins++
+      })
+      const totalGames = filtered.length
+      const winRate = totalGames > 0 ? Math.round((wins * 1000) / totalGames) / 10 : 0
+      this.setData({ stats: { totalGames, totalProfit, biggestWin, biggestLoss, wins, winRate } })
+    } catch (err) {
+      console.error(err)
+    }
   },
 
   // ===== 新规范：chooseAvatar =====
@@ -48,7 +97,10 @@ Page({
 
   async onSaveProfile() {
     const nickname = (this.data.nickname || '').trim()
-    if (!nickname) { wx.showToast({ title: '请输入昵称', icon: 'none' }); return }
+    if (!nickname) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' })
+      return
+    }
 
     let avatarUrl = this.data.avatarUrl
     // 如果是临时文件，需上传云存储拿到 fileID
@@ -87,12 +139,27 @@ Page({
     }
   },
 
-  onStats()    { wx.navigateTo({ url: '/pages/stats/stats' }) },
-  onHistory()  { wx.navigateTo({ url: '/pages/history/history' }) },
-  onAbout()    { wx.navigateTo({ url: '/pages/about/about' }) },
-  onLearnTerms()     { wx.navigateTo({ url: '/pages/learn-terms/learn-terms' }) },
-  onLearnHandChart() { wx.navigateTo({ url: '/pages/learn-hand-chart/learn-hand-chart' }) },
-  onLearnRules()     { wx.navigateTo({ url: '/pages/learn-rules/learn-rules' }) },
+  onStats() {
+    wx.navigateTo({ url: '/pages/stats/stats' })
+  },
+  onHistory() {
+    wx.navigateTo({ url: '/pages/history/history' })
+  },
+  onAbout() {
+    wx.navigateTo({ url: '/pages/about/about' })
+  },
+  onLearnTerms() {
+    wx.navigateTo({ url: '/pages/learn-terms/learn-terms' })
+  },
+  onLearnHandChart() {
+    wx.navigateTo({ url: '/pages/learn-hand-chart/learn-hand-chart' })
+  },
+  onLearnOdds() {
+    wx.navigateTo({ url: '/pages/learn-odds/learn-odds' })
+  },
+  onLearnRules() {
+    wx.navigateTo({ url: '/pages/learn-rules/learn-rules' })
+  },
   onClearCache() {
     wx.clearStorageSync()
     wx.showToast({ title: '已清除', icon: 'success' })

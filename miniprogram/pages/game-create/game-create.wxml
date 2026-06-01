@@ -38,7 +38,7 @@
       <view class="label">权限共享</view>
       <view class="text-sub">允许玩家自己补码、自己结算下桌</view>
     </view>
-    <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#0B6E4F" />
+    <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#2B6CB0" />
   </view>
 
   <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">开局</button>

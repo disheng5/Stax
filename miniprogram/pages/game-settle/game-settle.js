@@ -21,6 +21,7 @@ Page({
     submitting: false,
     submitted: false,
     settleImagePath: '',
+    shareImageUrl: '',
 
     extraCost: 0,
     expenseMode: 'all' // 'all' | 'winner'
@@ -271,6 +272,7 @@ Page({
     try {
       const settleImagePath = await this._createSettleImage()
       this.setData({ settleImagePath })
+      this._uploadShareImage(settleImagePath)
       if (showToast) {
         wx.hideLoading()
         wx.showToast({ title: '结算图已生成' })
@@ -279,6 +281,20 @@ Page({
       if (showToast) wx.hideLoading()
       console.error(err)
       if (showToast) wx.showToast({ title: '生成失败', icon: 'none' })
+    }
+  },
+
+  async _uploadShareImage(filePath) {
+    try {
+      const cloudPath = `settle-images/${this.data.gameId}_${Date.now()}.png`
+      const res = await wx.cloud.uploadFile({ cloudPath, filePath })
+      if (res.fileID) {
+        const urlRes = await wx.cloud.getTempFileURL({ fileList: [res.fileID] })
+        const url = urlRes.fileList && urlRes.fileList[0] && urlRes.fileList[0].tempFileURL
+        if (url) this.setData({ shareImageUrl: url })
+      }
+    } catch (err) {
+      console.error('[uploadShareImage]', err)
     }
   },
 
@@ -296,9 +312,9 @@ Page({
 
   onShareAppMessage() {
     return {
-      title: `「${this.data.game?.name || 'Stax 牌局'}」结算结果`,
+      title: `「${this.data.game?.name || 'StaxKit 牌局'}」结算结果`,
       path: `/pages/game-detail/game-detail?id=${this.data.gameId}`,
-      imageUrl: this.data.settleImagePath || ''
+      imageUrl: this.data.shareImageUrl || this.data.settleImagePath || ''
     }
   },
 
@@ -312,25 +328,30 @@ Page({
   },
 
   async _drawPretty(ctx, canvas, W, H) {
-    const bg = ctx.createLinearGradient(0, 0, 0, H)
-    bg.addColorStop(0, '#0B6E4F')
-    bg.addColorStop(1, '#063A28')
+    const bg = ctx.createLinearGradient(0, 0, W * 0.3, H)
+    bg.addColorStop(0, '#1A1B2E')
+    bg.addColorStop(0.5, '#16213E')
+    bg.addColorStop(1, '#0F3460')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, W, H)
 
     ctx.save()
-    ctx.globalAlpha = 0.06
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 220px serif'
-    ctx.fillText('筹', -20, 220)
+    ctx.globalAlpha = 0.04
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.lineWidth = 0.5
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath()
+      ctx.arc(W * 0.7, H * 0.15, 40 + i * 30, 0, Math.PI * 2)
+      ctx.stroke()
+    }
     ctx.restore()
 
     ctx.fillStyle = '#FFFFFF'
     ctx.font = 'bold 28px sans-serif'
-    ctx.fillText('长河筹略', 20, 46)
+    ctx.fillText('StaxKit', 20, 46)
     ctx.font = '13px sans-serif'
     ctx.fillStyle = '#C9A961'
-    ctx.fillText('Stax · Hold\u2019em, held right.', 20, 66)
+    ctx.fillText('Hold\u2019em, held right.', 20, 66)
 
     ctx.fillStyle = 'rgba(255,255,255,0.85)'
     ctx.font = 'bold 16px sans-serif'
@@ -457,7 +478,7 @@ Page({
     ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.font = '10px sans-serif'
     ctx.textAlign = 'right'
-    ctx.fillText('Stax · 长河筹略', cardX + cardW - 16, y + 70)
+    ctx.fillText('StaxKit', cardX + cardW - 16, y + 70)
     ctx.textAlign = 'start'
   },
 

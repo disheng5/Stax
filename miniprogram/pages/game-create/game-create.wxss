@@ -81,7 +81,7 @@
   gap: 6rpx;
   padding: 12rpx 24rpx;
   border-radius: 999rpx;
-  background: rgba(11, 110, 79, 0.1);
+  background: rgba(43, 108, 176, 0.1);
   color: var(--table-green);
   font-size: 28rpx;
   font-weight: 600;

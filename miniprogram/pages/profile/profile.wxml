@@ -3,6 +3,11 @@
     🧪 Demo 模式 · 数据保存在内存中、刷新即重置 · 真实环境请配置 envId
   </view>
 
+  <view wx:if="{{firstTime}}" class="first-time-banner">
+    <view class="first-time-title">欢迎使用 StaxKit</view>
+    <view class="first-time-desc">设置头像和昵称，让牌友认识你</view>
+  </view>
+
   <view class="card user">
     <button class="avatar-wrap" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
       <image class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
@@ -21,11 +26,8 @@
     <view class="stat-item"><view class="num">{{stats.winRate}}%</view><view class="text-sub">胜率</view></view>
   </view>
 
-  <view class="card row" bindtap="onStats">
-    <text>数据看板</text><text class="text-sub">›</text>
-  </view>
   <view class="card row" bindtap="onHistory">
-    <text>战绩历史</text><text class="text-sub">›</text>
+    <text>战绩 & 分析</text><text class="text-sub">›</text>
   </view>
 
   <view class="section-title">学习</view>
@@ -34,6 +36,9 @@
   </view>
   <view class="card row" bindtap="onLearnHandChart">
     <text>起手牌表</text><text class="text-sub">›</text>
+  </view>
+  <view class="card row" bindtap="onLearnOdds">
+    <text>概率计算器</text><text class="text-sub">›</text>
   </view>
   <view class="card row" bindtap="onLearnRules">
     <text>规则速览</text><text class="text-sub">›</text>
@@ -47,6 +52,6 @@
     <text class="text-gold">🧪 重置 Demo 数据</text><text class="text-sub">›</text>
   </view>
   <view class="card row" bindtap="onAbout">
-    <text>关于 Stax</text><text class="text-sub">›</text>
+    <text>关于 StaxKit</text><text class="text-sub">›</text>
   </view>
 </view>

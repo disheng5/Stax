@@ -1,85 +1,102 @@
-// components/line-chart/line-chart.js — 零依赖折线图（Canvas 2d）
+// components/line-chart/line-chart.js — 纯 WXML 折线图，无 Canvas
 Component({
   properties: {
-    // [{ x: '5/1', y: 100 }, ...]
-    points: { type: Array, value: [], observer: '_render' },
-    height: { type: Number, value: 200 },
-    color:  { type: String, value: '#0B6E4F' }
+    points: { type: Array, value: [] },
+    height: { type: Number, value: 180 },
+    color: { type: String, value: '#2B6CB0' }
   },
-  data: { canvasId: 'lineChart_' + Math.random().toString(36).slice(2, 8) },
-  lifetimes: {
-    attached() { setTimeout(() => this._render(), 50) }
+  observers: {
+    points: function (pts) {
+      this._build(pts)
+    }
   },
   methods: {
-    _render() {
-      const id = this.data.canvasId
-      const query = this.createSelectorQuery()
-      query.select('#' + id).fields({ node: true, size: true }).exec(res => {
-        if (!res || !res[0] || !res[0].node) return
-        const canvas = res[0].node
-        const ctx = canvas.getContext('2d')
-        const dpr = wx.getSystemInfoSync().pixelRatio || 2
-        const cssW = res[0].width
-        const cssH = res[0].height
-        canvas.width = cssW * dpr
-        canvas.height = cssH * dpr
-        ctx.scale(dpr, dpr)
-        this._draw(ctx, cssW, cssH)
-      })
-    },
-    _draw(ctx, W, H) {
-      const pts = this.data.points || []
-      ctx.clearRect(0, 0, W, H)
-      // 背景网格
-      ctx.strokeStyle = '#E5E0D3'; ctx.lineWidth = 0.5
-      for (let i = 0; i <= 4; i++) {
-        const y = (H - 30) * i / 4 + 10
-        ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 10, y); ctx.stroke()
-      }
-      // 0 线
-      if (!pts.length) {
-        ctx.fillStyle = '#999'; ctx.font = '12px sans-serif'
-        ctx.fillText('暂无数据', W / 2 - 30, H / 2)
+    _build(pts) {
+      if (!pts || !pts.length) {
+        this.setData({ segments: [], dots: [], yLabels: [], xLabels: [], empty: true })
         return
       }
-      const xs = pts.map(p => p.x)
+
+      const W = 300
+      const H = 140
+      const PAD_L = 36
+      const PAD_R = 8
+      const PAD_T = 10
+      const PAD_B = 20
+      const plotW = W - PAD_L - PAD_R
+      const plotH = H - PAD_T - PAD_B
+
       const ys = pts.map(p => Number(p.y) || 0)
-      const maxY = Math.max(...ys, 0)
-      const minY = Math.min(...ys, 0)
-      const rangeY = maxY - minY || 1
-      const plotH = H - 50
-      const plotW = W - 50
-      const stepX = pts.length > 1 ? plotW / (pts.length - 1) : 0
-      // y 轴标签
-      ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right'
-      ctx.fillText(maxY, 36, 14)
-      ctx.fillText(0,    36, 10 + plotH * (maxY / rangeY))
-      ctx.fillText(minY, 36, 10 + plotH)
-      ctx.textAlign = 'start'
-      // x 轴标签（最多 6 个）
-      const xLabelStep = Math.ceil(pts.length / 6)
-      pts.forEach((p, i) => {
-        if (i % xLabelStep !== 0 && i !== pts.length - 1) return
-        const x = 40 + i * stepX
-        ctx.fillStyle = '#999'; ctx.fillText(p.x, x - 12, H - 8)
-      })
-      // 折线
-      ctx.strokeStyle = this.data.color
-      ctx.lineWidth = 2; ctx.lineJoin = 'round'
-      ctx.beginPath()
-      pts.forEach((p, i) => {
-        const x = 40 + i * stepX
-        const y = 10 + plotH - ((Number(p.y) - minY) / rangeY) * plotH
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
-      })
-      ctx.stroke()
+      const rawMax = Math.max(...ys)
+      const rawMin = Math.min(...ys)
+      const spread = rawMax - rawMin
+      const pad = spread === 0 ? Math.max(Math.abs(rawMax) * 0.2, 10) : spread * 0.15
+      const domainMax = rawMax + pad
+      const domainMin = rawMin - pad
+      const range = domainMax - domainMin
+
+      const toX = i => PAD_L + (pts.length > 1 ? (i / (pts.length - 1)) * plotW : plotW / 2)
+      const toY = v => PAD_T + plotH - ((v - domainMin) / range) * plotH
+
+      const toXp = i => ((toX(i) / W) * 100).toFixed(2) + '%'
+      const toYp = v => ((toY(v) / H) * 100).toFixed(2) + '%'
+
+      const positive = ys[ys.length - 1] >= 0
+      const lineColor = positive ? this.data.color : '#c8102e'
+
+      // 折线 segments
+      const segments = []
+      for (let i = 0; i < pts.length - 1; i++) {
+        const x1 = toX(i),
+          y1 = toY(ys[i])
+        const x2 = toX(i + 1),
+          y2 = toY(ys[i + 1])
+        const dx = x2 - x1,
+          dy = y2 - y1
+        const len = Math.sqrt(dx * dx + dy * dy)
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+        segments.push({
+          left: ((x1 / W) * 100).toFixed(2) + '%',
+          top: ((y1 / H) * 100).toFixed(2) + '%',
+          width: ((len / W) * 100).toFixed(2) + '%',
+          angle: angle.toFixed(2),
+          color: lineColor
+        })
+      }
+
       // 数据点
-      pts.forEach((p, i) => {
-        const x = 40 + i * stepX
-        const y = 10 + plotH - ((Number(p.y) - minY) / rangeY) * plotH
-        ctx.fillStyle = this.data.color
-        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill()
-      })
+      const dots = pts.map((p, i) => ({
+        left: toXp(i),
+        top: toYp(ys[i]),
+        color: lineColor
+      }))
+
+      // Y 轴标签
+      const yLabelCandidates = [rawMax]
+      if (rawMin < 0 && rawMax > 0) yLabelCandidates.push(0)
+      if (rawMin !== rawMax) yLabelCandidates.push(rawMin)
+      const yLabels = []
+      for (const v of yLabelCandidates) {
+        const yp = toY(v)
+        if (yLabels.some(l => Math.abs(Number(l.topRaw) - yp) < 12)) continue
+        yLabels.push({ label: String(v), top: ((yp / H) * 100).toFixed(2) + '%', topRaw: yp })
+      }
+
+      // X 轴标签（最多 5 个）
+      const maxX = 5
+      const step = Math.max(1, Math.ceil(pts.length / maxX))
+      const xLabels = pts
+        .map((p, i) => ({ left: toXp(i), label: p.x, i }))
+        .filter((_, i) => i % step === 0 || i === pts.length - 1)
+
+      this.setData({ segments, dots, yLabels, xLabels, empty: false })
     }
+  },
+  data: {
+    segments: [],
+    dots: [],
+    yLabels: [],
+    xLabels: [],
+    empty: true
   }
 })

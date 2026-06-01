@@ -1,113 +1,192 @@
 .hero {
-  text-align: center;
-  padding: 64rpx 36rpx 48rpx;
-  background: linear-gradient(180deg, var(--table-green), rgba(11, 110, 79, 0.56));
+  background: linear-gradient(150deg, #1A3A5C 0%, #2B6CB0 60%, #3a82c4 100%);
   border-radius: var(--radius-lg);
-  color: #fff;
-  margin-bottom: 36rpx;
+  padding: 36rpx 32rpx 32rpx;
+  margin-bottom: 28rpx;
+  position: relative;
+  overflow: hidden;
 }
 
-.hero .logo {
-  font-size: 72rpx;
-  font-weight: 700;
-  letter-spacing: 8rpx;
-  line-height: 1.1;
-}
-
-.hero .slogan {
-  font-size: 24rpx;
-  opacity: 0.85;
-  margin-top: 12rpx;
-}
-
-.hero .zh-name {
-  font-size: 26rpx;
-  margin-top: 6rpx;
-  color: var(--gold);
-  letter-spacing: 4rpx;
-}
-
-.quote {
-  margin: 32rpx auto 0;
-  max-width: 540rpx;
-  padding-top: 24rpx;
-  border-top: 2rpx solid rgba(255, 255, 255, 0.18);
-}
-
-.quote-text {
-  color: #fff;
-  font-size: 25rpx;
-  line-height: 1.6;
-  opacity: 0.92;
-}
-
-.quote-from {
-  margin-top: 10rpx;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 21rpx;
-}
-
-.actions {
+.hero-top {
   display: flex;
-  gap: 16rpx;
-  margin-bottom: 40rpx;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28rpx;
 }
+
+.hero-brand { display: flex; flex-direction: column; gap: 6rpx; }
+
+.logo {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 4rpx;
+  line-height: 1.2;
+}
+
+.slogan {
+  font-size: 20rpx;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 1rpx;
+}
+
+.daily-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(201, 169, 97, 0.15);
+  border: 1rpx solid rgba(201, 169, 97, 0.5);
+  border-radius: 12rpx;
+  padding: 8rpx 16rpx;
+  min-width: 76rpx;
+}
+
+.daily-badge:active { opacity: 0.7; }
+
+.daily-label {
+  font-size: 14rpx;
+  color: #C9A961;
+  line-height: 1.3;
+  letter-spacing: 1rpx;
+  white-space: nowrap;
+}
+
+.daily-word {
+  font-size: 48rpx;
+  font-weight: 900;
+  color: #fff;
+  font-family: serif;
+  line-height: 1.1;
+  animation: wordIn 0.8s ease-out;
+}
+
+@keyframes wordIn {
+  0%   { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.hero-actions { display: flex; gap: 16rpx; }
 
 .action-btn {
   flex: 1;
-  min-width: 0;
-  height: 96rpx;
+  height: 84rpx;
   border-radius: var(--radius-md);
   font-size: 30rpx;
   font-weight: 600;
   text-align: center;
-  line-height: 96rpx;
+  line-height: 84rpx;
 }
 
-.action-btn--primary {
-  background: var(--table-green);
-  color: #fff;
-}
+.action-btn--primary { background: #fff; color: var(--table-green); }
+.action-btn--ghost { background: rgba(255,255,255,0.12); color: #fff; border: 2rpx solid rgba(255,255,255,0.35); line-height: 80rpx; }
+.action-btn:active { opacity: 0.8; }
 
-.action-btn--ghost {
-  background: #fff;
-  color: var(--table-green);
-  border: 2rpx solid var(--table-green);
-  line-height: 92rpx;
+.yesterday-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 58, 92, 0.96);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
 }
+.yd-label { font-size: 22rpx; color: rgba(255,255,255,0.5); letter-spacing: 4rpx; }
+.yd-word { font-size: 96rpx; font-weight: 900; color: #fff; font-family: serif; line-height: 1.1; }
+.yd-note { font-size: 26rpx; color: rgba(255,255,255,0.6); font-style: italic; }
 
-.action-btn:active {
-  opacity: 0.85;
-}
-
-.section-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-sub);
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   margin: 0 4rpx 16rpx;
 }
 
-.game-name {
-  font-size: 30rpx;
-  font-weight: 500;
-  margin-bottom: 6rpx;
-}
+.section-title { font-size: 28rpx; font-weight: 600; color: var(--text); }
+.more-btn { font-size: 24rpx; color: var(--table-green); }
 
-.share-cta {
-  margin-top: 60rpx;
-  padding-top: 32rpx;
+.game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 28rpx;
+  margin-bottom: 12rpx;
+}
+.game-left { flex: 1; min-width: 0; }
+.game-name { font-size: 28rpx; font-weight: 500; margin-bottom: 4rpx; }
+.game-meta { font-size: 22rpx; }
+.game-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; flex-shrink: 0; margin-left: 16rpx; }
+
+.status-tag { font-size: 20rpx; padding: 4rpx 14rpx; border-radius: 20rpx; font-weight: 500; }
+.status-tag.ongoing { background: rgba(43, 108, 176, 0.12); color: var(--table-green); }
+.status-tag.ended { background: var(--border); color: var(--text-sub); }
+
+.profit { font-size: 26rpx; font-weight: 700; }
+.profit.win  { color: var(--success); }
+.profit.lose { color: var(--danger); }
+.profit.even { color: var(--text-sub); }
+
+.empty-hint { text-align: center; padding: 48rpx 0; font-size: 24rpx; }
+
+.footer {
+  margin-top: 48rpx;
+  padding-top: 24rpx;
   border-top: 2rpx solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
-.share-btn {
-  height: 76rpx;
-  font-size: 26rpx;
-  line-height: 76rpx;
-}
+.share-btn { height: 72rpx; font-size: 24rpx; line-height: 72rpx; }
 
-.share-desc {
-  text-align: center;
-  margin-top: 14rpx;
+.quote {
+  font-size: 21rpx;
   color: var(--text-sub);
-  font-size: 22rpx;
+  text-align: center;
+  line-height: 1.7;
+  opacity: 0.8;
+}
+
+/* 每日一字弹窗 */
+.word-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.word-popup-card {
+  background: #FDFBF6;
+  border: 2rpx solid #C9A961;
+  border-radius: var(--radius-lg);
+  padding: 56rpx 48rpx;
+  width: 68vw;
+  text-align: center;
+}
+
+.wp-word {
+  font-size: 120rpx;
+  font-weight: 900;
+  color: #1A1A1A;
+  font-family: serif;
+  line-height: 1.1;
+  margin-bottom: 16rpx;
+}
+
+.wp-note {
+  font-size: 30rpx;
+  color: #555;
+  font-style: italic;
+  margin-bottom: 20rpx;
+}
+
+.wp-hint {
+  font-size: 20rpx;
+  color: #C9A961;
+  letter-spacing: 1rpx;
+  line-height: 1.5;
 }

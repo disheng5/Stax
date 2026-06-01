@@ -32,7 +32,7 @@
   margin-top: 26rpx;
   padding: 14rpx 26rpx;
   border-radius: 999rpx;
-  background: rgba(11, 110, 79, 0.08);
+  background: rgba(43, 108, 176, 0.08);
   color: var(--table-green);
   font-family: 'Courier New', monospace;
   font-size: 30rpx;

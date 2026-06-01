@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "Stax · 长河筹略",
+  "navigationBarTitleText": "StaxKit",
   "enableShareAppMessage": true,
   "usingComponents": {
     "empty-state": "/components/empty-state/empty-state"

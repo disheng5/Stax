@@ -7,6 +7,10 @@
     <view class="title">起手牌表</view>
     <view class="desc text-sub">169 种起手牌强度可视化</view>
   </view>
+  <view class="card entry" bindtap="onOdds">
+    <view class="title">概率计算器</view>
+    <view class="desc text-sub">选择手牌和公共牌，蒙特卡洛模拟胜率</view>
+  </view>
   <view class="card entry" bindtap="onRules">
     <view class="title">规则速览</view>
     <view class="desc text-sub">从盲注到 showdown 一文看懂</view>

@@ -4,8 +4,8 @@
 .title { font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx; }
 
 .ai-card {
-  background: linear-gradient(135deg, rgba(11,110,79,0.08), rgba(201,169,97,0.12));
-  border: 2rpx dashed rgba(11,110,79,0.4);
+  background: linear-gradient(135deg, rgba(43,108,176,0.08), rgba(201,169,97,0.12));
+  border: 2rpx dashed rgba(43,108,176,0.4);
   cursor: pointer;
 }
 .ai-hero { display: flex; align-items: center; gap: 20rpx; }
@@ -17,7 +17,7 @@
 @keyframes pulse { 50% { transform: scale(1.15); opacity: 0.6; } }
 
 .ai-result {
-  background: linear-gradient(135deg, var(--table-green), #094a36);
+  background: linear-gradient(135deg, var(--table-green), #1A3A5C);
   color: #fff;
 }
 .ai-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }

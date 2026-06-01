@@ -13,7 +13,7 @@
 }
 
 .player-card.me {
-  background: rgba(11, 110, 79, 0.04);
+  background: rgba(43, 108, 176, 0.04);
   margin: 0 -24rpx;
   padding: 18rpx 24rpx;
 }

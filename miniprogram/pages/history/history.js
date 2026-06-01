@@ -1,9 +1,18 @@
-// pages/history/history.js — 个人战绩历史
+// pages/history/history.js — 战绩 + 数据统计合并页
 const { formatDate, formatDuration, formatProfit } = require('../../utils/format.js')
 const app = getApp()
 
 Page({
-  data: { games: [], loading: true, deleting: false },
+  data: {
+    games: [],
+    stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, winRate: 0 },
+    points: [],
+    loading: true,
+    deleting: false,
+    showChart: false,
+    dim: 'players',
+    dimData: []
+  },
 
   async onShow() {
     if (!app.globalData.openid) {
@@ -24,39 +33,134 @@ Page({
     try {
       const db = wx.cloud.database()
       const _ = db.command
-      const res = await db
-        .collection('games')
-        .where({ status: 'ended', players: _.elemMatch({ openid }) })
-        .orderBy('endedAt', 'desc')
-        .limit(50)
-        .get()
-      const games = res.data
-        .filter(g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid)))
-        .map(g => {
-          const me = (g.players || []).find(p => p.openid === openid) || { profit: 0 }
-          const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
-          const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-          const rawProfit = me.finalProfit ?? me.profit ?? 0
-          const score = Math.round(rawProfit / ratio)
-          return {
-            ...g,
-            myProfit: score,
-            myProfitFormatted: formatProfit(score),
-            scoreRatio: ratio,
-            dateStr: formatDate(g.endedAt || g.startedAt),
-            durationStr: formatDuration(dur)
-          }
-        })
+      const all = []
+      for (let skip = 0; skip < 200; skip += 20) {
+        const r = await db
+          .collection('games')
+          .where({ status: 'ended', players: _.elemMatch({ openid }) })
+          .orderBy('endedAt', 'desc')
+          .skip(skip)
+          .limit(20)
+          .get()
+        all.push(...r.data)
+        if (r.data.length < 20) break
+      }
+      const filtered = all.filter(
+        g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
+      )
+      const games = filtered.map(g => {
+        const me = (g.players || []).find(p => p.openid === openid) || {}
+        const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
+        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+        const raw = me.finalProfit ?? me.profit ?? 0
+        const score = Math.round(raw / ratio)
+        return {
+          ...g,
+          myProfit: score,
+          myProfitFormatted: formatProfit(score),
+          scoreRatio: ratio,
+          dateStr: formatDate(g.endedAt || g.startedAt),
+          durationStr: formatDuration(dur)
+        }
+      })
       this.setData({ games, loading: false })
+      this._computeStats(openid, filtered)
+      this._computeChart(openid, filtered)
+      this._computeDim(openid, filtered)
     } catch (err) {
       console.error(err)
       this.setData({ loading: false })
     }
   },
 
+  _computeStats(openid, games) {
+    let totalProfit = 0,
+      biggestWin = 0,
+      biggestLoss = 0,
+      wins = 0
+    games.forEach(g => {
+      const me = (g.players || []).find(p => p.openid === openid)
+      if (!me) return
+      const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+      const score = Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
+      totalProfit += score
+      if (score > biggestWin) biggestWin = score
+      if (score < biggestLoss) biggestLoss = score
+      if (score > 0) wins++
+    })
+    const totalGames = games.length
+    const winRate = totalGames > 0 ? Math.round((wins * 1000) / totalGames) / 10 : 0
+    this.setData({ stats: { totalGames, totalProfit, biggestWin, biggestLoss, wins, winRate } })
+  },
+
+  _computeChart(openid, games) {
+    const sorted = games
+      .slice()
+      .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
+    let cum = 0
+    const points = sorted.slice(-30).map(g => {
+      const me = (g.players || []).find(p => p.openid === openid)
+      const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+      const score = Math.round((me?.finalProfit ?? me?.profit ?? 0) / ratio)
+      cum += score
+      return { x: formatDate(g.endedAt || g.startedAt).slice(5), y: cum }
+    })
+    this.setData({ points })
+    if (points.length > 0) {
+      this.setData({ showChart: true })
+    }
+  },
+
+  onToggleChart() {
+    this.setData({ showChart: !this.data.showChart })
+  },
+
+  _computeDim(openid, games) {
+    const source = games || this.data.games.map(g => g)
+    const groups = {}
+    source.forEach(g => {
+      const me = (g.players || []).find(p => p.openid === openid)
+      if (!me) return
+      const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+      const profit = Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
+      let keys = []
+      const dim = this.data.dim
+      if (dim === 'players') {
+        keys = [String(g.players.length) + ' 人']
+      } else if (dim === 'rebuys') {
+        keys = [me.buyInCount === 1 ? '1 次' : me.buyInCount === 2 ? '2 次' : '3+ 次']
+      } else if (dim === 'weekday') {
+        const wd = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        keys = [wd[new Date(g.endedAt || g.startedAt).getDay()]]
+      } else if (dim === 'opponents') {
+        keys = (g.players || []).filter(p => p.openid !== openid).map(p => p.nickname || '未知')
+      }
+      keys.forEach(k => {
+        if (!groups[k]) groups[k] = { key: k, games: 0, profit: 0, wins: 0 }
+        groups[k].games++
+        groups[k].profit += profit
+        if (profit > 0) groups[k].wins++
+      })
+    })
+    const dimData = Object.values(groups)
+      .map(g => ({
+        ...g,
+        avg: g.games ? Math.round(g.profit / g.games) : 0,
+        winRate: g.games ? Math.round((g.wins * 1000) / g.games) / 10 : 0,
+        profitStr: formatProfit(g.profit)
+      }))
+      .sort((a, b) => b.games - a.games)
+    this.setData({ dimData })
+  },
+
+  onDimChange(e) {
+    this.setData({ dim: e.currentTarget.dataset.k }, () => {
+      this._computeDim(app.globalData.openid)
+    })
+  },
+
   onOpenGame(e) {
-    const id = e.currentTarget.dataset.id
-    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })
+    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
   },
 
   onDeleteRecord(e) {
@@ -85,7 +189,6 @@ Page({
           await this._fetch()
         } catch (err) {
           wx.hideLoading()
-          console.error(err)
           wx.showToast({ title: '网络异常', icon: 'none' })
         } finally {
           this.setData({ deleting: false })
@@ -96,12 +199,12 @@ Page({
 
   onShareAppMessage() {
     const games = this.data.games
-    if (!games.length) return { title: 'Stax · 长河筹略', path: '/pages/index/index' }
+    if (!games.length) return { title: 'StaxKit', path: '/pages/index/index' }
     const total = games.reduce((s, g) => s + (g.myProfit || 0), 0)
     const wins = games.filter(g => (g.myProfit || 0) > 0).length
     const winRate = Math.round((wins * 100) / games.length)
     return {
-      title: `我打了 ${games.length} 局 ${total >= 0 ? '盈利' : '亏损'} ${Math.abs(total)}（胜率 ${winRate}%）— Stax 战绩`,
+      title: `我打了 ${games.length} 局 ${total >= 0 ? '盈利' : '亏损'} ${Math.abs(total)}（胜率 ${winRate}%）`,
       path: '/pages/index/index'
     }
   }

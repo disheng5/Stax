@@ -1,0 +1,112 @@
+<view class="container">
+  <view class="card">
+    <view class="title">我的手牌</view>
+    <view class="card-row">
+      <view class="card-slot {{myCards[0] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="my" data-idx="0">
+        <text wx:if="{{myCards[0]}}">{{myCards[0]}}</text>
+        <text wx:else class="text-sub">选牌</text>
+      </view>
+      <view class="card-slot {{myCards[1] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="my" data-idx="1">
+        <text wx:if="{{myCards[1]}}">{{myCards[1]}}</text>
+        <text wx:else class="text-sub">选牌</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">公共牌</view>
+    <view class="card-row">
+      <view class="card-slot {{board[0] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="board" data-idx="0">
+        <text wx:if="{{board[0]}}">{{board[0]}}</text>
+        <text wx:else class="text-sub">翻牌</text>
+      </view>
+      <view class="card-slot {{board[1] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="board" data-idx="1">
+        <text wx:if="{{board[1]}}">{{board[1]}}</text>
+        <text wx:else class="text-sub">翻牌</text>
+      </view>
+      <view class="card-slot {{board[2] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="board" data-idx="2">
+        <text wx:if="{{board[2]}}">{{board[2]}}</text>
+        <text wx:else class="text-sub">翻牌</text>
+      </view>
+      <view class="card-slot {{board[3] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="board" data-idx="3">
+        <text wx:if="{{board[3]}}">{{board[3]}}</text>
+        <text wx:else class="text-sub">转牌</text>
+      </view>
+      <view class="card-slot {{board[4] ? 'filled' : ''}}" bindtap="onPickCard" data-slot="board" data-idx="4">
+        <text wx:if="{{board[4]}}">{{board[4]}}</text>
+        <text wx:else class="text-sub">河牌</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title-row">
+      <view class="title">对手手牌</view>
+      <text class="optional-tag">可选，已知时更精准</text>
+    </view>
+    <view class="card-row">
+      <view class="card-slot {{oppCards[0] ? 'filled opp' : 'opp'}}" bindtap="onPickCard" data-slot="opp" data-idx="0">
+        <text wx:if="{{oppCards[0]}}">{{oppCards[0]}}</text>
+        <text wx:else class="text-sub">选牌</text>
+      </view>
+      <view class="card-slot {{oppCards[1] ? 'filled opp' : 'opp'}}" bindtap="onPickCard" data-slot="opp" data-idx="1">
+        <text wx:if="{{oppCards[1]}}">{{oppCards[1]}}</text>
+        <text wx:else class="text-sub">选牌</text>
+      </view>
+      <view class="clear-opp" wx:if="{{oppCards[0] || oppCards[1]}}" bindtap="onReset" data-target="opp">
+        <text class="text-sub" style="font-size:22rpx;">清除</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">对手数量（含已知对手）</view>
+    <view class="opp-row">
+      <view class="opp-btn {{opponents === 1 ? 'active' : ''}}" bindtap="onOppChange" data-n="1">1</view>
+      <view class="opp-btn {{opponents === 2 ? 'active' : ''}}" bindtap="onOppChange" data-n="2">2</view>
+      <view class="opp-btn {{opponents === 3 ? 'active' : ''}}" bindtap="onOppChange" data-n="3">3</view>
+      <view class="opp-btn {{opponents === 4 ? 'active' : ''}}" bindtap="onOppChange" data-n="4">4</view>
+      <view class="opp-btn {{opponents === 5 ? 'active' : ''}}" bindtap="onOppChange" data-n="5">5</view>
+      <view class="opp-btn {{opponents === 6 ? 'active' : ''}}" bindtap="onOppChange" data-n="6">6</view>
+      <view class="opp-btn {{opponents === 7 ? 'active' : ''}}" bindtap="onOppChange" data-n="7">7</view>
+      <view class="opp-btn {{opponents === 8 ? 'active' : ''}}" bindtap="onOppChange" data-n="8">8</view>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="btn btn--primary btn--block" bindtap="onCalc" disabled="{{!canCalc}}">计算胜率</button>
+    <button class="btn btn--ghost btn--block" bindtap="onReset" style="margin-top:16rpx;">重置</button>
+  </view>
+
+  <view class="card result-card" wx:if="{{result}}">
+    <view class="title">模拟结果（{{simCount}} 次）</view>
+    <view class="result-row">
+      <view class="result-item">
+        <view class="result-num text-success">{{result.winRate}}%</view>
+        <view class="text-sub">胜率</view>
+      </view>
+      <view class="result-item">
+        <view class="result-num text-gold">{{result.tieRate}}%</view>
+        <view class="text-sub">平局</view>
+      </view>
+      <view class="result-item">
+        <view class="result-num text-danger">{{result.loseRate}}%</view>
+        <view class="text-sub">败率</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="picker-mask" wx:if="{{showPicker}}" bindtap="onClosePicker">
+    <view class="picker-sheet" catchtap>
+      <view class="picker-title">选择一张牌</view>
+      <view class="suit-section" wx:for="{{suits}}" wx:key="s" wx:for-item="suit">
+        <view class="suit-label {{suit.s === '♥' || suit.s === '♦' ? 'red' : ''}}">{{suit.s}}</view>
+        <view class="rank-grid">
+          <view class="rank-btn {{usedMap[rank + suit.s] ? 'disabled' : ''}}"
+            wx:for="{{ranks}}" wx:for-item="rank" wx:key="*this"
+            data-card="{{rank}}{{suit.s}}" bindtap="onSelectCard">{{rank}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

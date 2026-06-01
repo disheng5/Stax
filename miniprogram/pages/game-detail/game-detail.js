@@ -40,6 +40,12 @@ Page({
   onShow() {
     if (!this.watcher && this.data.gameId) this._startWatch()
     if (this.data.gameId) this._fetchRecentTx()
+    if (this.data.game && this.data.myOpenid) {
+      const isPlayer = (this.data.game.players || []).some(p => p.openid === this.data.myOpenid)
+      if (isPlayer && this.data.viewerMode) {
+        this.setData({ viewerMode: false, isPlayer: true })
+      }
+    }
   },
 
   onUnload() {
@@ -87,7 +93,7 @@ Page({
               game,
               isHost,
               isPlayer,
-              viewerMode: this.data.viewerMode || !isPlayer,
+              viewerMode: !isPlayer,
               loading: false
             })
             this._fetchRecentTx()
@@ -412,7 +418,7 @@ Page({
     const playerN = g?.players?.length || 0
     const pot = g?.totalPot || 0
     return {
-      title: `「${g?.name || 'Stax 牌局'}」${playerN} 人在打，总池 ${pot}`,
+      title: `「${g?.name || 'StaxKit 牌局'}」${playerN} 人在打，总池 ${pot}`,
       path:
         '/pages/game-detail/game-detail?id=' +
         this.data.gameId +

@@ -1,0 +1,109 @@
+.word-card {
+  background: #FDFBF6;
+  border: 2rpx solid #C9A961;
+  border-radius: 20rpx;
+  padding: 32rpx 28rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 24rpx;
+  color: #C9A961;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+}
+
+.card-date {
+  font-size: 20rpx;
+  color: #bbb;
+}
+
+.card-body {
+  text-align: center;
+  padding: 24rpx 0;
+}
+
+.card-body.fade-in {
+  animation: wordIn 0.8s ease-out forwards;
+}
+
+@keyframes wordIn {
+  0% { opacity: 0; transform: scale(0.8); filter: blur(8rpx); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+.word-main {
+  font-size: 120rpx;
+  font-weight: 900;
+  color: #1A1A1A;
+  line-height: 1.2;
+  letter-spacing: 0;
+  font-family: serif;
+}
+
+.word-note {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #666;
+  font-style: italic;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20rpx;
+}
+
+.share-btn {
+  background: none;
+  border: 2rpx solid #C9A961;
+  color: #C9A961;
+  font-size: 22rpx;
+  padding: 6rpx 24rpx;
+  border-radius: 20rpx;
+  line-height: 1.6;
+  min-height: 0;
+}
+
+.share-btn::after { border: none; }
+
+.yesterday-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(253, 251, 246, 0.97);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20rpx;
+  gap: 12rpx;
+}
+
+.yesterday-label {
+  font-size: 22rpx;
+  color: #bbb;
+}
+
+.yesterday-word {
+  font-size: 80rpx;
+  font-weight: 900;
+  color: #1A1A1A;
+  font-family: serif;
+}
+
+.yesterday-note {
+  font-size: 26rpx;
+  color: #666;
+  font-style: italic;
+}

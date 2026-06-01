@@ -23,11 +23,23 @@ exports.main = async event => {
   const exists = (game.players || []).find(p => p.openid === OPENID)
   if (exists) return { ok: true, gameId: game._id, alreadyJoined: true }
 
+  // 从 users 表获取最新昵称和头像（fileID），保证其他用户能看到
+  let finalNickname = nickname
+  let finalAvatar = avatar
+  try {
+    const userQ = await db.collection('users').where({ _openid: OPENID }).limit(1).get()
+    if (userQ.data.length) {
+      const u = userQ.data[0]
+      if (u.nickname) finalNickname = u.nickname
+      if (u.avatar) finalAvatar = u.avatar
+    }
+  } catch (_) {}
+
   const now = new Date()
   const player = {
     openid: OPENID,
-    nickname,
-    avatar,
+    nickname: finalNickname,
+    avatar: finalAvatar,
     buyInCount: 1,
     totalBuyIn: game.buyIn,
     currentStack: game.buyIn,

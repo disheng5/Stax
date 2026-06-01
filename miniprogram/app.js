@@ -37,7 +37,7 @@ App({
       wx.showModal({
         title: '使用须知',
         content:
-          '长河筹略（Stax）仅供朋友间线下竞技扑克记账与学习交流使用，严禁用于任何形式的赌博活动。请遵守当地法律法规。',
+          'StaxKit 仅供朋友间线下竞技扑克记账与学习交流使用，严禁用于任何形式的赌博活动。请遵守当地法律法规。',
         showCancel: false,
         confirmText: '我已知晓',
         success: () => wx.setStorageSync('compliance_shown', true)
@@ -58,6 +58,9 @@ App({
       if (res && res.result && res.result.ok) {
         this.globalData.openid = res.result.openid
         this.globalData.userDoc = res.result.user
+      }
+      if (!cached.nickname && !cached.nickName) {
+        this.globalData.needProfile = true
       }
     } catch (err) {
       console.error('[whoami]', err)

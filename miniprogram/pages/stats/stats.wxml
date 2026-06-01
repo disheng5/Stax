@@ -1,22 +1,7 @@
 <view class="container">
-  <!-- 概览 -->
-  <view class="grid">
-    <view class="card stat"><view class="num">{{stats.totalGames}}</view><view class="text-sub">总场次</view></view>
-    <view class="card stat"><view class="num text-gold">{{stats.totalProfit}}</view><view class="text-sub">累计盈亏</view></view>
-    <view class="card stat"><view class="num">{{stats.winRate}}%</view><view class="text-sub">胜率</view></view>
-    <view class="card stat"><view class="num text-success">{{stats.biggestWin}}</view><view class="text-sub">单局最大盈利</view></view>
-    <view class="card stat"><view class="num text-danger">{{stats.biggestLoss}}</view><view class="text-sub">单局最大亏损</view></view>
-  </view>
+  <view wx:if="{{loading}}" class="loading-hint text-sub">加载中…</view>
 
-  <!-- 趋势 -->
-  <view class="card">
-    <view class="title">累计盈亏趋势（近 30 局）</view>
-    <line-chart points="{{points}}" height="200" color="#0B6E4F" />
-  </view>
-
-  <!-- 4 维分析 -->
-  <view class="card">
-    <view class="title">维度分析</view>
+  <block wx:if="{{!loading}}">
     <scroll-view scroll-x class="dim-tabs">
       <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
       <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">补码次数</view>
@@ -24,7 +9,7 @@
       <view class="dim-tab {{dim === 'opponents' ? 'active' : ''}}" data-k="opponents" bindtap="onDimChange">对手</view>
     </scroll-view>
 
-    <view class="dim-table">
+    <view class="card" wx:if="{{dimData.length}}">
       <view class="dim-head text-sub">
         <view class="col-key">分组</view>
         <view class="col">场次</view>
@@ -39,9 +24,8 @@
         <view class="col {{item.avg >= 0 ? 'text-success' : 'text-danger'}}">{{item.avg}}</view>
         <view class="col">{{item.winRate}}%</view>
       </view>
-      <view class="text-sub" wx:if="{{!dimData.length && !loading}}" style="text-align:center;padding:32rpx;">
-        没有可分析的牌局
-      </view>
     </view>
-  </view>
+
+    <empty-state wx:if="{{!dimData.length}}" title="暂无可分析的数据" desc="多打几局就能看到分析了" />
+  </block>
 </view>

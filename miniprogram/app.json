@@ -12,20 +12,21 @@
     "pages/learn-terms/learn-terms",
     "pages/learn-term-detail/learn-term-detail",
     "pages/learn-hand-chart/learn-hand-chart",
+    "pages/learn-odds/learn-odds",
     "pages/learn-rules/learn-rules",
     "pages/profile/profile",
     "pages/about/about"
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#0B6E4F",
-    "navigationBarTitleText": "Stax · 长河筹略",
+    "navigationBarBackgroundColor": "#2B6CB0",
+    "navigationBarTitleText": "StaxKit",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#F5F2EA"
+    "backgroundColor": "#F7F9FC"
   },
   "tabBar": {
     "color": "#666666",
-    "selectedColor": "#0B6E4F",
+    "selectedColor": "#2B6CB0",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "black",
     "list": [

@@ -1,0 +1,28 @@
+.card-row { display: flex; gap: 12rpx; flex-wrap: wrap; align-items: center; }
+.card-slot { width: 100rpx; height: 140rpx; border: 2rpx solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 600; }
+.card-slot.filled { border-color: var(--table-green); color: var(--table-green); background: rgba(43, 108, 176, 0.06); }
+.card-slot.opp { border-style: dashed; }
+.card-slot.opp.filled { border-color: #c8102e; color: #c8102e; background: rgba(200, 16, 46, 0.05); border-style: solid; }
+.title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
+.title-row { display: flex; align-items: baseline; gap: 12rpx; margin-bottom: 16rpx; }
+.title-row .title { margin-bottom: 0; }
+.optional-tag { font-size: 20rpx; color: var(--text-sub); }
+.clear-opp { margin-left: 8rpx; }
+.opp-row { display: flex; gap: 12rpx; flex-wrap: wrap; }
+.opp-btn { width: 72rpx; height: 72rpx; border-radius: 50%; border: 2rpx solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 600; }
+.opp-btn.active { background: var(--table-green); color: #fff; border-color: var(--table-green); }
+.actions { margin: 24rpx 0; }
+.result-card { text-align: center; }
+.result-row { display: flex; justify-content: space-around; margin-top: 16rpx; }
+.result-item { flex: 1; }
+.result-num { font-size: 44rpx; font-weight: 700; margin-bottom: 6rpx; }
+
+.picker-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 100; }
+.picker-sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom)); max-height: 70vh; overflow-y: auto; }
+.picker-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 24rpx; }
+.suit-section { display: flex; align-items: center; gap: 12rpx; margin-bottom: 20rpx; }
+.suit-label { font-size: 36rpx; width: 48rpx; text-align: center; }
+.suit-label.red { color: #c8102e; }
+.rank-grid { display: flex; flex-wrap: wrap; gap: 8rpx; flex: 1; }
+.rank-btn { width: 64rpx; height: 64rpx; border-radius: var(--radius-sm); border: 2rpx solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 26rpx; font-weight: 500; }
+.rank-btn.disabled { opacity: 0.3; background: var(--border); pointer-events: none; }

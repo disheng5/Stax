@@ -3,6 +3,30 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
+async function syncProfileToGames(openid, nickname, avatar) {
+  try {
+    const _ = db.command
+    const res = await db
+      .collection('games')
+      .where({ status: 'ongoing', players: _.elemMatch({ openid }) })
+      .limit(20)
+      .get()
+    for (const game of res.data) {
+      const players = (game.players || []).map(p => {
+        if (p.openid !== openid) return p
+        return {
+          ...p,
+          nickname: nickname || p.nickname,
+          avatar: avatar || p.avatar
+        }
+      })
+      await db.collection('games').doc(game._id).update({ data: { players } })
+    }
+  } catch (err) {
+    console.error('[syncProfileToGames]', err)
+  }
+}
+
 exports.main = async event => {
   try {
     const { OPENID } = cloud.getWXContext()
@@ -30,20 +54,26 @@ exports.main = async event => {
         nickname: upsertNickname || '玩家',
         avatar: upsertAvatar || ''
       }
+      if (upsertNickname || upsertAvatar) {
+        await syncProfileToGames(OPENID, user.nickname, user.avatar)
+      }
     } else {
       user = q.data[0]
-      if (
+      const needUpdate =
         (upsertNickname && upsertNickname !== user.nickname) ||
         (upsertAvatar && upsertAvatar !== user.avatar)
-      ) {
+      if (needUpdate) {
+        const newNickname = upsertNickname || user.nickname
+        const newAvatar = upsertAvatar || user.avatar
         await db
           .collection('users')
           .doc(user._id)
           .update({
-            data: { nickname: upsertNickname || user.nickname, avatar: upsertAvatar || user.avatar }
+            data: { nickname: newNickname, avatar: newAvatar }
           })
-        user.nickname = upsertNickname || user.nickname
-        user.avatar = upsertAvatar || user.avatar
+        user.nickname = newNickname
+        user.avatar = newAvatar
+        await syncProfileToGames(OPENID, newNickname, newAvatar)
       }
     }
 

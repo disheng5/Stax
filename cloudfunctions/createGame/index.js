@@ -58,6 +58,17 @@ exports.main = async event => {
   const now = new Date()
   const blindStructure = buildBlindStructure(smallBlind, bigBlind)
 
+  let finalNickname = nickname
+  let finalAvatar = avatar
+  try {
+    const userQ = await db.collection('users').where({ _openid: OPENID }).limit(1).get()
+    if (userQ.data.length) {
+      const u = userQ.data[0]
+      if (u.nickname) finalNickname = u.nickname
+      if (u.avatar) finalAvatar = u.avatar
+    }
+  } catch (_) {}
+
   const doc = {
     hostOpenid: OPENID,
     name,
@@ -80,8 +91,8 @@ exports.main = async event => {
     players: [
       {
         openid: OPENID,
-        nickname,
-        avatar,
+        nickname: finalNickname,
+        avatar: finalAvatar,
         buyInCount: 1,
         totalBuyIn: buyIn,
         currentStack: buyIn,

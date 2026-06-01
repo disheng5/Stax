@@ -1,26 +1,96 @@
 <view class="container">
-  <view class="card record" wx:for="{{games}}" wx:key="_id">
-    <view class="record-main" data-id="{{item._id}}" bindtap="onOpenGame">
-      <view class="head">
-        <view class="name">{{item.name}}</view>
-        <view class="profit {{item.myProfit >= 0 ? 'text-success' : 'text-danger'}}">{{item.myProfitFormatted}}</view>
+  <view wx:if="{{loading}}" class="loading-hint text-sub">加载中…</view>
+
+  <block wx:if="{{!loading && games.length}}">
+    <!-- 概览统计 -->
+    <view class="overview-row">
+      <view class="overview-item">
+        <view class="ov-num">{{stats.totalGames}}</view>
+        <view class="ov-label">总场次</view>
       </view>
-      <view class="meta text-sub">
-        <text>{{item.dateStr}}</text>
-        <text>·</text>
-        <text>{{item.players.length}} 人</text>
-        <text>·</text>
-        <text>{{item.durationStr}}</text>
-        <text wx:if="{{item.scoreRatio > 1}}">·</text>
-        <text wx:if="{{item.scoreRatio > 1}}">码:积 {{item.scoreRatio}}:1</text>
+      <view class="overview-divider"></view>
+      <view class="overview-item">
+        <view class="ov-num {{stats.totalProfit >= 0 ? 'text-success' : 'text-danger'}}">{{stats.totalProfit}}</view>
+        <view class="ov-label">累计盈亏</view>
+      </view>
+      <view class="overview-divider"></view>
+      <view class="overview-item">
+        <view class="ov-num">{{stats.winRate}}%</view>
+        <view class="ov-label">胜率</view>
+      </view>
+      <view class="overview-divider"></view>
+      <view class="overview-item">
+        <view class="ov-num text-success">{{stats.biggestWin}}</view>
+        <view class="ov-label">最大赢</view>
+      </view>
+      <view class="overview-divider"></view>
+      <view class="overview-item">
+        <view class="ov-num text-danger">{{stats.biggestLoss}}</view>
+        <view class="ov-label">最大亏</view>
       </view>
     </view>
-    <view class="del-icon" catchtap="onDeleteRecord" data-id="{{item._id}}" data-name="{{item.name}}" hover-class="del-hover">
-      <view class="trash">
-        <view class="trash-lid"></view>
-        <view class="trash-body"></view>
+
+    <!-- 趋势图 -->
+    <view class="card chart-card">
+      <view class="section-head" bindtap="onToggleChart">
+        <view class="section-title">盈亏趋势（近 30 局）</view>
+        <view class="text-sub">{{showChart ? '收起' : '展开'}}</view>
+      </view>
+      <view class="chart-wrap {{showChart ? 'chart-open' : 'chart-closed'}}">
+        <line-chart points="{{points}}" height="180" color="#2B6CB0" />
       </view>
     </view>
-  </view>
+
+    <!-- 维度分析 -->
+    <view class="card dim-card">
+      <view class="section-title" style="margin-bottom:16rpx;">维度分析</view>
+      <scroll-view scroll-x class="dim-tabs">
+        <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
+        <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">补码次数</view>
+        <view class="dim-tab {{dim === 'weekday' ? 'active' : ''}}"   data-k="weekday"   bindtap="onDimChange">星期</view>
+        <view class="dim-tab {{dim === 'opponents' ? 'active' : ''}}" data-k="opponents" bindtap="onDimChange">对手</view>
+      </scroll-view>
+      <view class="dim-head text-sub">
+        <view class="col-key">分组</view>
+        <view class="col">场次</view>
+        <view class="col">盈亏</view>
+        <view class="col">均值</view>
+        <view class="col">胜率</view>
+      </view>
+      <view class="dim-row" wx:for="{{dimData}}" wx:key="key">
+        <view class="col-key">{{item.key}}</view>
+        <view class="col">{{item.games}}</view>
+        <view class="col {{item.profit >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitStr}}</view>
+        <view class="col {{item.avg >= 0 ? 'text-success' : 'text-danger'}}">{{item.avg}}</view>
+        <view class="col">{{item.winRate}}%</view>
+      </view>
+    </view>
+
+    <!-- 战绩列表 -->
+    <view class="section-title-plain">全部战绩（{{games.length}} 场）</view>
+    <view class="card record" wx:for="{{games}}" wx:key="_id">
+      <view class="record-main" data-id="{{item._id}}" bindtap="onOpenGame">
+        <view class="head">
+          <view class="name ellipsis">{{item.name}}</view>
+          <view class="profit {{item.myProfit > 0 ? 'text-success' : item.myProfit < 0 ? 'text-danger' : 'text-sub'}}">{{item.myProfitFormatted}}</view>
+        </view>
+        <view class="meta text-sub">
+          <text>{{item.dateStr}}</text>
+          <text>·</text>
+          <text>{{item.players.length}} 人</text>
+          <text>·</text>
+          <text>{{item.durationStr}}</text>
+          <text wx:if="{{item.scoreRatio > 1}}"> · 码:积 {{item.scoreRatio}}:1</text>
+        </view>
+      </view>
+      <view class="del-icon" catchtap="onDeleteRecord" data-id="{{item._id}}" data-name="{{item.name}}" hover-class="del-hover">
+        <view class="trash">
+          <view class="trash-lid"></view>
+          <view class="trash-body"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
   <empty-state wx:if="{{!loading && !games.length}}" title="还没有战绩" desc="参与一场牌局后会显示在这里" />
 </view>

@@ -1,6 +1,6 @@
 {
-  "navigationBarTitleText": "数据看板",
+  "navigationBarTitleText": "维度分析",
   "usingComponents": {
-    "line-chart": "/components/line-chart/line-chart"
+    "empty-state": "/components/empty-state/empty-state"
   }
 }

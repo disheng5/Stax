@@ -1,31 +1,56 @@
 <view class="container">
-  <view class="hero">
-    <view class="logo">Stax</view>
-    <view class="slogan">Hold'em, held right.</view>
-    <view class="zh-name">长河筹略</view>
-    <view class="quote">
-      <view class="quote-text">「{{quote.text}}」</view>
-      <view class="quote-from">— {{quote.from}}</view>
+  <view class="hero" bindlongpress="onLongPressHero">
+    <view class="hero-top">
+      <view class="hero-brand">
+        <view class="logo">StaxKit</view>
+        <view class="slogan">Hold'em, held right.</view>
+      </view>
+      <view class="daily-badge" wx:if="{{dailyWord.word}}" bindtap="onTapDailyWord">
+        <text class="daily-label">今日一字</text>
+        <text class="daily-word">{{dailyWord.word}}</text>
+      </view>
+    </view>
+    <view class="hero-actions">
+      <view class="action-btn action-btn--primary" bindtap="onCreate">开局</view>
+      <view class="action-btn action-btn--ghost" bindtap="onJoin">加入</view>
+    </view>
+
+    <view class="yesterday-mask" wx:if="{{showYesterday}}" catchtap="onHideYesterday">
+      <text class="yd-label">昨日</text>
+      <text class="yd-word">{{yesterdayWord.word}}</text>
+      <text class="yd-note">「{{yesterdayWord.note}}」</text>
     </view>
   </view>
 
-  <view class="actions">
-    <view class="action-btn action-btn--primary" bindtap="onCreate">开局</view>
-    <view class="action-btn action-btn--ghost" bindtap="onJoin">加入</view>
-    <view class="action-btn action-btn--ghost" bindtap="onHistory">战绩</view>
+  <view class="section-head">
+    <view class="section-title">最近牌局</view>
+    <view class="more-btn" bindtap="onHistory">全部 ›</view>
   </view>
 
-  <view class="section-title">进行中的牌局</view>
-  <block wx:if="{{ongoingGames.length}}">
-    <view class="card" wx:for="{{ongoingGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
-      <view class="game-name ellipsis">{{item.name}}</view>
-      <view class="text-sub">{{item.players.length}} 人 · 邀请码 {{item.inviteCode}}</view>
+  <block wx:if="{{recentGames.length}}">
+    <view class="game-row card" wx:for="{{recentGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="game-left">
+        <view class="game-name ellipsis">{{item.name || 'StaxKit 牌局'}}</view>
+        <view class="game-meta text-sub">{{item.players.length}} 人 · {{item._status === 'ongoing' ? item.inviteCode : item._dateStr}}</view>
+      </view>
+      <view class="game-right">
+        <view class="status-tag {{item._status}}">{{item._status === 'ongoing' ? '进行中' : '已结束'}}</view>
+        <view wx:if="{{item._status === 'ended'}}" class="profit {{item._profit > 0 ? 'win' : item._profit < 0 ? 'lose' : 'even'}}">{{item._profitStr}}</view>
+      </view>
     </view>
   </block>
-  <empty-state wx:elif="{{!loading}}" title="还没有进行中的牌局" desc="点击上方按钮创建或加入" />
+  <view wx:elif="{{!loading}}" class="empty-hint text-sub">还没有牌局记录，开局或加入一个吧</view>
 
-  <view class="share-cta">
-    <button class="btn btn--ghost btn--block share-btn" open-type="share">分享 Stax</button>
-    <view class="share-desc">记账 · 计时 · AA · AI 复盘 · 战绩分析</view>
+  <view class="footer">
+    <button class="btn btn--ghost btn--block share-btn" open-type="share">分享 StaxKit</button>
+    <view class="quote" wx:if="{{quote.text}}">「{{quote.text}}」— {{quote.from}}</view>
+  </view>
+
+  <view class="word-popup" wx:if="{{showWordPopup}}" catchtap="onHideWordPopup">
+    <view class="word-popup-card" catchtap="noop">
+      <view class="wp-word">{{dailyWord.word}}</view>
+      <view class="wp-note">「{{dailyWord.note}}」</view>
+      <view class="wp-hint">今日气场关键词 · 长按卡片查看昨日</view>
+    </view>
   </view>
 </view>

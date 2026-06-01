@@ -1,15 +1,15 @@
 /* theme.wxss — 主题色与设计令牌 (Spec §1) */
 page {
-  --table-green: #0b6e4f;
+  --table-green: #2B6CB0;
   --chip-red: #c8102e;
   --gold: #c9a961;
-  --bg: #f5f2ea;
+  --bg: #F7F9FC;
   --card: #ffffff;
   --text: #1a1a1a;
   --text-sub: #666666;
-  --border: #e5e0d3;
+  --border: #E2E8F0;
   --danger: #c8102e;
-  --success: #0b6e4f;
+  --success: #2B6CB0;
   --radius-sm: 8rpx;
   --radius-md: 16rpx;
   --radius-lg: 24rpx;

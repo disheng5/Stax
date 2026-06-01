@@ -105,7 +105,7 @@
 .preset.active {
   border-color: var(--table-green);
   color: var(--table-green);
-  background: rgba(11, 110, 79, 0.08);
+  background: rgba(43, 108, 176, 0.08);
 }
 
 .share-row {
@@ -141,7 +141,7 @@
   width: 100%;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--table-green);
+  background: #1A1B2E;
 }
 
 .poster-actions {

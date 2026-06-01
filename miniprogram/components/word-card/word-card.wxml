@@ -1,0 +1,19 @@
+<view class="word-card" bindlongpress="onLongPress">
+  <view class="card-header">
+    <text class="card-title">每日一字</text>
+    <text class="card-date">{{dateDisplay}}</text>
+  </view>
+  <view class="card-body {{animating ? 'fade-in' : ''}}">
+    <view class="word-main">{{word}}</view>
+    <view class="word-note">「{{note}}」</view>
+  </view>
+  <view class="card-footer">
+    <button class="share-btn" open-type="share">分享</button>
+  </view>
+
+  <view class="yesterday-tip" wx:if="{{showYesterday}}">
+    <text class="yesterday-label">昨日一字</text>
+    <text class="yesterday-word">{{yesterdayWord}}</text>
+    <text class="yesterday-note">「{{yesterdayNote}}」</text>
+  </view>
+</view>

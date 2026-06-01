@@ -1,9 +1,28 @@
 <view class="container">
-  <view class="legend">
-    <view class="legend-item" wx:for="{{legend}}" wx:key="tier">
-      <view class="dot {{item.tier}}"></view><text>{{item.label}}</text>
+  <view class="card filter-card">
+    <view class="filter-row">
+      <text class="filter-label">人数</text>
+      <view class="filter-options">
+        <view class="filter-btn {{playerCount === item ? 'active' : ''}}" wx:for="{{playerCounts}}" wx:key="*this"
+          data-n="{{item}}" bindtap="onPlayerCountChange">{{item}}</view>
+      </view>
+    </view>
+    <view class="filter-row">
+      <text class="filter-label">位置</text>
+      <view class="filter-options">
+        <view class="filter-btn pos-btn {{position === item ? 'active' : ''}}" wx:for="{{positions}}" wx:key="*this"
+          data-pos="{{item}}" bindtap="onPositionChange">{{item}}</view>
+      </view>
     </view>
   </view>
+
+  <view class="legend">
+    <view class="legend-item" wx:for="{{legend}}" wx:key="tier">
+      <view class="dot {{item.tier}}"></view>
+      <text class="legend-label">{{item.label}}</text>
+    </view>
+  </view>
+
   <view class="grid">
     <block wx:for="{{matrix}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
       <view class="cell {{cell.tier}}" wx:for="{{row}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci"
@@ -14,10 +33,10 @@
 
   <view class="popup" wx:if="{{picked}}" bindtap="onClosePicked">
     <view class="popup-card" catchtap>
-      <view class="hand">{{picked.hand}}</view>
-      <view class="tier {{picked.tier}}">{{picked.tier}}</view>
-      <view class="rec text-sub">{{picked.recommendation || ''}}</view>
-      <button class="btn btn--ghost" bindtap="onClosePicked">关闭</button>
+      <view class="popup-hand">{{picked.hand}}</view>
+      <view class="popup-tier tier-{{picked.tier}}">{{picked.tierLabel}}</view>
+      <view class="popup-advice text-sub">{{picked.advice}}</view>
+      <button class="btn btn--ghost" style="margin-top:24rpx;" bindtap="onClosePicked">知道了</button>
     </view>
   </view>
 </view>
