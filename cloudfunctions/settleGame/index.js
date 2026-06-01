@@ -179,6 +179,23 @@ exports.main = async event => {
           })
       }
     }
+
+    // 触发圈子赛季积分更新（非阻塞，不影响结算结果）
+    try {
+      const playerOpenids = players.map(p => p.openid)
+      const circlesRes = await db
+        .collection('circles')
+        .where({ status: 'active', memberOpenids: _.in(playerOpenids) })
+        .limit(20)
+        .get()
+      for (const c of circlesRes.data || []) {
+        cloud
+          .callFunction({ name: 'calcSeasonScore', data: { circleId: c._id } })
+          .catch(e => console.error('[calcSeasonScore]', c._id, e))
+      }
+    } catch (err) {
+      console.error('[calcSeasonScore trigger]', err)
+    }
   }
 
   return {

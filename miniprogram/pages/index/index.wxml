@@ -1,24 +1,18 @@
 <view class="container">
-  <view class="hero" bindlongpress="onLongPressHero">
+  <view class="hero">
     <view class="hero-top">
       <view class="hero-brand">
         <view class="logo">StaxKit</view>
         <view class="slogan">Hold'em, held right.</view>
       </view>
       <view class="daily-badge" wx:if="{{dailyWord.word}}" bindtap="onTapDailyWord">
-        <text class="daily-label">今日一字</text>
+        <text class="daily-label">每日一字</text>
         <text class="daily-word">{{dailyWord.word}}</text>
       </view>
     </view>
     <view class="hero-actions">
       <view class="action-btn action-btn--primary" bindtap="onCreate">开局</view>
       <view class="action-btn action-btn--ghost" bindtap="onJoin">加入</view>
-    </view>
-
-    <view class="yesterday-mask" wx:if="{{showYesterday}}" catchtap="onHideYesterday">
-      <text class="yd-label">昨日</text>
-      <text class="yd-word">{{yesterdayWord.word}}</text>
-      <text class="yd-note">「{{yesterdayWord.note}}」</text>
     </view>
   </view>
 
@@ -49,8 +43,8 @@
   <view class="word-popup" wx:if="{{showWordPopup}}" catchtap="onHideWordPopup">
     <view class="word-popup-card" catchtap="noop">
       <view class="wp-word">{{dailyWord.word}}</view>
-      <view class="wp-note">「{{dailyWord.note}}」</view>
-      <view class="wp-hint">今日气场关键词 · 长按卡片查看昨日</view>
+      <view class="wp-divider"></view>
+      <view class="wp-verse">{{dailyWord.verse}}</view>
     </view>
   </view>
 </view>

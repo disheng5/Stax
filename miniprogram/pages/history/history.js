@@ -10,6 +10,7 @@ Page({
     loading: true,
     deleting: false,
     showChart: false,
+    chartRange: 'r30',
     dim: 'players',
     dimData: []
   },
@@ -97,8 +98,25 @@ Page({
     const sorted = games
       .slice()
       .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
+    this._allSorted = sorted
+    this._chartOpenid = openid
+    this._applyChartRange(sorted, openid)
+  },
+
+  _applyChartRange(sorted, openid) {
+    const range = this.data.chartRange
+    let filtered = sorted
+    if (range === 'r10') {
+      filtered = sorted.slice(-10)
+    } else if (range === 'r30') {
+      filtered = sorted.slice(-30)
+    } else if (range === 'm3') {
+      const cutoff = new Date()
+      cutoff.setMonth(cutoff.getMonth() - 3)
+      filtered = sorted.filter(g => new Date(g.endedAt || g.startedAt) >= cutoff)
+    }
     let cum = 0
-    const points = sorted.slice(-30).map(g => {
+    const points = filtered.map(g => {
       const me = (g.players || []).find(p => p.openid === openid)
       const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
       const score = Math.round((me?.finalProfit ?? me?.profit ?? 0) / ratio)
@@ -106,9 +124,15 @@ Page({
       return { x: formatDate(g.endedAt || g.startedAt).slice(5), y: cum }
     })
     this.setData({ points })
-    if (points.length > 0) {
-      this.setData({ showChart: true })
-    }
+    if (points.length > 0) this.setData({ showChart: true })
+  },
+
+  onChartRangeChange(e) {
+    this.setData({ chartRange: e.currentTarget.dataset.k }, () => {
+      if (this._allSorted && this._chartOpenid) {
+        this._applyChartRange(this._allSorted, this._chartOpenid)
+      }
+    })
   },
 
   onToggleChart() {

@@ -23,8 +23,6 @@
   </view>
 
   <view wx:else>
-    <button class="btn btn--ghost btn--block" bindtap="onScan">扫码加入</button>
-    <view style="height: 24rpx" />
     <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">加入</button>
   </view>
 </view>

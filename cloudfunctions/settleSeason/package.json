@@ -1,0 +1,16 @@
+{
+  "name": "settleSeason",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "triggers": [
+    {
+      "name": "dailySettle",
+      "type": "timer",
+      "config": "0 0 0 * * * *"
+    }
+  ]
+}

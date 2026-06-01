@@ -1,0 +1,145 @@
+const app = getApp()
+
+Page({
+  data: {
+    circleId: '',
+    circle: null,
+    season: null,
+    ranked: [],
+    unranked: [],
+    members: [],
+    isOwner: false,
+    daysLeft: 0,
+    loading: true
+  },
+
+  onLoad(options) {
+    this.setData({ circleId: options.id || '' })
+  },
+
+  async onShow() {
+    await this._fetch()
+  },
+
+  async _fetch() {
+    const openid = app.globalData.openid
+    if (!this.data.circleId) return
+    try {
+      const db = wx.cloud.database()
+      const got = await db.collection('circles').doc(this.data.circleId).get()
+      const circle = got.data
+      const isOwner = circle.ownerOpenid === openid
+      let season = null,
+        ranked = [],
+        unranked = [],
+        daysLeft = 0
+
+      if (circle.currentSeasonId) {
+        const s = await db
+          .collection('seasons')
+          .doc(circle.currentSeasonId)
+          .get()
+          .catch(() => null)
+        if (s && s.data) {
+          season = s.data
+          const now = new Date()
+          daysLeft = Math.max(0, Math.ceil((new Date(s.data.endAt) - now) / (24 * 60 * 60 * 1000)))
+          ranked = (s.data.rankings || []).filter(r => r.rank > 0).sort((a, b) => a.rank - b.rank)
+          unranked = (s.data.rankings || []).filter(r => r.rank === 0)
+        }
+      }
+
+      this.setData({ circle, season, ranked, unranked, isOwner, daysLeft, loading: false })
+      this._buildMembers(circle, season)
+    } catch (err) {
+      console.error(err)
+      this.setData({ loading: false })
+    }
+  },
+
+  onCopyCode() {
+    wx.setClipboardData({
+      data: this.data.circle.inviteCode,
+      success: () => wx.showToast({ title: '邀请码已复制' })
+    })
+  },
+
+  _buildMembers(circle, season) {
+    // 从排名数据里拿昵称（云函数已经查好），未上榜成员用占位名
+    const rankMap = {}
+    if (season) {
+      ;(season.rankings || []).forEach(r => {
+        rankMap[r.openid] = r.nickname
+      })
+    }
+    const members = (circle.memberOpenids || []).map(openid => ({
+      openid,
+      nickname: rankMap[openid] || '成员'
+    }))
+    this.setData({ members })
+  },
+
+  onHistory() {
+    wx.navigateTo({ url: '/pages/circle-history/circle-history?id=' + this.data.circleId })
+  },
+
+  onLeave() {
+    wx.showModal({
+      title: '退出圈子',
+      content: '退出后不再参与排名，已有积分保留。',
+      confirmText: '退出',
+      confirmColor: '#C8102E',
+      success: async r => {
+        if (!r.confirm) return
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'leaveCircle',
+            data: { circleId: this.data.circleId }
+          })
+          if (res.result?.ok) {
+            wx.showToast({ title: '已退出' })
+            wx.navigateBack()
+          } else {
+            wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+          }
+        } catch (_) {
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  onDissolve() {
+    wx.showModal({
+      title: '解散圈子',
+      content: '解散后所有成员将无法查看此圈子。',
+      confirmText: '解散',
+      confirmColor: '#C8102E',
+      success: async r => {
+        if (!r.confirm) return
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'dissolveCircle',
+            data: { circleId: this.data.circleId }
+          })
+          if (res.result?.ok) {
+            wx.showToast({ title: '已解散' })
+            wx.navigateBack()
+          } else {
+            wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+          }
+        } catch (_) {
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  onShareAppMessage() {
+    const c = this.data.circle
+    return {
+      title: `来「${c.name}」一起切磋，看看谁是魁首`,
+      path: `/pages/circle-join/circle-join?code=${c.inviteCode}`
+    }
+  }
+})

@@ -2,7 +2,7 @@
 const app = getApp()
 const { formatProfit, formatDate } = require('../../utils/format.js')
 const SUNZI = require('../../utils/sunzi.js')
-const { getDailyWord, getYesterdayWord } = require('../../utils/dailyWord.js')
+const { getDailyWord } = require('../../utils/dailyWord.js')
 
 Page({
   data: {
@@ -11,9 +11,7 @@ Page({
     myStats: null,
     myOpenid: '',
     quote: { text: '', from: '' },
-    dailyWord: { word: '', note: '', date: '' },
-    showYesterday: false,
-    yesterdayWord: { word: '', note: '' },
+    dailyWord: { word: '', note: '', date: '', verse: '' },
     showWordPopup: false
   },
 
@@ -36,10 +34,7 @@ Page({
 
   _loadDailyWord() {
     const openid = app.globalData.openid || ''
-    this.setData({
-      dailyWord: getDailyWord(openid),
-      yesterdayWord: getYesterdayWord(openid)
-    })
+    this.setData({ dailyWord: getDailyWord(openid) })
   },
 
   _checkProfileGuide() {
@@ -140,17 +135,6 @@ Page({
     wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
   },
 
-  onLongPressHero() {
-    this.setData({ showYesterday: true })
-    clearTimeout(this._ydTimer)
-    this._ydTimer = setTimeout(() => this.setData({ showYesterday: false }), 2500)
-  },
-
-  onHideYesterday() {
-    clearTimeout(this._ydTimer)
-    this.setData({ showYesterday: false })
-  },
-
   onShareAppMessage() {
     const dw = this.data.dailyWord
     if (dw.word) {
@@ -160,7 +144,7 @@ Page({
       }
     }
     const s = this.data.myStats
-    let title = 'StaxKit — 朋友局德州扑克记账神器'
+    let title = 'StaxKit — 朋友局记账神器'
     if (s && s.totalGames >= 3) {
       const pf = formatProfit(s.totalProfit || 0)
       title = `我用 StaxKit 记了 ${s.totalGames} 局，累计 ${pf}，来一起打牌？`

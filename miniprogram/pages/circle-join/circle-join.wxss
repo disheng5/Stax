@@ -1,0 +1,4 @@
+.label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 12rpx; }
+.code-input { font-size: 36rpx; letter-spacing: 8rpx; padding: 16rpx 0; border-bottom: 2rpx solid var(--border); text-align: center; }
+.btn { margin-top: 32rpx; }
+.tip { text-align: center; margin-top: 20rpx; font-size: 22rpx; }

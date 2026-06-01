@@ -1,0 +1,67 @@
+<view class="container" wx:if="{{circle}}">
+  <!-- 顶部信息 -->
+  <view class="header card">
+    <view class="header-top">
+      <view class="circle-name">{{circle.name}}</view>
+      <button class="share-chip" open-type="share">邀请好友</button>
+    </view>
+    <view class="header-meta text-sub">
+      <text>{{circle.memberOpenids.length}} 人</text>
+      <text class="dot">·</text>
+      <text class="code-text" bindtap="onCopyCode">{{circle.inviteCode}}</text>
+    </view>
+  </view>
+
+  <!-- 赛季 -->
+  <view class="season-card card" wx:if="{{season}}">
+    <view class="season-top">
+      <view class="season-name">{{season.seasonName}}</view>
+      <view class="season-remain">剩 {{daysLeft}} 天</view>
+    </view>
+    <view class="season-sub text-sub" bindtap="onHistory">前贤录 ›</view>
+  </view>
+  <view class="season-card card" wx:else>
+    <view class="season-name text-sub">赛季未启动</view>
+    <view class="season-sub text-sub">打一场合规局即可开启（≥4人、≥20分钟）</view>
+  </view>
+
+  <!-- 排名榜 -->
+  <view class="card ranking-card" wx:if="{{ranked.length}}">
+    <view class="rank-item" wx:for="{{ranked}}" wx:key="openid">
+      <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.rank}}</view>
+      <view class="rank-info">
+        <view class="rank-name">{{item.nickname}}</view>
+        <view class="rank-title" wx:if="{{item.title}}">{{item.title}}</view>
+      </view>
+      <view class="rank-score {{item.profitBB >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
+    </view>
+
+    <view class="rank-divider" wx:if="{{unranked.length}}">—— 上榜线 ——</view>
+    <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid">
+      <view class="rank-badge rank-n">-</view>
+      <view class="rank-info">
+        <view class="rank-name">{{item.nickname}}</view>
+        <view class="rank-hint text-sub" wx:if="{{item.games < 3}}">再打 {{3 - item.games}} 场可上榜</view>
+        <view class="rank-hint text-sub" wx:else>积分计算中</view>
+      </view>
+      <view class="rank-score text-sub">{{item.profitBB}} BB</view>
+    </view>
+  </view>
+  <view class="card empty-rank" wx:elif="{{!loading}}">
+    <view class="text-sub">暂无排名，打一场就能开始积分</view>
+  </view>
+
+  <!-- 成员 -->
+  <view class="card members-card" wx:if="{{members.length}}">
+    <view class="members-title text-sub">成员</view>
+    <view class="member-list">
+      <view class="member-tag" wx:for="{{members}}" wx:key="openid">{{item.nickname}}</view>
+    </view>
+  </view>
+
+  <!-- 操作区 -->
+  <view class="footer-actions">
+    <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出圈子</view>
+    <view class="footer-link danger" wx:if="{{isOwner}}" bindtap="onDissolve">解散圈子</view>
+  </view>
+</view>

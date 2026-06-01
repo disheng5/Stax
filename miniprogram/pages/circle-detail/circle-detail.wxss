@@ -1,0 +1,44 @@
+/* 顶部信息卡 */
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12rpx; }
+.circle-name { font-size: 36rpx; font-weight: 700; flex: 1; min-width: 0; }
+.share-chip { font-size: 22rpx; color: var(--table-green); background: rgba(43,108,176,0.08); padding: 8rpx 20rpx; border-radius: 16rpx; border: none; line-height: 1.5; min-height: 0; flex-shrink: 0; }
+.share-chip::after { border: none; }
+.header-meta { display: flex; align-items: center; gap: 8rpx; font-size: 22rpx; }
+.dot { color: var(--text-sub); }
+.code-text { color: var(--table-green); font-weight: 500; }
+
+/* 赛季卡 */
+.season-card { margin-bottom: 0; }
+.season-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8rpx; }
+.season-name { font-size: 28rpx; font-weight: 600; }
+.season-remain { font-size: 22rpx; color: var(--text-sub); }
+.season-sub { font-size: 22rpx; color: var(--table-green); }
+
+/* 排名榜 */
+.ranking-card { padding: 8rpx 28rpx; }
+.rank-item { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
+.rank-item:last-child { border: none; }
+.rank-badge { width: 44rpx; height: 44rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22rpx; font-weight: 700; color: #fff; flex-shrink: 0; }
+.rank-1 { background: #c8102e; }
+.rank-2 { background: #c9a961; }
+.rank-3 { background: #2B6CB0; }
+.rank-n { background: var(--border); color: var(--text-sub); }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 28rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-title { font-size: 20rpx; color: #c8102e; font-weight: 600; margin-top: 2rpx; }
+.rank-hint { font-size: 20rpx; margin-top: 2rpx; }
+.rank-score { font-size: 28rpx; font-weight: 700; flex-shrink: 0; }
+.rank-divider { text-align: center; padding: 14rpx 0; font-size: 22rpx; color: var(--text-sub); border-bottom: 1rpx solid var(--border); }
+.unranked { opacity: 0.6; }
+.empty-rank { text-align: center; padding: 32rpx 0; }
+
+/* 成员 */
+.members-card { }
+.members-title { font-size: 22rpx; margin-bottom: 16rpx; }
+.member-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.member-tag { background: var(--border); border-radius: 24rpx; padding: 6rpx 18rpx; font-size: 24rpx; color: var(--text-sub); }
+
+/* 页脚操作 */
+.footer-actions { margin-top: 40rpx; padding: 0 4rpx 40rpx; text-align: center; }
+.footer-link { font-size: 24rpx; color: var(--text-sub); padding: 16rpx 0; }
+.footer-link.danger { color: var(--danger); }

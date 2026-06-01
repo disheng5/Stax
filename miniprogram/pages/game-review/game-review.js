@@ -34,26 +34,32 @@ Page({
         loading: false
       })
     } catch (err) {
-      wx.hideLoading(); console.error(err)
+      wx.hideLoading()
+      console.error(err)
       wx.showToast({ title: '网络异常', icon: 'none' })
       this.setData({ loading: false })
     }
   },
 
   onCopy() {
-    wx.setClipboardData({ data: this.data.review, success: () => wx.showToast({ title: '已复制' }) })
+    wx.setClipboardData({
+      data: this.data.review,
+      success: () => wx.showToast({ title: '已复制' })
+    })
   },
 
-  async onRetry() { await this._fetch() },
+  async onRetry() {
+    await this._fetch()
+  },
 
   onShareAppMessage() {
     const f = this.data.facts || {}
-    let title = 'Stax AI 给我的牌局点评，看看准不准 😎'
+    let title = 'StaxKit AI 点评我的战绩，看看准不准'
     if (f.bigWinner) {
-      title = `今晚 MVP 是 ${f.bigWinner.nickname}，独吞 ${f.bigWinner.profit} —— Stax AI 复盘`
+      title = `今晚 MVP 是 ${f.bigWinner.nickname}，独吞 ${f.bigWinner.profit} —— StaxKit AI 复盘`
     } else if (f.me && f.me.profit !== undefined) {
       const v = f.me.profit
-      title = v > 0 ? `我今晚 +${v}，AI 怎么夸我的？戳进来看 🍻` : `我今晚 ${v}，AI 都看不下去了 😅`
+      title = v > 0 ? `我今晚 +${v}，AI 怎么夸我的？` : `我今晚 ${v}，AI 都看不下去了`
     }
     return { title, path: '/pages/index/index' }
   }

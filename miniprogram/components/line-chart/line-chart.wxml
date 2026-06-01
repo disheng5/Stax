@@ -1,8 +1,8 @@
-<view class="chart-root" style="height:{{height}}px;">
+<view class="chart-root" style="height:{{heightRpx}}rpx;">
   <view wx:if="{{empty}}" class="chart-empty">
     <text class="chart-empty-text">暂无数据，打完第一局就能看到趋势</text>
   </view>
-  <view wx:else class="chart-body" style="height:{{height}}px;">
+  <view wx:else class="chart-body" style="height:{{heightRpx}}rpx;">
     <view class="y-label" wx:for="{{yLabels}}" wx:key="label"
       style="top:{{item.top}};">{{item.label}}</view>
     <view class="seg" wx:for="{{segments}}" wx:key="index"

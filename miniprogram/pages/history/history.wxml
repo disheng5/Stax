@@ -33,10 +33,16 @@
     <!-- 趋势图 -->
     <view class="card chart-card">
       <view class="section-head" bindtap="onToggleChart">
-        <view class="section-title">盈亏趋势（近 30 局）</view>
+        <view class="section-title">盈亏趋势</view>
         <view class="text-sub">{{showChart ? '收起' : '展开'}}</view>
       </view>
       <view class="chart-wrap {{showChart ? 'chart-open' : 'chart-closed'}}">
+        <scroll-view scroll-x class="chart-range-tabs">
+          <view class="chart-range-btn {{chartRange === 'r10' ? 'active' : ''}}" data-k="r10" bindtap="onChartRangeChange">近10局</view>
+          <view class="chart-range-btn {{chartRange === 'r30' ? 'active' : ''}}" data-k="r30" bindtap="onChartRangeChange">近30局</view>
+          <view class="chart-range-btn {{chartRange === 'm3' ? 'active' : ''}}"  data-k="m3"  bindtap="onChartRangeChange">近3月</view>
+          <view class="chart-range-btn {{chartRange === 'all' ? 'active' : ''}}" data-k="all" bindtap="onChartRangeChange">全部</view>
+        </scroll-view>
         <line-chart points="{{points}}" height="180" color="#2B6CB0" />
       </view>
     </view>

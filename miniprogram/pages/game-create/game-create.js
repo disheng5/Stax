@@ -3,6 +3,28 @@ const { formatDate } = require('../../utils/format.js')
 const { readLocalProfile } = require('../../utils/user.js')
 const app = getApp()
 
+const NAME_ADJECTIVES = [
+  '深夜',
+  '周末',
+  '欢乐',
+  '激烈',
+  '经典',
+  '传奇',
+  '硬核',
+  '友谊',
+  '神秘',
+  '必胜'
+]
+const NAME_NOUNS = ['局', '约局', '夜局', '桌局', '鏖战', '对局', '切磋', '江湖局']
+
+function genGameName(nickname) {
+  const adj = NAME_ADJECTIVES[Math.floor(Math.random() * NAME_ADJECTIVES.length)]
+  const noun = NAME_NOUNS[Math.floor(Math.random() * NAME_NOUNS.length)]
+  const dateStr = formatDate(new Date()).slice(5)
+  const host = nickname ? nickname + '的' : ''
+  return `${host}${adj}${noun}（${dateStr}）`
+}
+
 Page({
   data: {
     name: '',
@@ -19,8 +41,10 @@ Page({
 
   onLoad() {
     const def = app.globalData.defaultBlind || { sb: 5, bb: 5, blindUpMinutes: 999 }
+    const profile = readLocalProfile() || {}
+    const nickname = profile.nickname || app.globalData.userDoc?.nickname || ''
     this.setData({
-      name: formatDate(new Date()) + ' 牌局',
+      name: genGameName(nickname),
       buyIn: app.globalData.defaultBuyIn || 500,
       smallBlind: def.sb || 5,
       bigBlind: def.bb || 5,

@@ -8,6 +8,14 @@ Component({
   observers: {
     points: function (pts) {
       this._build(pts)
+    },
+    height: function (h) {
+      this.setData({ heightRpx: (h || 180) * 2 })
+    }
+  },
+  lifetimes: {
+    attached() {
+      this.setData({ heightRpx: (this.data.height || 180) * 2 })
     }
   },
   methods: {
@@ -97,6 +105,7 @@ Component({
     dots: [],
     yLabels: [],
     xLabels: [],
-    empty: true
+    empty: true,
+    heightRpx: 360
   }
 })

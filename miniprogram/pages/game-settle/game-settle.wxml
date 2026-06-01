@@ -34,14 +34,14 @@
 
   <view class="card {{submitted ? 'muted-card' : ''}}">
     <view class="title">2. 其他费用</view>
-    <view class="text-sub" style="margin-bottom:12rpx;">只记录费用怎么分，不影响真实水上水下和积分。</view>
+    <view class="text-sub" style="margin-bottom:12rpx;">只记录费用如何分摊，不影响每人的实际盈亏积分。</view>
     <view class="row aa-row">
       <text class="label">总额</text>
       <input class="num" type="digit" placeholder="0" value="{{extraCost || ''}}" bindinput="onExtraCostInput" />
     </view>
     <view class="presets" wx:if="{{extraCost > 0}}">
       <view class="preset {{expenseMode === 'all' ? 'active' : ''}}" data-k="all" bindtap="onExpenseModeChange">全员AA</view>
-      <view class="preset {{expenseMode === 'winner' ? 'active' : ''}}" data-k="winner" bindtap="onExpenseModeChange">水上AA</view>
+      <view class="preset {{expenseMode === 'winner' ? 'active' : ''}}" data-k="winner" bindtap="onExpenseModeChange">水上按比例</view>
     </view>
     <view wx:if="{{extraCost > 0}}" style="margin-top:16rpx;">
       <view class="share-row" wx:for="{{shares}}" wx:key="openid">

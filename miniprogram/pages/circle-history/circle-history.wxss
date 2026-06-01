@@ -1,0 +1,6 @@
+.season-item { margin-bottom: 12rpx; }
+.season-name { font-size: 26rpx; font-weight: 600; margin-bottom: 12rpx; }
+.champion-row { display: flex; align-items: center; gap: 12rpx; }
+.champion-label { font-size: 22rpx; color: #c8102e; font-weight: 600; }
+.champion-name { font-size: 28rpx; flex: 1; }
+.champion-bb { font-size: 28rpx; font-weight: 700; }

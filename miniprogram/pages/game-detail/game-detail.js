@@ -49,6 +49,7 @@ Page({
   },
 
   onUnload() {
+    clearTimeout(this._watchRetryTimer)
     if (this.watcher) {
       try {
         this.watcher.close()
@@ -79,23 +80,26 @@ Page({
       this.setData({ loading: false })
       return
     }
+    if (this.watcher) {
+      try {
+        this.watcher.close()
+      } catch (_) {}
+      this.watcher = null
+    }
+    this._watchRetries = this._watchRetries || 0
     this.watcher = db
       .collection('games')
       .doc(this.data.gameId)
       .watch({
         onChange: snapshot => {
+          this._watchRetries = 0
           if (snapshot.docs && snapshot.docs.length) {
             const game = snapshot.docs[0]
             const myOpenid = this.data.myOpenid
             const isHost = !!myOpenid && game.hostOpenid === myOpenid
             const isPlayer = !!myOpenid && (game.players || []).some(p => p.openid === myOpenid)
-            this.setData({
-              game,
-              isHost,
-              isPlayer,
-              viewerMode: !isPlayer,
-              loading: false
-            })
+            this.setData({ game, isHost, isPlayer, viewerMode: !isPlayer, loading: false })
+            this._resolveAvatars(game.players)
             this._fetchRecentTx()
           } else {
             this.setData({ game: null, loading: false })
@@ -104,7 +108,15 @@ Page({
         onError: err => {
           console.error('[watch] error', err)
           this.setData({ loading: false })
-          wx.showToast({ title: '实时同步失败，请重试', icon: 'none' })
+          this.watcher = null
+          if (this._watchRetries < 3) {
+            this._watchRetries++
+            const delay = this._watchRetries * 2000
+            clearTimeout(this._watchRetryTimer)
+            this._watchRetryTimer = setTimeout(() => this._startWatch(), delay)
+          } else {
+            wx.showToast({ title: '同步连接断开，请刷新页面', icon: 'none', duration: 3000 })
+          }
         }
       })
   },
@@ -171,8 +183,42 @@ Page({
     }
   },
 
+  async _resolveAvatars(players) {
+    if (!this._resolvedAvatars) this._resolvedAvatars = {}
+    const cloudIds = (players || [])
+      .filter(p => p.avatar && p.avatar.startsWith('cloud://') && !this._resolvedAvatars[p.avatar])
+      .map(p => p.avatar)
+    const unique = [...new Set(cloudIds)]
+    if (!unique.length) {
+      // 已全部缓存，直接替换
+      const updated = (this.data.game?.players || []).map(p => {
+        if (p.avatar && this._resolvedAvatars[p.avatar])
+          return { ...p, avatar: this._resolvedAvatars[p.avatar] }
+        return p
+      })
+      this.setData({ 'game.players': updated })
+      return
+    }
+    try {
+      const res = await wx.cloud.getTempFileURL({ fileList: unique })
+      ;(res.fileList || []).forEach(f => {
+        if (f.tempFileURL) this._resolvedAvatars[f.fileID] = f.tempFileURL
+      })
+      const updated = (this.data.game?.players || []).map(p => {
+        if (p.avatar && this._resolvedAvatars[p.avatar])
+          return { ...p, avatar: this._resolvedAvatars[p.avatar] }
+        return p
+      })
+      this.setData({ 'game.players': updated })
+    } catch (err) {
+      console.error('[resolveAvatars]', err)
+    }
+  },
+
   // ===== 操作 =====
   async _record(type, playerOpenid, amount = 0, extra = {}) {
+    if (this._recording) return
+    this._recording = true
     wx.showLoading({ title: '处理中…' })
     try {
       const res = await wx.cloud.callFunction({
@@ -196,6 +242,8 @@ Page({
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '网络异常', icon: 'none' })
+    } finally {
+      this._recording = false
     }
   },
 

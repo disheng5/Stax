@@ -1,0 +1,3 @@
+.label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 12rpx; }
+.name-input { font-size: 32rpx; padding: 16rpx 0; border-bottom: 2rpx solid var(--border); }
+.btn { margin-top: 32rpx; }

@@ -3,8 +3,8 @@ const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
 
 const HAND_SCORES = {}
 ;(function buildScores() {
-  const top = ['AA', 'KK', 'QQ', 'JJ', 'AKs']
-  const strong = ['TT', '99', 'AQs', 'AJs', 'KQs', 'AKo', 'ATs', 'KJs', 'QJs']
+  const top = ['AA', 'KK', 'QQ', 'JJ'] // 只有这4手是真正的"夯"
+  const strong = ['AKs', 'TT', '99', 'AQs', 'AJs', 'KQs', 'AKo', 'ATs', 'KJs', 'QJs']
   const playable = [
     '88',
     '77',
@@ -134,13 +134,14 @@ const TIER_META = {
 
 function getTier(hand, position, playerCount) {
   const score = HAND_SCORES[hand] || 1
+  if (score === 1) return 'trash' // 未收录手牌（72o 等）一律弃牌
   const threshold = POS_THRESHOLD[position] || 2
   const countAdj = (playerCount - 6) * 0.2
   const adjThreshold = threshold + countAdj
   if (score >= 5) return 'premium'
   if (score >= Math.max(adjThreshold + 0.5, 4)) return 'strong'
-  if (score >= adjThreshold) return 'playable'
-  if (score >= adjThreshold - 1) return 'marginal'
+  if (score >= adjThreshold && score >= 3) return 'playable' // score=2 手牌不能升到playable
+  if (score >= Math.max(adjThreshold - 1, 2)) return 'marginal'
   return 'trash'
 }
 

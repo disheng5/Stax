@@ -1,0 +1,14 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="text-sub" style="text-align:center;padding:60rpx 0;">加载中…</view>
+
+  <view wx:elif="{{!seasons.length}}" class="text-sub" style="text-align:center;padding:60rpx 0;">暂无往季记录</view>
+
+  <view class="card season-item" wx:for="{{seasons}}" wx:key="_id">
+    <view class="season-name">{{item.seasonName}}</view>
+    <view class="champion-row">
+      <text class="champion-label">魁首</text>
+      <text class="champion-name">{{item.championNickname}}</text>
+      <text class="champion-bb text-success">+{{item.championBB}} BB</text>
+    </view>
+  </view>
+</view>

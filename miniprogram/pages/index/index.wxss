@@ -163,30 +163,32 @@
   background: #FDFBF6;
   border: 2rpx solid #C9A961;
   border-radius: var(--radius-lg);
-  padding: 56rpx 48rpx;
-  width: 68vw;
+  padding: 64rpx 48rpx 48rpx;
+  width: 66vw;
   text-align: center;
 }
 
 .wp-word {
-  font-size: 120rpx;
+  font-size: 144rpx;
   font-weight: 900;
   color: #1A1A1A;
   font-family: serif;
-  line-height: 1.1;
-  margin-bottom: 16rpx;
+  line-height: 1;
+  margin-bottom: 28rpx;
 }
 
-.wp-note {
-  font-size: 30rpx;
-  color: #555;
-  font-style: italic;
-  margin-bottom: 20rpx;
+.wp-divider {
+  width: 48rpx;
+  height: 2rpx;
+  background: #C9A961;
+  margin: 0 auto 24rpx;
+  opacity: 0.6;
 }
 
-.wp-hint {
-  font-size: 20rpx;
-  color: #C9A961;
-  letter-spacing: 1rpx;
-  line-height: 1.5;
+.wp-verse {
+  font-size: 28rpx;
+  color: #888;
+  letter-spacing: 2rpx;
+  line-height: 1.8;
+  font-family: serif;
 }

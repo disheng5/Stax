@@ -1,6 +1,11 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/circle-index/circle-index",
+    "pages/circle-detail/circle-detail",
+    "pages/circle-create/circle-create",
+    "pages/circle-join/circle-join",
+    "pages/circle-history/circle-history",
     "pages/game-create/game-create",
     "pages/game-join/game-join",
     "pages/game-detail/game-detail",
@@ -35,6 +40,12 @@
         "text": "首页",
         "iconPath": "images/tab-home.png",
         "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/circle-index/circle-index",
+        "text": "江湖",
+        "iconPath": "images/tab-learn.png",
+        "selectedIconPath": "images/tab-learn-active.png"
       },
       {
         "pagePath": "pages/profile/profile",

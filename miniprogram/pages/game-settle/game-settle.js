@@ -193,6 +193,7 @@ Page({
           error ||
           '结算失败'
         wx.showToast({ title: msg, icon: 'none' })
+        this.setData({ submitting: false })
         return
       }
       if (game) {

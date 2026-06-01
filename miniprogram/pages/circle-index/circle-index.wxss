@@ -1,0 +1,59 @@
+.loading-hint { text-align: center; padding: 80rpx 0; }
+.section-title { font-size: 24rpx; color: var(--text-sub); margin-bottom: 16rpx; }
+
+.circle-row { padding: 24rpx 28rpx; margin-bottom: 12rpx; }
+.circle-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6rpx; }
+.circle-name { font-size: 30rpx; font-weight: 600; flex: 1; min-width: 0; }
+.circle-rank { font-size: 22rpx; color: var(--table-green); font-weight: 500; flex-shrink: 0; margin-left: 12rpx; }
+.circle-meta { font-size: 22rpx; color: var(--text-sub); }
+
+.join-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24rpx;
+  gap: 0;
+}
+
+.join-btn {
+  font-size: 24rpx;
+  color: var(--table-green);
+  padding: 8rpx 28rpx;
+}
+
+.join-divider {
+  width: 1rpx;
+  height: 24rpx;
+  background: var(--border);
+}
+
+/* 空态 */
+.empty-card {
+  text-align: center;
+  padding: 64rpx 48rpx;
+  margin-top: 80rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.empty-sub {
+  font-size: 24rpx;
+  margin-bottom: 48rpx;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 20rpx;
+  justify-content: center;
+}
+
+.empty-actions .btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 28rpx;
+}
