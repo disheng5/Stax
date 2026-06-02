@@ -4,24 +4,20 @@ Page({
   data: { circles: [], loading: true },
 
   async onShow() {
-    await this._ensureOpenid()
-    await this._fetch()
-  },
-
-  async _ensureOpenid() {
-    if (app.globalData.openid) return
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     try {
-      const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
-      if (res?.result?.openid) app.globalData.openid = res.result.openid
-    } catch (_) {}
+      await app.globalData.openidReady
+      await this._fetch()
+    } catch (err) {
+      console.error('[circle-index onShow]', err)
+    } finally {
+      this.setData({ loading: false })
+    }
   },
 
   async _fetch() {
     const openid = app.globalData.openid
-    if (!openid) {
-      this.setData({ loading: false })
-      return
-    }
+    if (!openid) return
     try {
       const db = wx.cloud.database()
       const _ = db.command
@@ -32,7 +28,6 @@ Page({
         .limit(20)
         .get()
 
-      // 并行查所有赛季
       const seasonFetches = res.data.map(c => {
         if (!c.currentSeasonId) return Promise.resolve(null)
         return db
@@ -57,10 +52,10 @@ Page({
         }
         return { ...c, seasonInfo, myRank }
       })
-      this.setData({ circles, loading: false })
+      this.setData({ circles })
+      this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)
-      this.setData({ loading: false })
     }
   },
 

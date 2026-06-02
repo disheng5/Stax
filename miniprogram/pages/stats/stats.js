@@ -1,6 +1,6 @@
-// pages/stats/stats.js — 维度分析
 const app = getApp()
 const { formatProfit } = require('../../utils/format.js')
+const { fetchAllGames } = require('../../utils/game-data.js')
 
 Page({
   data: {
@@ -11,35 +11,20 @@ Page({
   },
 
   async onShow() {
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     await this._fetchAll()
   },
 
   async _fetchAll() {
     this.setData({ loading: true })
     try {
-      const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
-      const openid = res.result.openid
-      app.globalData.openid = openid
-
-      const db = wx.cloud.database()
-      const _ = db.command
-      const all = []
-      for (let skip = 0; skip < 200; skip += 20) {
-        const r = await db
-          .collection('games')
-          .where({ status: 'ended', players: _.elemMatch({ openid }) })
-          .orderBy('endedAt', 'asc')
-          .skip(skip)
-          .limit(20)
-          .get()
-        all.push(...r.data)
-        if (r.data.length < 20) break
-      }
-      const filtered = all.filter(
-        g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
-      )
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
+      if (!openid) return
+      const filtered = await fetchAllGames(openid)
       this.setData({ rawGames: filtered })
       this._computeDim(openid)
+      this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)
     } finally {

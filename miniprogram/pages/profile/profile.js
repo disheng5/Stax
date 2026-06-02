@@ -1,5 +1,5 @@
-// pages/profile/profile.js — 我的（采用 chooseAvatar + nickname 新规范）
 const app = getApp()
+const { fetchAllGames } = require('../../utils/game-data.js')
 
 const DEFAULT_AVATAR = '/images/default-avatar.png'
 
@@ -20,23 +20,24 @@ Page({
   },
 
   async onShow() {
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     this.setData({ demoMode: !!app.globalData.demoMode })
     const cached = wx.getStorageSync('user_profile') || {}
     if (cached.nickname) this.setData({ nickname: cached.nickname })
     if (cached.avatarUrl) this.setData({ avatarUrl: cached.avatarUrl })
     await this._refresh()
+    this._lastFetch = Date.now()
   },
 
   async _refresh() {
     try {
-      const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
-      const user = res?.result?.user
-      const openid = res.result.openid
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
+      const user = app.globalData.userDoc
+      if (!openid) return
       if (user?.nickname && !this.data.nickname) this.setData({ nickname: user.nickname })
       if (user?.avatar && this.data.avatarUrl === DEFAULT_AVATAR)
         this.setData({ avatarUrl: user.avatar })
-      app.globalData.openid = openid
-      app.globalData.userDoc = user
       await this._computeRealStats(openid)
     } catch (err) {
       console.error(err)
@@ -45,23 +46,7 @@ Page({
 
   async _computeRealStats(openid) {
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      const all = []
-      for (let skip = 0; skip < 200; skip += 20) {
-        const r = await db
-          .collection('games')
-          .where({ status: 'ended', players: _.elemMatch({ openid }) })
-          .orderBy('endedAt', 'asc')
-          .skip(skip)
-          .limit(20)
-          .get()
-        all.push(...r.data)
-        if (r.data.length < 20) break
-      }
-      const filtered = all.filter(
-        g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
-      )
+      const filtered = await fetchAllGames(openid)
       let totalProfit = 0,
         biggestWin = 0,
         biggestLoss = 0,
@@ -85,7 +70,6 @@ Page({
     }
   },
 
-  // ===== 新规范：chooseAvatar =====
   onChooseAvatar(e) {
     const { avatarUrl } = e.detail
     this.setData({ avatarUrl, editing: true })
@@ -103,7 +87,6 @@ Page({
     }
 
     let avatarUrl = this.data.avatarUrl
-    // 如果是临时文件，需上传云存储拿到 fileID
     if (avatarUrl && !avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('/')) {
       try {
         wx.showLoading({ title: '上传头像…' })
@@ -129,7 +112,9 @@ Page({
       })
       wx.setStorageSync('user_profile', { nickname, avatarUrl })
       app.globalData.userInfo = { nickName: nickname, avatarUrl }
+      app.globalData.userDoc = { ...(app.globalData.userDoc || {}), nickname, avatar: avatarUrl }
       this.setData({ editing: false, avatarUrl })
+      this._lastFetch = 0
       wx.hideLoading()
       wx.showToast({ title: '已保存', icon: 'success' })
     } catch (err) {
@@ -164,6 +149,7 @@ Page({
     wx.clearStorageSync()
     wx.showToast({ title: '已清除', icon: 'success' })
     this.setData({ avatarUrl: DEFAULT_AVATAR, nickname: '' })
+    this._lastFetch = 0
   },
 
   onResetDemo() {
@@ -174,6 +160,7 @@ Page({
         if (!r.confirm) return
         app.resetDemo()
         wx.showToast({ title: '已重置', icon: 'success' })
+        this._lastFetch = 0
         setTimeout(() => this._refresh(), 100)
       }
     })

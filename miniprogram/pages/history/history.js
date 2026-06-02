@@ -1,5 +1,5 @@
-// pages/history/history.js — 战绩 + 数据统计合并页
 const { formatDate, formatDuration, formatProfit } = require('../../utils/format.js')
+const { fetchAllGames, invalidateGamesCache } = require('../../utils/game-data.js')
 const app = getApp()
 
 Page({
@@ -16,39 +16,17 @@ Page({
   },
 
   async onShow() {
-    if (!app.globalData.openid) {
-      try {
-        const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
-        if (res?.result?.openid) app.globalData.openid = res.result.openid
-      } catch (_) {}
-    }
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     await this._fetch()
   },
 
-  async _fetch() {
-    const openid = app.globalData.openid
-    if (!openid) {
-      this.setData({ loading: false })
-      return
-    }
+  async _fetch(force = false) {
+    this.setData({ loading: true })
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      const all = []
-      for (let skip = 0; skip < 200; skip += 20) {
-        const r = await db
-          .collection('games')
-          .where({ status: 'ended', players: _.elemMatch({ openid }) })
-          .orderBy('endedAt', 'desc')
-          .skip(skip)
-          .limit(20)
-          .get()
-        all.push(...r.data)
-        if (r.data.length < 20) break
-      }
-      const filtered = all.filter(
-        g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
-      )
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
+      if (!openid) return
+      const filtered = await fetchAllGames(openid, { force })
       const games = filtered.map(g => {
         const me = (g.players || []).find(p => p.openid === openid) || {}
         const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
@@ -65,6 +43,7 @@ Page({
         }
       })
       this.setData({ games, loading: false })
+      this._lastFetch = Date.now()
       this._computeStats(openid, filtered)
       this._computeChart(openid, filtered)
       this._computeDim(openid, filtered)
@@ -210,7 +189,9 @@ Page({
             return
           }
           wx.showToast({ title: '已删除' })
-          await this._fetch()
+          invalidateGamesCache()
+          this._lastFetch = 0
+          await this._fetch(true)
         } catch (err) {
           wx.hideLoading()
           wx.showToast({ title: '网络异常', icon: 'none' })

@@ -39,7 +39,6 @@ Page({
 
   onShow() {
     if (!this.watcher && this.data.gameId) this._startWatch()
-    if (this.data.gameId) this._fetchRecentTx()
     if (this.data.game && this.data.myOpenid) {
       const isPlayer = (this.data.game.players || []).some(p => p.openid === this.data.myOpenid)
       if (isPlayer && this.data.viewerMode) {
@@ -189,30 +188,26 @@ Page({
       .filter(p => p.avatar && p.avatar.startsWith('cloud://') && !this._resolvedAvatars[p.avatar])
       .map(p => p.avatar)
     const unique = [...new Set(cloudIds)]
-    if (!unique.length) {
-      // 已全部缓存，直接替换
-      const updated = (this.data.game?.players || []).map(p => {
-        if (p.avatar && this._resolvedAvatars[p.avatar])
-          return { ...p, avatar: this._resolvedAvatars[p.avatar] }
-        return p
-      })
-      this.setData({ 'game.players': updated })
-      return
+    if (unique.length) {
+      try {
+        const res = await wx.cloud.getTempFileURL({ fileList: unique })
+        ;(res.fileList || []).forEach(f => {
+          if (f.tempFileURL) this._resolvedAvatars[f.fileID] = f.tempFileURL
+        })
+      } catch (err) {
+        console.error('[resolveAvatars]', err)
+        return
+      }
     }
-    try {
-      const res = await wx.cloud.getTempFileURL({ fileList: unique })
-      ;(res.fileList || []).forEach(f => {
-        if (f.tempFileURL) this._resolvedAvatars[f.fileID] = f.tempFileURL
-      })
-      const updated = (this.data.game?.players || []).map(p => {
-        if (p.avatar && this._resolvedAvatars[p.avatar])
-          return { ...p, avatar: this._resolvedAvatars[p.avatar] }
-        return p
-      })
-      this.setData({ 'game.players': updated })
-    } catch (err) {
-      console.error('[resolveAvatars]', err)
-    }
+    const updated = (this.data.game?.players || []).map(p => {
+      if (p.avatar && this._resolvedAvatars[p.avatar])
+        return { ...p, avatar: this._resolvedAvatars[p.avatar] }
+      return p
+    })
+    const hasChange = updated.some(
+      (p, i) => p.avatar !== (this.data.game?.players || [])[i]?.avatar
+    )
+    if (hasChange) this.setData({ 'game.players': updated })
   },
 
   // ===== 操作 =====

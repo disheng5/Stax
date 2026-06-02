@@ -1,4 +1,3 @@
-// pages/index/index.js — 首页
 const app = getApp()
 const { formatProfit, formatDate } = require('../../utils/format.js')
 const SUNZI = require('../../utils/sunzi.js')
@@ -20,15 +19,19 @@ Page({
   },
 
   async onShow() {
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     try {
-      await this._ensureOpenid()
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
+      if (openid) this.setData({ myOpenid: openid })
       this._loadDailyWord()
-      await this._fetchRecent()
-      await this._fetchStats()
+      await Promise.all([this._fetchRecent(openid), this._fetchStats()])
       this._checkProfileGuide()
     } catch (err) {
       console.error('[onShow]', err)
+    } finally {
       this.setData({ loading: false })
+      this._lastFetch = Date.now()
     }
   },
 
@@ -47,29 +50,8 @@ Page({
     }
   },
 
-  async _ensureOpenid() {
-    if (app.globalData.openid) {
-      this.setData({ myOpenid: app.globalData.openid })
-      return
-    }
-    try {
-      const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
-      if (res?.result?.openid) {
-        app.globalData.openid = res.result.openid
-        app.globalData.userDoc = res.result.user
-        this.setData({ myOpenid: res.result.openid })
-      }
-    } catch (err) {
-      console.error('[whoami]', err)
-    }
-  },
-
-  async _fetchRecent() {
-    const openid = app.globalData.openid
-    if (!openid) {
-      this.setData({ loading: false })
-      return
-    }
+  async _fetchRecent(openid) {
+    if (!openid) return
     try {
       const db = wx.cloud.database()
       const _ = db.command
@@ -102,10 +84,9 @@ Page({
             _dateStr: formatDate(g.endedAt || g.startedAt)
           }
         })
-      this.setData({ recentGames: [...ongoing, ...ended].slice(0, 8), loading: false })
+      this.setData({ recentGames: [...ongoing, ...ended].slice(0, 8) })
     } catch (err) {
       console.error(err)
-      this.setData({ loading: false })
     }
   },
 
