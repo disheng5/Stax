@@ -40,5 +40,6 @@
 
 /* 页脚操作 */
 .footer-actions { margin-top: 40rpx; padding: 0 4rpx 40rpx; text-align: center; }
-.footer-link { font-size: 24rpx; color: var(--text-sub); padding: 16rpx 0; }
+.owner-actions { display: flex; flex-direction: column; gap: 20rpx; align-items: center; }
+.footer-link { font-size: 24rpx; color: var(--text-sub); padding: 8rpx 0; }
 .footer-link.danger { color: var(--danger); }

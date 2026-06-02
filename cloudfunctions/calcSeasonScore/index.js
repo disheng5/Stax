@@ -98,6 +98,7 @@ async function calcForCircle(circleId) {
   const MIN_PLAYERS = 4
   const MIN_DURATION_MS = 20 * 60 * 1000
   const qualifiedGames = allGames.filter(g => {
+    if (g.excludeFromSeason) return false
     if ((g.players || []).length < MIN_PLAYERS) return false
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
     if (dur < MIN_DURATION_MS) return false

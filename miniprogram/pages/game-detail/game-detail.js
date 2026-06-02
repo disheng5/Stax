@@ -461,6 +461,32 @@ Page({
     }
   },
 
+  async onToggleExclude() {
+    const exclude = !this.data.game.excludeFromSeason
+    const action = exclude ? '排除' : '恢复'
+    wx.showModal({
+      title: `${action}本局`,
+      content: exclude ? '该局将不计入圈子赛季积分。' : '该局将重新计入圈子赛季积分。',
+      confirmText: action,
+      success: async r => {
+        if (!r.confirm) return
+        wx.showLoading({ title: '处理中…' })
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'excludeGame',
+            data: { gameId: this.data.gameId, exclude }
+          })
+          wx.hideLoading()
+          if (res.result?.ok) wx.showToast({ title: `已${action}` })
+          else wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+        } catch (_) {
+          wx.hideLoading()
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        }
+      }
+    })
+  },
+
   onShareAppMessage() {
     const g = this.data.game
     const playerN = g?.players?.length || 0

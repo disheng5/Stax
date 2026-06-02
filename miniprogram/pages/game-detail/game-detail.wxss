@@ -340,3 +340,6 @@
 
 .hands-btn.cancel { background: rgba(0,0,0,0.05); color: var(--text-sub); }
 .hands-btn.confirm { background: var(--table-green); color: #fff; }
+
+.exclude-card { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 28rpx; margin-top: 16rpx; }
+.exclude-btn { font-size: 24rpx; color: var(--table-green); }

@@ -93,6 +93,11 @@
       <button class="btn btn--danger settle-btn" bindtap="onEndGame">结算</button>
     </view>
   </view>
+
+  <view class="card exclude-card" wx:if="{{isHost && game.status === 'ended'}}">
+    <view class="text-sub">{{game.excludeFromSeason ? '本局已排除赛季积分计算' : '本局计入赛季积分'}}</view>
+    <view class="exclude-btn" bindtap="onToggleExclude">{{game.excludeFromSeason ? '恢复计入' : '排除本局'}}</view>
+  </view>
 </view>
 
 <empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />

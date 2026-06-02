@@ -62,6 +62,9 @@
   <!-- 操作区 -->
   <view class="footer-actions">
     <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出圈子</view>
-    <view class="footer-link danger" wx:if="{{isOwner}}" bindtap="onDissolve">解散圈子</view>
+    <view wx:if="{{isOwner}}" class="owner-actions">
+      <view class="footer-link" wx:if="{{season}}" bindtap="onResetSeason">重置本季积分</view>
+      <view class="footer-link danger" bindtap="onDissolve">解散圈子</view>
+    </view>
   </view>
 </view>

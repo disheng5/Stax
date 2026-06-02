@@ -109,6 +109,39 @@ Page({
     })
   },
 
+  onResetSeason() {
+    wx.showModal({
+      title: '重置本季积分',
+      content: '将清空当前赛季所有积分并重新计算，确定吗？',
+      confirmText: '重置',
+      confirmColor: '#C8102E',
+      success: async r => {
+        if (!r.confirm) return
+        wx.showLoading({ title: '重置中…' })
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'resetSeason',
+            data: { circleId: this.data.circleId }
+          })
+          wx.hideLoading()
+          if (res.result?.ok) {
+            wx.showToast({ title: '已重置，积分重新计算中' })
+            setTimeout(() => this._fetch(), 1500)
+          } else {
+            const msg =
+              res.result?.error === 'NO_ACTIVE_SEASON'
+                ? '当前无进行中赛季'
+                : res.result?.error || '操作失败'
+            wx.showToast({ title: msg, icon: 'none' })
+          }
+        } catch (_) {
+          wx.hideLoading()
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        }
+      }
+    })
+  },
+
   onDissolve() {
     wx.showModal({
       title: '解散圈子',
