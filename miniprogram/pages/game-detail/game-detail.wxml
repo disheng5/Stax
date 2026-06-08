@@ -89,7 +89,7 @@
           </view>
           <text>{{item.nickname}}</text>
         </view>
-        <text class="result-cell-sub">{{item.buyInCount}}手 {{item.totalBuyIn}}</text>
+        <text class="result-cell-sub">{{item.buyInCount}}手 · {{item.finalStack}}</text>
         <text class="result-profit {{item.profit > 0 ? 'text-gold' : item.profit < 0 ? 'text-danger' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</text>
       </view>
     </view>
