@@ -499,36 +499,48 @@ Page({
       wx.showToast({ title: '缺少邀请码', icon: 'none' })
       return
     }
-    this.setData({ joining: true })
-    wx.showLoading({ title: '上桌中…' })
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'joinGame',
-        data: {
-          inviteCode: code,
-          nickname: profile.nickname || '玩家',
-          avatar: profile.avatar || '',
-          mode: 'player'
+    wx.showModal({
+      title: '上桌几手？',
+      editable: true,
+      placeholderText: '1',
+      content: `每手 ${this.data.game.buyIn} 筹码`,
+      confirmText: '上桌',
+      success: async r => {
+        if (!r.confirm) return
+        const hands = Math.max(1, Math.floor(Number(r.content || 1) || 1))
+        this.setData({ joining: true })
+        wx.showLoading({ title: '上桌中…' })
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'joinGame',
+            data: {
+              inviteCode: code,
+              nickname: profile.nickname || '玩家',
+              avatar: profile.avatar || '',
+              mode: 'player',
+              hands
+            }
+          })
+          wx.hideLoading()
+          const { ok, error, alreadyJoined } = res.result || {}
+          if (!ok) {
+            wx.showToast({
+              title: error === 'GAME_NOT_FOUND' ? '牌局已结束' : error || '上桌失败',
+              icon: 'none'
+            })
+            return
+          }
+          if (alreadyJoined) wx.showToast({ title: '你已经在桌上', icon: 'none' })
+          this.setData({ viewerMode: false })
+        } catch (err) {
+          wx.hideLoading()
+          console.error(err)
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        } finally {
+          this.setData({ joining: false })
         }
-      })
-      wx.hideLoading()
-      const { ok, error, alreadyJoined } = res.result || {}
-      if (!ok) {
-        wx.showToast({
-          title: error === 'GAME_NOT_FOUND' ? '牌局已结束' : error || '上桌失败',
-          icon: 'none'
-        })
-        return
       }
-      if (alreadyJoined) wx.showToast({ title: '你已经在桌上', icon: 'none' })
-      this.setData({ viewerMode: false })
-    } catch (err) {
-      wx.hideLoading()
-      console.error(err)
-      wx.showToast({ title: '网络异常', icon: 'none' })
-    } finally {
-      this.setData({ joining: false })
-    }
+    })
   },
 
   async onToggleExclude() {

@@ -6,7 +6,7 @@ const _ = db.command
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { inviteCode, nickname = '玩家', avatar = '', mode = 'player' } = event
+  const { inviteCode, nickname = '玩家', avatar = '', mode = 'player', hands = 1 } = event
 
   if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
 
@@ -23,7 +23,7 @@ exports.main = async event => {
   const exists = (game.players || []).find(p => p.openid === OPENID)
   if (exists) return { ok: true, gameId: game._id, alreadyJoined: true }
 
-  // 从 users 表获取最新昵称和头像（fileID），保证其他用户能看到
+  // 从 users 表获取最新昵称和头像，保证其他用户能看到
   let finalNickname = nickname
   let finalAvatar = avatar
   try {
@@ -35,14 +35,16 @@ exports.main = async event => {
     }
   } catch (_) {}
 
+  const buyHands = Math.max(1, Math.floor(Number(hands) || 1))
+  const amount = game.buyIn * buyHands
   const now = new Date()
   const player = {
     openid: OPENID,
     nickname: finalNickname,
     avatar: finalAvatar,
-    buyInCount: 1,
-    totalBuyIn: game.buyIn,
-    currentStack: game.buyIn,
+    buyInCount: buyHands,
+    totalBuyIn: amount,
+    currentStack: amount,
     finalStack: null,
     profit: 0,
     joinedAt: now,
@@ -55,7 +57,7 @@ exports.main = async event => {
     .update({
       data: {
         players: _.push([player]),
-        totalPot: _.inc(game.buyIn)
+        totalPot: _.inc(amount)
       }
     })
 
@@ -64,9 +66,10 @@ exports.main = async event => {
       gameId: game._id,
       type: 'buyIn',
       playerOpenid: OPENID,
-      amount: game.buyIn,
+      amount,
       operatorOpenid: OPENID,
-      timestamp: now
+      timestamp: now,
+      meta: { hands: buyHands }
     }
   })
 

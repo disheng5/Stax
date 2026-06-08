@@ -89,6 +89,26 @@ Page({
       })
       return
     }
+    if (profile.nickname && mode === 'player') {
+      wx.showModal({
+        title: '上桌几手？',
+        editable: true,
+        placeholderText: '1',
+        content: `每手 ${this.data.game?.buyIn || '?'} 筹码`,
+        confirmText: '上桌',
+        success: async r => {
+          if (!r.confirm) return
+          const hands = Math.max(1, Math.floor(Number(r.content || 1) || 1))
+          await this._doJoin(mode, hands)
+        }
+      })
+      return
+    }
+    await this._doJoin(mode, 1)
+  },
+
+  async _doJoin(mode, hands = 1) {
+    const profile = readLocalProfile()
     this.setData({ submitting: true })
     wx.showLoading({ title: mode === 'viewer' ? '进入中…' : '上桌中…' })
     try {
@@ -98,7 +118,8 @@ Page({
           inviteCode: this.data.code,
           nickname: profile.nickname || '玩家',
           avatar: profile.avatar || '',
-          mode
+          mode,
+          hands
         }
       })
       wx.hideLoading()
