@@ -635,6 +635,10 @@ Page({
     })
   },
 
+  onShare() {
+    wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
+  },
+
   onShareAppMessage() {
     const g = this.data.game
     const playerN = g?.players?.length || 0

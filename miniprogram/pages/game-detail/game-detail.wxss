@@ -12,19 +12,10 @@
   font-size: 24rpx;
 }
 
-.share-wrap {
-  flex-shrink: 0;
-}
-
 .share-btn {
-  display: block;
-  width: auto;
+  flex-shrink: 0;
   height: 52rpx;
   padding: 0 24rpx;
-  margin: 0;
-  border: none;
-  box-shadow: none;
-  outline: none;
   border-radius: var(--radius-sm);
   background: var(--table-green);
   color: #fff;
@@ -32,8 +23,6 @@
   font-weight: 600;
   line-height: 52rpx;
 }
-
-.share-btn::after { display: none; }
 
 .notice {
   margin-bottom: 20rpx;
