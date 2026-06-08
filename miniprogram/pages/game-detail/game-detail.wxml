@@ -1,26 +1,28 @@
 <view class="container" wx:if="{{game}}">
-  <view class="game-top card">
-    <view class="top-title">{{game.name || 'StaxKit 牌局'}}</view>
-    <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · 码:积 {{game.scoreRatio}}:1</text></view>
-    <view class="top-actions">
-      <button class="btn btn--primary share-invite-btn" open-type="share">邀请好友</button>
-    </view>
+  <view class="game-info">
+    <text class="info-text">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · {{game.scoreRatio}}:1</text></text>
+    <button class="share-btn" open-type="share" wx:if="{{game.status === 'ongoing'}}">邀请</button>
   </view>
 
-  <view class="notice" wx:if="{{game.players.length <= 1}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
+  <view class="notice" wx:if="{{game.players.length <= 1 && game.status === 'ongoing'}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
 
-  <view class="viewer-note card" wx:if="{{viewerMode && !isPlayer}}">
+  <view class="viewer-note card" wx:if="{{viewerMode && !isPlayer && game.status === 'ongoing'}}">
     <view class="viewer-title">朋友邀你加入</view>
-    <view class="text-sub">点击下方按钮直接上桌，或继续围观。</view>
-    <view class="viewer-actions">
-      <button class="btn btn--primary" bindtap="onJoinAsPlayer" disabled="{{joining}}">上桌</button>
-    </view>
+    <view class="text-sub">点击下方按钮直接上桌</view>
+    <button class="btn btn--primary" bindtap="onJoinAsPlayer" disabled="{{joining}}" style="margin-top:16rpx;">上桌</button>
   </view>
 
-  <view class="section-head">
+  <view class="section-head" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">
     <view class="section-title">积分情况</view>
-    <view class="text-sub">{{game.checkedOutCount || 0}}/{{game.players.length}} 已下桌</view>
+    <view class="quick-actions">
+      <view class="quick-btn primary" bindtap="onQuickBuy">买入</view>
+      <view class="quick-btn ghost" bindtap="onQuickSettle">结算</view>
+    </view>
   </view>
+  <view class="section-head" wx:else>
+    <view class="section-title">积分情况</view>
+  </view>
+
   <view class="table-head">
     <text>玩家</text>
     <text>手数</text>
@@ -37,6 +39,13 @@
       />
   </view>
 
+  <view class="settle-bar" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
+    <text>未结算: {{game.players.length - (game.checkedOutCount || 0)}}</text>
+    <text wx:if="{{allCheckedOut}}" class="{{settleDiff === 0 ? 'text-success' : 'text-danger'}}">
+      {{settleDiff === 0 ? '水平' : '差额 ' + settleDiff}}
+    </text>
+  </view>
+
   <view class="section-title" wx:if="{{recentTx.length}}">流水记录</view>
   <view class="card tx-list" wx:if="{{recentTx.length}}">
     <view class="tx {{tx.revoked ? 'revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
@@ -44,37 +53,21 @@
         <view class="tx-line">
           <text class="tx-type">{{txTypeLabel[tx.type]}}</text>
           <text class="tx-name">{{tx.nickname}}</text>
-          <text class="tx-by text-sub" wx:if="{{!tx.byHost && (tx.type === 'rebuy' || tx.type === 'addOn')}}">自助</text>
           <text class="tx-time text-sub">{{tx.timeStr}}</text>
         </view>
         <view class="tx-sub text-sub" wx:if="{{tx.type === 'buyIn' || tx.type === 'rebuy' || tx.type === 'addOn'}}">
-          买了 {{tx.hands}} 手 · 共 {{tx.accHands}} 手 · 总码量 {{tx.accAmount}}
+          {{tx.hands}} 手 · 共 {{tx.accHands}} 手 · 总码量 {{tx.accAmount}}
         </view>
         <view class="tx-sub text-sub" wx:elif="{{tx.type === 'settlePartial' || tx.type === 'settle'}}">
-          下桌筹码 {{tx.amount}}
+          结算筹码 {{tx.amount}}
         </view>
       </view>
       <text class="text-sub" wx:if="{{tx.revoked}}">已撤销</text>
     </view>
   </view>
 
-  <view class="card settle-status" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
-    <view class="settle-status-title">下桌进度 {{game.checkedOutCount || 0}}/{{game.players.length}}</view>
-    <view class="settle-status-diff {{settleDiff === 0 ? 'balanced' : 'unbalanced'}}" wx:if="{{allCheckedOut}}">
-      差额：<text class="{{settleDiff === 0 ? 'text-success' : 'text-danger'}}">{{settleDiff > 0 ? '+' : ''}}{{settleDiff}}</text>
-      <text wx:if="{{settleDiff === 0}}" class="text-success"> 水平</text>
-    </view>
-    <view class="text-sub" wx:elif="{{!allCheckedOut}}">等待所有玩家填写下桌筹码</view>
-  </view>
-
-  <view class="host-panel" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">
-    <view class="settle-entry card" wx:if="{{isHost}}">
-      <view>
-        <view class="settle-title">结束对局</view>
-        <view class="text-sub">所有人下桌后，处理费用并结束牌局</view>
-      </view>
-      <button class="btn btn--danger settle-btn" bindtap="onEndGame">结算</button>
-    </view>
+  <view class="host-panel" wx:if="{{isHost && !viewerMode && game.status === 'ongoing' && allCheckedOut && settleDiff === 0}}">
+    <button class="btn btn--danger btn--block" bindtap="onEndGame">结束对局</button>
   </view>
 
   <view class="card exclude-card" wx:if="{{isHost && game.status === 'ended'}}">
@@ -90,7 +83,7 @@
   <view class="hands-sheet" catchtap="onHandsStop">
     <view class="hands-title">{{handsPicker.title}} 几手</view>
     <view class="hands-row">
-      <view class="hands-step minus {{handsPicker.hands <= 1 ? 'disabled' : ''}}" bindtap="onHandsMinus">−</view>
+      <view class="hands-step minus {{handsPicker.hands <= 1 ? 'disabled' : ''}}" bindtap="onHandsMinus">-</view>
       <input class="hands-input" type="number" value="{{handsPicker.hands}}" bindinput="onHandsInput" confirm-type="done" />
       <view class="hands-step plus {{handsPicker.hands >= 99 ? 'disabled' : ''}}" bindtap="onHandsPlus">+</view>
     </view>

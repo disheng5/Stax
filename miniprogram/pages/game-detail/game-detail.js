@@ -335,6 +335,16 @@ Page({
     }
   },
 
+  onQuickBuy() {
+    this._promptAmount('买入', this.data.myOpenid, 'rebuy')
+  },
+
+  onQuickSettle() {
+    const me = (this.data.game?.players || []).find(p => p.openid === this.data.myOpenid)
+    if (!me) return
+    this._doSettle(this.data.myOpenid, me)
+  },
+
   onPlayerTap(e) {
     const { openid, player, isSelf } = e.detail
     if (this.data.game?.status !== 'ongoing') return
