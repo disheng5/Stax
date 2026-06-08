@@ -20,7 +20,8 @@ Page({
   },
 
   async onShow() {
-    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000 && !this._dirty) return
+    this._dirty = false
     this.setData({ demoMode: !!app.globalData.demoMode })
     const cached = wx.getStorageSync('user_profile') || {}
     if (cached.nickname) this.setData({ nickname: cached.nickname })

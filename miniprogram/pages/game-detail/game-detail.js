@@ -184,26 +184,70 @@ Page({
 
   async _resolveAvatars(players) {
     if (!this._resolvedAvatars) this._resolvedAvatars = {}
-    const cloudIds = (players || [])
-      .filter(p => p.avatar && p.avatar.startsWith('cloud://') && !this._resolvedAvatars[p.avatar])
-      .map(p => p.avatar)
-    const unique = [...new Set(cloudIds)]
-    if (unique.length) {
-      try {
-        const res = await wx.cloud.getTempFileURL({ fileList: unique })
-        ;(res.fileList || []).forEach(f => {
-          if (f.tempFileURL) this._resolvedAvatars[f.fileID] = f.tempFileURL
-        })
-      } catch (err) {
-        console.error('[resolveAvatars]', err)
-        return
+    const needTempUrl = []
+    const needFetch = []
+
+    ;(players || []).forEach(p => {
+      if (p.avatar && p.avatar.startsWith('cloud://')) {
+        if (!this._resolvedAvatars[p.avatar]) needTempUrl.push(p.avatar)
+      } else if (!p.avatar || p.avatar === '/images/default-avatar.png') {
+        if (!this._resolvedAvatars['fetched_' + p.openid]) needFetch.push(p.openid)
       }
+    })
+
+    const tasks = []
+
+    if (needTempUrl.length) {
+      const unique = [...new Set(needTempUrl)]
+      tasks.push(
+        wx.cloud
+          .getTempFileURL({ fileList: unique })
+          .then(res => {
+            ;(res.fileList || []).forEach(f => {
+              if (f.tempFileURL) this._resolvedAvatars[f.fileID] = f.tempFileURL
+            })
+          })
+          .catch(() => {})
+      )
     }
+
+    if (needFetch.length) {
+      const unique = [...new Set(needFetch)]
+      tasks.push(
+        wx.cloud
+          .callFunction({ name: 'getAvatars', data: { openids: unique } })
+          .then(res => {
+            const avatarMap = (res.result && res.result.avatars) || {}
+            Object.keys(avatarMap).forEach(openid => {
+              this._resolvedAvatars['fetched_' + openid] = avatarMap[openid] || ''
+            })
+            unique.forEach(openid => {
+              if (!this._resolvedAvatars['fetched_' + openid]) {
+                this._resolvedAvatars['fetched_' + openid] = ''
+              }
+            })
+          })
+          .catch(() => {
+            needFetch.forEach(openid => {
+              this._resolvedAvatars['fetched_' + openid] = ''
+            })
+          })
+      )
+    }
+
+    if (tasks.length) await Promise.all(tasks)
+
     const updated = (this.data.game?.players || []).map(p => {
-      if (p.avatar && this._resolvedAvatars[p.avatar])
+      if (p.avatar && p.avatar.startsWith('cloud://') && this._resolvedAvatars[p.avatar]) {
         return { ...p, avatar: this._resolvedAvatars[p.avatar] }
+      }
+      if (!p.avatar || p.avatar === '/images/default-avatar.png') {
+        const fetched = this._resolvedAvatars['fetched_' + p.openid]
+        if (fetched) return { ...p, avatar: fetched }
+      }
       return p
     })
+
     const hasChange = updated.some(
       (p, i) => p.avatar !== (this.data.game?.players || [])[i]?.avatar
     )
@@ -417,6 +461,19 @@ Page({
   async onJoinAsPlayer() {
     if (this.data.joining) return
     if (!this.data.game) return
+    const { readLocalProfile } = require('../../utils/user.js')
+    const profile = readLocalProfile() || {}
+    if (!profile.nickname) {
+      wx.showModal({
+        title: '先完善资料',
+        content: '设置昵称和头像后，牌友才能认出你',
+        confirmText: '去设置',
+        success: r => {
+          if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })
+        }
+      })
+      return
+    }
     const code = this.data.inviteCode || this.data.game.inviteCode
     if (!code) {
       wx.showToast({ title: '缺少邀请码', icon: 'none' })
@@ -425,8 +482,6 @@ Page({
     this.setData({ joining: true })
     wx.showLoading({ title: '上桌中…' })
     try {
-      const { readLocalProfile } = require('../../utils/user.js')
-      const profile = readLocalProfile() || {}
       const res = await wx.cloud.callFunction({
         name: 'joinGame',
         data: {
