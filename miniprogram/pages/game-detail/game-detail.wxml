@@ -45,10 +45,19 @@
   </view>
 
   <view class="settle-bar" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
-    <text>未结算: {{game.players.length - (game.checkedOutCount || 0)}}</text>
-    <text wx:if="{{allCheckedOut}}" class="{{settleDiff === 0 ? 'text-success' : 'text-danger'}}">
-      {{settleDiff === 0 ? '水平' : '差额 ' + settleDiff}}
-    </text>
+    <view class="settle-bar-left">
+      <view wx:if="{{allCheckedOut && settleDiff === 0}}" class="settle-check">
+        <text class="check-icon">✓</text>
+        <text class="check-text">账平</text>
+      </view>
+      <text wx:elif="{{allCheckedOut}}" class="text-danger">差额 {{settleDiff}}</text>
+      <text wx:else class="text-sub">已结算 {{game.checkedOutCount || 0}}/{{game.players.length}}</text>
+    </view>
+    <view class="settle-bar-right" wx:if="{{aboveTotal > 0 || belowTotal < 0}}">
+      <text class="text-success" wx:if="{{aboveTotal > 0}}">水上: +{{aboveTotal}}</text>
+      <text class="settle-bar-sep" wx:if="{{aboveTotal > 0 && belowTotal < 0}}">  </text>
+      <text class="text-danger" wx:if="{{belowTotal < 0}}">水下: {{belowTotal}}</text>
+    </view>
   </view>
 
   <view class="host-panel" wx:if="{{isHost && !viewerMode && game.status === 'ongoing' && allCheckedOut && settleDiff === 0}}">
@@ -94,19 +103,14 @@
     </view>
 
     <view class="result-waterline">
-      <view class="waterline-item">
-        <text class="waterline-num text-gold">{{settleResult.aboveCount}}</text>
-        <text class="waterline-label">水上</text>
+      <view class="result-waterline-left">
+        <text class="check-icon result-check-icon">✓</text>
+        <text class="result-check-text">账平</text>
       </view>
-      <view class="waterline-divider"></view>
-      <view class="waterline-item">
-        <text class="waterline-num" style="color:rgba(255,255,255,0.6)">{{settleResult.evenCount}}</text>
-        <text class="waterline-label">水平</text>
-      </view>
-      <view class="waterline-divider"></view>
-      <view class="waterline-item">
-        <text class="waterline-num text-danger">{{settleResult.belowCount}}</text>
-        <text class="waterline-label">水下</text>
+      <view class="result-waterline-right">
+        <text class="result-above" wx:if="{{settleResult.aboveTotal > 0}}">水上: +{{settleResult.aboveTotal}}</text>
+        <text class="result-sep">  </text>
+        <text class="result-below" wx:if="{{settleResult.belowTotal < 0}}">水下: {{settleResult.belowTotal}}</text>
       </view>
     </view>
   </view>

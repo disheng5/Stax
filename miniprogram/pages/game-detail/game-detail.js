@@ -29,6 +29,8 @@ Page({
     handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 },
     allCheckedOut: false,
     settleDiff: 0,
+    aboveTotal: 0,
+    belowTotal: 0,
     finalPanel: { show: false, extraCost: 0, expenseMode: 'all', submitting: false },
     settleResult: null
   },
@@ -171,10 +173,15 @@ Page({
     const checkedOut = players.filter(p => p.finalStack !== null && p.finalStack !== undefined)
     const allCheckedOut = players.length > 0 && checkedOut.length === players.length
     let settleDiff = 0
-    if (allCheckedOut) {
-      settleDiff = players.reduce((s, p) => s + (p.finalStack - p.totalBuyIn), 0)
-    }
-    this.setData({ allCheckedOut, settleDiff })
+    let aboveTotal = 0
+    let belowTotal = 0
+    checkedOut.forEach(p => {
+      const profit = p.finalStack - p.totalBuyIn
+      if (profit > 0) aboveTotal += profit
+      else if (profit < 0) belowTotal += profit
+      if (allCheckedOut) settleDiff += profit
+    })
+    this.setData({ allCheckedOut, settleDiff, aboveTotal, belowTotal })
   },
 
   async _fetchRecentTx() {
@@ -648,6 +655,8 @@ Page({
     const aboveCount = profitList.filter(p => p.profit > 0).length
     const evenCount = profitList.filter(p => p.profit === 0).length
     const belowCount = profitList.filter(p => p.profit < 0).length
+    const aboveTotal = profitList.filter(p => p.profit > 0).reduce((s, p) => s + p.profit, 0)
+    const belowTotal = profitList.filter(p => p.profit < 0).reduce((s, p) => s + p.profit, 0)
     const totalPot = profitList.reduce((s, p) => s + p.totalBuyIn, 0)
     const rawGame = Array.isArray(gameOrPlayers) ? this.data.game : gameOrPlayers
     let duration = '--'
@@ -676,6 +685,8 @@ Page({
         aboveCount,
         evenCount,
         belowCount,
+        aboveTotal,
+        belowTotal,
         totalPot,
         duration,
         quote,
