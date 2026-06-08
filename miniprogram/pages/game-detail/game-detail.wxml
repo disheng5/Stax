@@ -92,12 +92,6 @@
     <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
     </view>
-
-    <view class="result-quote" wx:if="{{settleResult.quote.text}}">
-      <view class="quote-divider"></view>
-      <text class="quote-text">「{{settleResult.quote.text}}」</text>
-      <text class="quote-from">— {{settleResult.quote.from}}</text>
-    </view>
   </view>
 
   <view class="section-title" wx:if="{{recentTx.length}}">流水记录</view>
