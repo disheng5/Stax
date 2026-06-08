@@ -14,7 +14,7 @@
       <view class="join-row">
         <view class="join-btn" bindtap="onCreate">＋ 创建</view>
         <view class="join-divider"></view>
-        <view class="join-btn" bindtap="onJoin">输入邀请码</view>
+        <view class="join-btn" bindtap="onJoin">加入</view>
       </view>
     </block>
 

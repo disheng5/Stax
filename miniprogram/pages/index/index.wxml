@@ -24,7 +24,7 @@
     <view class="game-row card" wx:for="{{recentGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
       <view class="game-left">
         <view class="game-name ellipsis">{{item.name || 'StaxKit 牌局'}}</view>
-        <view class="game-meta text-sub">{{item.players.length}} 人 · {{item._status === 'ongoing' ? item.inviteCode : item._dateStr}}</view>
+        <view class="game-meta text-sub">{{item.players.length}} 人 · {{item._status === 'ongoing' ? '进行中' : item._dateStr}}</view>
       </view>
       <view class="game-right">
         <view class="status-tag {{item._status}}">{{item._status === 'ongoing' ? '进行中' : '已结束'}}</view>

@@ -57,13 +57,6 @@ Page({
     }
   },
 
-  onCopyCode() {
-    wx.setClipboardData({
-      data: this.data.circle.inviteCode,
-      success: () => wx.showToast({ title: '邀请码已复制' })
-    })
-  },
-
   _buildMembers(circle, season) {
     // 从排名数据里拿昵称（云函数已经查好），未上榜成员用占位名
     const rankMap = {}

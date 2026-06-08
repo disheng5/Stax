@@ -714,9 +714,9 @@ Page({
       })
       return
     }
-    const code = this.data.inviteCode || this.data.game.inviteCode
+    const code = this.data.inviteCode || this.data.game?.inviteCode
     if (!code) {
-      wx.showToast({ title: '缺少邀请码', icon: 'none' })
+      wx.showToast({ title: '无法获取邀请码，请重新分享', icon: 'none' })
       return
     }
     wx.showModal({

@@ -7,8 +7,6 @@
     </view>
     <view class="header-meta text-sub">
       <text>{{circle.memberOpenids.length}} 人</text>
-      <text class="dot">·</text>
-      <text class="code-text" bindtap="onCopyCode">{{circle.inviteCode}}</text>
     </view>
   </view>
 
