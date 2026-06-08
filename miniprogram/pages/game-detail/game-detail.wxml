@@ -25,11 +25,6 @@
       <text class="summary-label">参与玩家</text>
       <text class="summary-value">{{settleResult.profitList.length}} 人</text>
     </view>
-    <view class="summary-sep"></view>
-    <view class="summary-item">
-      <text class="summary-label">赢面</text>
-      <text class="summary-value">{{settleResult.winnerCount}} 人</text>
-    </view>
   </view>
 
   <view class="section-head" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">

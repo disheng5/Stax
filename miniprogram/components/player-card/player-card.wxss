@@ -23,11 +23,11 @@
 }
 
 .player-card.ended {
-  background: rgba(201, 169, 97, 0.04);
+  background: rgba(100, 120, 160, 0.04);
 }
 
 .player-card.ended:nth-child(even) {
-  background: rgba(201, 169, 97, 0.08);
+  background: rgba(100, 120, 160, 0.07);
 }
 
 .player-card.me.ended {
