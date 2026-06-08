@@ -1,7 +1,7 @@
 <view class="container" wx:if="{{game}}">
   <view class="game-info">
     <text class="info-text">{{game.name || 'StaxKit 牌局'}}</text>
-    <view class="share-btn" bindtap="onShare" wx:if="{{game.status === 'ongoing'}}">邀请</view>
+    <view class="share-btn" bindtap="onShare">{{game.status === 'ongoing' ? '邀请' : '分享'}}</view>
   </view>
   <view class="game-sub-info">
     <text class="text-sub">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · {{game.scoreRatio}}:1</text></text>
@@ -69,9 +69,6 @@
     </view>
     <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
-    </view>
-    <view class="result-actions">
-      <button class="result-share-btn" open-type="share">分享牌局</button>
     </view>
   </view>
 
