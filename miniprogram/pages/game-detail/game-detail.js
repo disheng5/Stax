@@ -1,5 +1,7 @@
 // pages/game-detail/game-detail.js — 牌局详情（核心页）
 const app = getApp()
+const { settle } = require('../../utils/settle.js')
+const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
 
 const TX_TYPE_LABEL = {
   buyIn: '初次买入',
@@ -25,7 +27,9 @@ Page({
     joining: false,
     handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 },
     allCheckedOut: false,
-    settleDiff: 0
+    settleDiff: 0,
+    finalPanel: { show: false, extraCost: 0, expenseMode: 'all', submitting: false },
+    settleResult: null
   },
 
   async onLoad(options) {
@@ -113,6 +117,9 @@ Page({
             this._computeSettleStatus(game)
             this._resolveAvatars(game.players)
             this._fetchRecentTx()
+            if (game.status === 'ended' && !this.data.settleResult) {
+              this._buildSettleResult(game)
+            }
           } else {
             this.setData({ game: null, loading: false })
           }
@@ -149,6 +156,9 @@ Page({
       this._computeSettleStatus(game)
       this._resolveAvatars(game.players)
       this._fetchRecentTx()
+      if (game.status === 'ended' && !this.data.settleResult) {
+        this._buildSettleResult(game)
+      }
     } catch (err) {
       console.error('[fetchGameOnce]', err)
       this.setData({ loading: false })
@@ -537,11 +547,100 @@ Page({
   },
 
   onEndGame() {
-    if (!this.data.isPlayer || this.data.viewerMode) {
-      wx.showToast({ title: '上桌玩家才能发起结算', icon: 'none' })
-      return
+    this.setData({
+      finalPanel: { show: true, extraCost: 0, expenseMode: 'all', submitting: false }
+    })
+  },
+
+  onFinalPanelClose() {
+    if (this.data.finalPanel.submitting) return
+    this.setData({ 'finalPanel.show': false })
+  },
+
+  onFinalPanelStop() {},
+
+  onExtraCostInput(e) {
+    this.setData({ 'finalPanel.extraCost': Number(e.detail.value) || 0 })
+  },
+
+  onExpenseModeChange(e) {
+    this.setData({ 'finalPanel.expenseMode': e.currentTarget.dataset.k })
+  },
+
+  async onFinalConfirm() {
+    if (this.data.finalPanel.submitting) return
+    this.setData({ 'finalPanel.submitting': true })
+    wx.showLoading({ title: '结束对局…' })
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'settleGame',
+        data: {
+          gameId: this.data.gameId,
+          mode: 'finalize',
+          finalStacks: this._buildFinalStacks(),
+          extraCost: this.data.finalPanel.extraCost,
+          expenseMode: this.data.finalPanel.expenseMode
+        }
+      })
+      wx.hideLoading()
+      if (!res.result?.ok) {
+        const msg =
+          {
+            PROFIT_NOT_ZERO: '差额不为零，请检查筹码',
+            NOT_ALL_CHECKED_OUT: '还有玩家未结算',
+            NOT_HOST: '仅房主可结束对局'
+          }[res.result?.error] ||
+          res.result?.error ||
+          '操作失败'
+        wx.showToast({ title: msg, icon: 'none' })
+        return
+      }
+      this.setData({ 'finalPanel.show': false })
+      this._buildSettleResult(res.result.game || res.result.players)
+    } catch (err) {
+      wx.hideLoading()
+      console.error(err)
+      wx.showToast({ title: '网络异常', icon: 'none' })
+    } finally {
+      this.setData({ 'finalPanel.submitting': false })
     }
-    wx.navigateTo({ url: '/pages/game-settle/game-settle?id=' + this.data.gameId })
+  },
+
+  _buildFinalStacks() {
+    const stacks = {}
+    ;(this.data.game?.players || []).forEach(p => {
+      if (p.finalStack !== null && p.finalStack !== undefined) stacks[p.openid] = p.finalStack
+    })
+    return stacks
+  },
+
+  _buildSettleResult(gameOrPlayers) {
+    const players = Array.isArray(gameOrPlayers)
+      ? gameOrPlayers
+      : gameOrPlayers?.players || this.data.game?.players || []
+    const extraCost = this.data.finalPanel.extraCost || this.data.game?.extraCost || 0
+    const expenseMode = this.data.finalPanel.expenseMode || this.data.game?.expenseMode || 'all'
+    const profitList = players
+      .filter(p => !p.eliminatedAt)
+      .map(p => ({
+        openid: p.openid,
+        nickname: p.nickname,
+        avatar: p.avatar || '',
+        buyInCount: p.buyInCount || 1,
+        totalBuyIn: p.totalBuyIn || 0,
+        finalStack: p.finalStack || 0,
+        profit: p.finalStack !== null ? p.finalStack - p.totalBuyIn : 0
+      }))
+      .sort((a, b) => b.profit - a.profit)
+    const transfers = settle(profitList.map(p => ({ nickname: p.nickname, profit: p.profit })))
+    let shares = []
+    if (extraCost > 0) {
+      shares =
+        expenseMode === 'winner'
+          ? aaWinnerByRatio(profitList, extraCost)
+          : aaEven(profitList, extraCost)
+    }
+    this.setData({ settleResult: { profitList, transfers, extraCost, expenseMode, shares } })
   },
 
   async onJoinAsPlayer() {
