@@ -80,7 +80,6 @@ async function calcForCircle(circleId) {
   const startAt = new Date(season.startAt)
   const endAt = new Date(season.endAt)
   const members = circle.memberOpenids || []
-  const joinedAt = circle.memberJoinedAt || {}
 
   const allGames = []
   for (let skip = 0; skip < 500; skip += 20) {
@@ -111,11 +110,9 @@ async function calcForCircle(circleId) {
   })
 
   qualifiedGames.forEach(g => {
-    const bb = Math.max(1, Number(g.bigBlind) || 1) // guard against 0 or missing
+    const bb = Math.max(1, Number(g.bigBlind) || 1)
     ;(g.players || []).forEach(p => {
       if (!members.includes(p.openid)) return
-      const memberJoined = joinedAt[p.openid] ? new Date(joinedAt[p.openid]) : null
-      if (memberJoined && memberJoined > new Date(g.endedAt)) return
       if (!memberStats[p.openid]) return
       const profit = p.finalProfit ?? p.profit ?? 0
       memberStats[p.openid].profitBB += Math.round(profit / bb)
