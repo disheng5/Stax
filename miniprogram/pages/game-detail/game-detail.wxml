@@ -15,6 +15,23 @@
     <button class="btn btn--primary" bindtap="onJoinAsPlayer" disabled="{{joining}}" style="margin-top:16rpx;">上桌</button>
   </view>
 
+  <view class="settle-summary" wx:if="{{game.status === 'ended' && settleResult}}">
+    <view class="summary-item">
+      <text class="summary-label">本局时长</text>
+      <text class="summary-value">{{settleResult.duration}}</text>
+    </view>
+    <view class="summary-sep"></view>
+    <view class="summary-item">
+      <text class="summary-label">参与玩家</text>
+      <text class="summary-value">{{settleResult.profitList.length}} 人</text>
+    </view>
+    <view class="summary-sep"></view>
+    <view class="summary-item">
+      <text class="summary-label">赢面</text>
+      <text class="summary-value">{{settleResult.winnerCount}} 人</text>
+    </view>
+  </view>
+
   <view class="section-head" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">
     <view class="section-title">积分情况</view>
     <view class="quick-actions">
@@ -22,7 +39,7 @@
       <view class="quick-btn ghost" bindtap="onQuickSettle">结算</view>
     </view>
   </view>
-  <view class="section-head" wx:else>
+  <view class="section-head" wx:elif="{{game.status === 'ongoing'}}">
     <view class="section-title">积分情况</view>
   </view>
 
@@ -57,23 +74,6 @@
     <text class="bar-item text-success">水上: +{{settleResult.aboveTotal}}</text>
     <text class="bar-item text-danger">水下: {{settleResult.belowTotal}}</text>
     <text class="bar-item text-warning" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal !== 0}}">账差: {{settleResult.aboveTotal + settleResult.belowTotal > 0 ? '+' : ''}}{{settleResult.aboveTotal + settleResult.belowTotal}}</text>
-  </view>
-
-  <view class="settle-summary" wx:if="{{game.status === 'ended' && settleResult}}">
-    <view class="summary-item">
-      <text class="summary-label">本局时长</text>
-      <text class="summary-value">{{settleResult.duration}}</text>
-    </view>
-    <view class="summary-sep"></view>
-    <view class="summary-item">
-      <text class="summary-label">参与玩家</text>
-      <text class="summary-value">{{settleResult.profitList.length}} 人</text>
-    </view>
-    <view class="summary-sep"></view>
-    <view class="summary-item">
-      <text class="summary-label">赢面</text>
-      <text class="summary-value">{{settleResult.winnerCount}} 人</text>
-    </view>
   </view>
 
   <view class="host-panel" wx:if="{{isHost && !viewerMode && game.status === 'ongoing' && allCheckedOut && settleDiff === 0}}">
