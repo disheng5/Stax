@@ -20,7 +20,7 @@
 
 .main-row {
   display: grid;
-  grid-template-columns: 1fr 80rpx 120rpx 120rpx;
+  grid-template-columns: 1fr 80rpx 100rpx 120rpx;
   align-items: center;
   gap: 8rpx;
 }
@@ -64,12 +64,6 @@
   vertical-align: middle;
 }
 
-.status {
-  margin-top: 4rpx;
-  font-size: 21rpx;
-  line-height: 1.4;
-}
-
 .metric,
 .profit {
   text-align: right;
@@ -82,4 +76,22 @@
 
 .profit {
   font-weight: 700;
+}
+
+.profit-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  color: var(--text-sub);
+}
+
+.action-arrow {
+  font-size: 24rpx;
+  color: var(--text-sub);
+  font-weight: 600;
 }
