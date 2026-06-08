@@ -416,7 +416,7 @@
   justify-content: center;
 }
 
-.result-share {
+.result-share-btn {
   background: rgba(255,255,255,0.12);
   color: #fff;
   font-size: 24rpx;
@@ -425,7 +425,11 @@
   line-height: 64rpx;
   border-radius: var(--radius-sm);
   font-weight: 600;
+  border: none;
+  margin: 0;
 }
+
+.result-share-btn::after { display: none; }
 
 .final-section {
   padding: 16rpx 0 8rpx;

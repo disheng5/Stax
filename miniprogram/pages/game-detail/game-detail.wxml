@@ -22,24 +22,26 @@
       <view class="quick-btn ghost" bindtap="onQuickSettle">结算</view>
     </view>
   </view>
-  <view class="section-head" wx:else>
+  <view class="section-head" wx:elif="{{game.status === 'ongoing'}}">
     <view class="section-title">积分情况</view>
   </view>
 
-  <view class="table-head">
-    <text>玩家</text>
-    <text>手数</text>
-    <text>码量</text>
-    <text>盈亏</text>
-  </view>
-  <view class="players">
-      <player-card
-        wx:for="{{game.players}}" wx:key="openid"
-        player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
-        isSelf="{{item.openid === myOpenid && !viewerMode}}"
-        canSelfOperate="{{game.playerOpsShared !== false}}"
-        bind:playertap="onPlayerTap"
-      />
+  <view wx:if="{{game.status === 'ongoing'}}">
+    <view class="table-head">
+      <text>玩家</text>
+      <text>手数</text>
+      <text>码量</text>
+      <text>盈亏</text>
+    </view>
+    <view class="players">
+        <player-card
+          wx:for="{{game.players}}" wx:key="openid"
+          player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
+          isSelf="{{item.openid === myOpenid && !viewerMode}}"
+          canSelfOperate="{{game.playerOpsShared !== false}}"
+          bind:playertap="onPlayerTap"
+        />
+    </view>
   </view>
 
   <view class="settle-bar" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
@@ -76,7 +78,7 @@
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
     </view>
     <view class="result-actions">
-      <view class="share-btn result-share" bindtap="onShare">分享战报</view>
+      <button class="result-share-btn" open-type="share">分享牌局</button>
     </view>
   </view>
 
