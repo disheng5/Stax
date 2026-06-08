@@ -34,7 +34,8 @@ exports.main = async event => {
       if (amount <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
       // 权限：参与人可给自己；庄家可给任意人
       const targetOpenid = playerOpenid || OPENID
-      if (!isHost && targetOpenid !== OPENID) return { ok: false, error: 'CAN_ONLY_BUY_FOR_SELF' }
+      const isPlayer = (game.players || []).some(p => p.openid === OPENID)
+      if (!isHost && !isPlayer) return { ok: false, error: 'NOT_PLAYER' }
       const idx = players.findIndex(p => p.openid === targetOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
       const buyIn = Number(game.buyIn) || 0

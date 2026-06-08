@@ -303,36 +303,43 @@ Page({
   },
 
   onPlayerTap(e) {
-    const { openid, player, isSelf, isHost } = e.detail
+    const { openid, player, isSelf } = e.detail
     if (this.data.game?.status !== 'ongoing') return
     if (player.eliminatedAt) return
     if (this.data.viewerMode) return
+    if (!this.data.isPlayer) return
 
-    const canSelfOp = this.data.game?.playerOpsShared !== false
     const items = []
     const actions = []
 
-    if (isSelf && canSelfOp) {
+    if (isSelf) {
       if (player.finalStack === null || player.finalStack === undefined) {
         items.push('买入')
         actions.push('selfrebuy')
         items.push('结算')
-        actions.push('settleself')
+        actions.push('settle')
       } else {
         items.push('改码')
-        actions.push('settleself')
+        actions.push('settle')
         items.push('买入')
         actions.push('selfrebuy')
       }
-    } else if (this.data.isHost) {
-      items.push('帮他补码')
-      actions.push('rebuy')
-      items.push('帮他结算')
-      actions.push('settleother')
-      items.push('踢人')
-      actions.push('eliminate')
     } else {
-      return
+      if (player.finalStack === null || player.finalStack === undefined) {
+        items.push('帮他补码')
+        actions.push('rebuy')
+        items.push('帮他结算')
+        actions.push('settle')
+      } else {
+        items.push('帮他改码')
+        actions.push('settle')
+        items.push('帮他补码')
+        actions.push('rebuy')
+      }
+      if (this.data.isHost) {
+        items.push('踢人')
+        actions.push('eliminate')
+      }
     }
 
     wx.showActionSheet({
@@ -341,7 +348,7 @@ Page({
         const action = actions[res.tapIndex]
         if (action === 'selfrebuy') {
           this._promptAmount('补码', openid, 'rebuy')
-        } else if (action === 'settleself' || action === 'settleother') {
+        } else if (action === 'settle') {
           this._doSettle(openid, player)
         } else if (action === 'rebuy') {
           this._promptAmount('帮他补码', openid, 'rebuy')

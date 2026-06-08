@@ -65,8 +65,6 @@ exports.main = async event => {
       finalStacks[openid] !== undefined
   )
   if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
-  if (!isHost && submittedOpenids.some(openid => openid !== OPENID))
-    return { ok: false, error: 'CAN_ONLY_SETTLE_SELF' }
   if (mode === 'finalize' && !isHost) return { ok: false, error: 'NOT_HOST' }
 
   const now = new Date()
