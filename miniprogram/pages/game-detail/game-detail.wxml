@@ -63,20 +63,15 @@
 
     <view class="result-summary">
       <view class="summary-block">
-        <view class="summary-label">续战之王</view>
-        <view class="summary-leader-row">
-          <image class="summary-avatar" src="{{settleResult.mostRebuys.avatar || '/images/default-avatar.png'}}" />
-          <view class="summary-leader-info">
-            <view class="summary-value">{{settleResult.mostRebuys.nickname}}</view>
-            <view class="summary-sub text-sub">买了 {{settleResult.mostRebuys.buyInCount}} 手</view>
-          </view>
-        </view>
+        <view class="summary-label">本局时长</view>
+        <view class="summary-value">{{settleResult.duration}}</view>
+        <view class="summary-sub text-sub">{{settleResult.profitList.length}} 人参与</view>
       </view>
       <view class="summary-divider"></view>
       <view class="summary-block">
-        <view class="summary-label">局时</view>
-        <view class="summary-value">{{settleResult.duration}}</view>
-        <view class="summary-sub text-sub">{{settleResult.profitList.length}} 人参与</view>
+        <view class="summary-label">赢面玩家</view>
+        <view class="summary-value">{{settleResult.winnerCount}}</view>
+        <view class="summary-sub text-sub">共 {{settleResult.profitList.length}} 人</view>
       </view>
     </view>
 
