@@ -18,11 +18,11 @@
 
   <view class="actions" wx:if="{{isSelf && canSelfOperate && gameStatus === 'ongoing' && !player.eliminatedAt && (player.finalStack === null || player.finalStack === undefined)}}">
     <button class="btn btn--primary btn-sm" bindtap="onSelfRebuy">补码</button>
-    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">下桌</button>
+    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">结算</button>
   </view>
 
   <view class="actions" wx:elif="{{isSelf && canSelfOperate && gameStatus === 'ongoing' && !player.eliminatedAt && player.finalStack !== null && player.finalStack !== undefined}}">
-    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">修改筹码</button>
+    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">改码</button>
   </view>
 
   <view class="actions" wx:elif="{{isHost && gameStatus === 'ongoing' && !player.eliminatedAt && (player.finalStack === null || player.finalStack === undefined)}}">
