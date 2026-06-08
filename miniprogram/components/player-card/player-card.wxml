@@ -1,4 +1,4 @@
-<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}}" bindtap="onTap">
+<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}} {{gameStatus === 'ended' ? 'ended' : ''}}" bindtap="onTap">
   <view class="main-row">
     <view class="player-cell">
       <view class="avatar-wrap">
@@ -12,7 +12,8 @@
     <view class="metric">{{player.buyInCount}}</view>
     <view class="metric" wx:if="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.finalStack}}</view>
     <view class="metric text-sub" wx:else>--</view>
-    <view class="profit text-success" wx:if="{{player.finalStack !== null && player.finalStack !== undefined && player.profit >= 0}}">+{{player.profit}}</view>
+    <view class="profit text-gold" wx:if="{{player.finalStack !== null && player.finalStack !== undefined && player.profit > 0}}">+{{player.profit}}</view>
+    <view class="profit text-sub" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined && player.profit === 0}}">0</view>
     <view class="profit text-danger" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.profit}}</view>
     <view class="profit-action" wx:elif="{{gameStatus === 'ongoing'}}">
       <text class="action-text">未结算</text>
