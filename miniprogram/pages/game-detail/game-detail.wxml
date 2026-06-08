@@ -62,16 +62,21 @@
     </view>
 
     <view class="result-summary">
-      <view class="summary-block">
-        <view class="summary-label">今晚 MVP</view>
-        <view class="summary-value">{{settleResult.winner.nickname}}</view>
-        <view class="summary-sub {{settleResult.winner.profit > 0 ? 'text-gold' : 'text-sub'}}">{{settleResult.winner.profit > 0 ? '+' : ''}}{{settleResult.winner.profit}}</view>
+      <view class="summary-block summary-leader">
+        <view class="summary-label">Chip Leader</view>
+        <view class="summary-leader-row">
+          <image class="summary-avatar" src="{{settleResult.winner.avatar || '/images/default-avatar.png'}}" />
+          <view class="summary-leader-info">
+            <view class="summary-value">{{settleResult.winner.nickname}}</view>
+            <view class="summary-sub text-gold">{{settleResult.winner.profit > 0 ? '+' : ''}}{{settleResult.winner.profit}}</view>
+          </view>
+        </view>
       </view>
       <view class="summary-divider"></view>
       <view class="summary-block">
-        <view class="summary-label">总池 / {{settleResult.profitList.length}} 人</view>
+        <view class="summary-label">总池</view>
         <view class="summary-value">{{settleResult.totalPot}}</view>
-        <view class="summary-sub text-sub">慰问 {{settleResult.loser.nickname}}</view>
+        <view class="summary-sub text-sub">{{settleResult.profitList.length}} 人参与</view>
       </view>
     </view>
 

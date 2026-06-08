@@ -364,6 +364,25 @@
   flex: 1;
 }
 
+.summary-leader-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+
+.summary-avatar {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.1);
+}
+
+.summary-leader-info {
+  min-width: 0;
+}
+
 .summary-divider {
   width: 1rpx;
   height: 64rpx;
