@@ -645,6 +645,14 @@ Page({
     const winner = profitList[0] || null
     const loser = profitList[profitList.length - 1] || null
     const totalPot = profitList.reduce((s, p) => s + p.totalBuyIn, 0)
+    const rawGame = Array.isArray(gameOrPlayers) ? this.data.game : gameOrPlayers
+    let duration = '--'
+    if (rawGame?.startedAt && rawGame?.endedAt) {
+      const ms = new Date(rawGame.endedAt) - new Date(rawGame.startedAt)
+      const h = Math.floor(ms / 3600000)
+      const m = Math.floor((ms % 3600000) / 60000)
+      duration = h > 0 ? `${h}h ${m}m` : `${m} 分钟`
+    }
     const quote = SUNZI[Math.floor(Math.random() * SUNZI.length)] || { text: '', from: '' }
     const gameName =
       (Array.isArray(gameOrPlayers) ? this.data.game?.name : gameOrPlayers?.name) || 'StaxKit 牌局'
@@ -660,6 +668,7 @@ Page({
         winner,
         loser,
         totalPot,
+        duration,
         quote,
         gameName,
         dateStr

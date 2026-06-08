@@ -74,8 +74,8 @@
       </view>
       <view class="summary-divider"></view>
       <view class="summary-block">
-        <view class="summary-label">总池</view>
-        <view class="summary-value">{{settleResult.totalPot}}</view>
+        <view class="summary-label">局时</view>
+        <view class="summary-value">{{settleResult.duration}}</view>
         <view class="summary-sub text-sub">{{settleResult.profitList.length}} 人参与</view>
       </view>
     </view>

@@ -450,11 +450,12 @@
 
 .crown {
   position: absolute;
-  top: -20rpx;
+  top: -16rpx;
   left: 50%;
   width: 40rpx;
   height: 28rpx;
-  transform: translateX(-50%);
+  transform: translateX(-50%) rotate(-12deg);
+  transform-origin: center bottom;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 32'%3E%3Cpath d='M2 26L8 10L16 20L22 4L28 20L36 10L42 26Z' fill='%23C9A961'/%3E%3Crect x='2' y='26' width='40' height='5' rx='1' fill='%23B8922E'/%3E%3Ccircle cx='8' cy='9' r='3' fill='%23E8C070'/%3E%3Ccircle cx='22' cy='3' r='3' fill='%23E8C070'/%3E%3Ccircle cx='36' cy='9' r='3' fill='%23E8C070'/%3E%3C/svg%3E");
   background-size: 100% 100%;
   background-repeat: no-repeat;
