@@ -119,17 +119,12 @@ Page({
         }
       })
       wx.hideLoading()
-      const { ok, gameId, inviteCode, error } = res.result || {}
+      const { ok, gameId, error } = res.result || {}
       if (!ok) {
         wx.showToast({ title: error || '创建失败', icon: 'none' })
         return
       }
-      wx.showModal({
-        title: '牌局已创建',
-        content: `邀请码：${inviteCode}\n点击确定进入牌局`,
-        showCancel: false,
-        success: () => wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
-      })
+      wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
     } catch (err) {
       wx.hideLoading()
       console.error(err)

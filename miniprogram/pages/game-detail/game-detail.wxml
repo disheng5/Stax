@@ -84,6 +84,7 @@
 </view>
 
 <empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />
+<view wx:elif="{{loading}}" class="loading-hint text-sub">加载中…</view>
 
 <view class="hands-mask" wx:if="{{handsPicker.show}}" bindtap="onHandsClose">
   <view class="hands-sheet" catchtap="onHandsStop">

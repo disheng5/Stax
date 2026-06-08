@@ -50,6 +50,7 @@ Page({
 
   onUnload() {
     clearTimeout(this._watchRetryTimer)
+    clearTimeout(this._loadingFallbackTimer)
     if (this.watcher) {
       try {
         this.watcher.close()
@@ -64,6 +65,11 @@ Page({
       return
     }
     try {
+      await app.globalData.openidReady
+      if (app.globalData.openid) {
+        this.setData({ myOpenid: app.globalData.openid })
+        return
+      }
       const res = await wx.cloud.callFunction({ name: 'whoami', data: {} })
       if (res?.result?.openid) {
         app.globalData.openid = res.result.openid
@@ -86,12 +92,17 @@ Page({
       } catch (_) {}
       this.watcher = null
     }
+    clearTimeout(this._loadingFallbackTimer)
+    this._loadingFallbackTimer = setTimeout(() => {
+      if (this.data.loading) this._fetchGameOnce()
+    }, 4000)
     this._watchRetries = this._watchRetries || 0
     this.watcher = db
       .collection('games')
       .doc(this.data.gameId)
       .watch({
         onChange: snapshot => {
+          clearTimeout(this._loadingFallbackTimer)
           this._watchRetries = 0
           if (snapshot.docs && snapshot.docs.length) {
             const game = snapshot.docs[0]
@@ -120,6 +131,28 @@ Page({
           }
         }
       })
+  },
+
+  async _fetchGameOnce() {
+    try {
+      const db = wx.cloud.database()
+      const got = await db.collection('games').doc(this.data.gameId).get()
+      if (!got.data) {
+        this.setData({ loading: false })
+        return
+      }
+      const game = got.data
+      const myOpenid = this.data.myOpenid
+      const isHost = !!myOpenid && game.hostOpenid === myOpenid
+      const isPlayer = !!myOpenid && (game.players || []).some(p => p.openid === myOpenid)
+      this.setData({ game, isHost, isPlayer, viewerMode: !isPlayer, loading: false })
+      this._computeSettleStatus(game)
+      this._resolveAvatars(game.players)
+      this._fetchRecentTx()
+    } catch (err) {
+      console.error('[fetchGameOnce]', err)
+      this.setData({ loading: false })
+    }
   },
 
   _computeSettleStatus(game) {
