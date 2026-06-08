@@ -92,6 +92,23 @@
     <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
     </view>
+
+    <view class="result-waterline">
+      <view class="waterline-item">
+        <text class="waterline-num text-gold">{{settleResult.aboveCount}}</text>
+        <text class="waterline-label">水上</text>
+      </view>
+      <view class="waterline-divider"></view>
+      <view class="waterline-item">
+        <text class="waterline-num" style="color:rgba(255,255,255,0.6)">{{settleResult.evenCount}}</text>
+        <text class="waterline-label">水平</text>
+      </view>
+      <view class="waterline-divider"></view>
+      <view class="waterline-item">
+        <text class="waterline-num text-danger">{{settleResult.belowCount}}</text>
+        <text class="waterline-label">水下</text>
+      </view>
+    </view>
   </view>
 
   <view class="section-title" wx:if="{{recentTx.length}}">流水记录</view>

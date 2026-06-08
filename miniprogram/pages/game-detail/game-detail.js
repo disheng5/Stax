@@ -645,6 +645,9 @@ Page({
     const loser = profitList.slice().sort((a, b) => a.profit - b.profit)[0] || null
     const mostRebuys = profitList.slice().sort((a, b) => b.buyInCount - a.buyInCount)[0] || null
     const winnerCount = profitList.filter(p => p.profit > 0).length
+    const aboveCount = profitList.filter(p => p.profit > 0).length
+    const evenCount = profitList.filter(p => p.profit === 0).length
+    const belowCount = profitList.filter(p => p.profit < 0).length
     const totalPot = profitList.reduce((s, p) => s + p.totalBuyIn, 0)
     const rawGame = Array.isArray(gameOrPlayers) ? this.data.game : gameOrPlayers
     let duration = '--'
@@ -670,6 +673,9 @@ Page({
         loser,
         mostRebuys,
         winnerCount,
+        aboveCount,
+        evenCount,
+        belowCount,
         totalPot,
         duration,
         quote,
