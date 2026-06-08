@@ -56,19 +56,47 @@
   </view>
 
   <view class="settle-result" wx:if="{{game.status === 'ended' && settleResult}}">
-    <view class="result-title">战局结束</view>
+    <view class="result-header">
+      <view class="result-game-name">{{settleResult.gameName}}</view>
+      <view class="result-date text-sub">{{settleResult.dateStr}}</view>
+    </view>
+
+    <view class="result-summary">
+      <view class="summary-block">
+        <view class="summary-label">今晚 MVP</view>
+        <view class="summary-value">{{settleResult.winner.nickname}}</view>
+        <view class="summary-sub {{settleResult.winner.profit > 0 ? 'text-gold' : 'text-sub'}}">{{settleResult.winner.profit > 0 ? '+' : ''}}{{settleResult.winner.profit}}</view>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-block">
+        <view class="summary-label">总池 / {{settleResult.profitList.length}} 人</view>
+        <view class="summary-value">{{settleResult.totalPot}}</view>
+        <view class="summary-sub text-sub">慰问 {{settleResult.loser.nickname}}</view>
+      </view>
+    </view>
+
     <view class="result-rows">
       <view class="result-row {{item.profit > 0 ? 'win' : item.profit < 0 ? 'lose' : ''}}" wx:for="{{settleResult.profitList}}" wx:key="openid">
         <view class="result-cell-name">
-          <image class="result-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" />
+          <view class="result-avatar-wrap">
+            <image class="result-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" />
+            <text class="crown" wx:if="{{index === 0}}">♛</text>
+          </view>
           <text>{{item.nickname}}</text>
         </view>
-        <text class="result-cell-sub text-sub">{{item.buyInCount}}手 / {{item.totalBuyIn}}</text>
-        <text class="result-profit {{item.profit > 0 ? 'text-success' : item.profit < 0 ? 'text-danger' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</text>
+        <text class="result-cell-sub">{{item.buyInCount}}手 {{item.totalBuyIn}}</text>
+        <text class="result-profit {{item.profit > 0 ? 'text-gold' : item.profit < 0 ? 'text-danger' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</text>
       </view>
     </view>
+
     <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
+    </view>
+
+    <view class="result-quote" wx:if="{{settleResult.quote.text}}">
+      <view class="quote-divider"></view>
+      <text class="quote-text">「{{settleResult.quote.text}}」</text>
+      <text class="quote-from">— {{settleResult.quote.from}}</text>
     </view>
   </view>
 

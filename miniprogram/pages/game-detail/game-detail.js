@@ -2,6 +2,7 @@
 const app = getApp()
 const { settle } = require('../../utils/settle.js')
 const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
+const SUNZI = require('../../utils/sunzi.js')
 
 const TX_TYPE_LABEL = {
   buyIn: '初次买入',
@@ -615,11 +616,12 @@ Page({
   },
 
   _buildSettleResult(gameOrPlayers) {
+    const game = Array.isArray(gameOrPlayers) ? null : gameOrPlayers
     const players = Array.isArray(gameOrPlayers)
       ? gameOrPlayers
       : gameOrPlayers?.players || this.data.game?.players || []
-    const extraCost = this.data.finalPanel.extraCost || this.data.game?.extraCost || 0
-    const expenseMode = this.data.finalPanel.expenseMode || this.data.game?.expenseMode || 'all'
+    const extraCost = game?.extraCost ?? this.data.finalPanel?.extraCost ?? 0
+    const expenseMode = game?.expenseMode || this.data.finalPanel?.expenseMode || 'all'
     const profitList = players
       .filter(p => !p.eliminatedAt)
       .map(p => ({
@@ -640,7 +642,29 @@ Page({
           ? aaWinnerByRatio(profitList, extraCost)
           : aaEven(profitList, extraCost)
     }
-    this.setData({ settleResult: { profitList, transfers, extraCost, expenseMode, shares } })
+    const winner = profitList[0] || null
+    const loser = profitList[profitList.length - 1] || null
+    const totalPot = profitList.reduce((s, p) => s + p.totalBuyIn, 0)
+    const quote = SUNZI[Math.floor(Math.random() * SUNZI.length)] || { text: '', from: '' }
+    const gameName =
+      (Array.isArray(gameOrPlayers) ? this.data.game?.name : gameOrPlayers?.name) || 'StaxKit 牌局'
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    this.setData({
+      settleResult: {
+        profitList,
+        transfers,
+        extraCost,
+        expenseMode,
+        shares,
+        winner,
+        loser,
+        totalPot,
+        quote,
+        gameName,
+        dateStr
+      }
+    })
   },
 
   async onJoinAsPlayer() {
