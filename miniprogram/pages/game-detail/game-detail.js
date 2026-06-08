@@ -22,7 +22,6 @@ Page({
     txTypeLabel: TX_TYPE_LABEL,
     viewerMode: false,
     isPlayer: false,
-    showTimer: false,
     joining: false,
     handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 },
     allCheckedOut: false,
@@ -392,29 +391,6 @@ Page({
     const buyIn = Number(this.data.game.buyIn || 0)
     this.setData({ 'handsPicker.show': false })
     this._record(type, openid, n * buyIn, { hands: n })
-  },
-
-  onPause() {
-    this._record('pauseToggle', this.data.myOpenid)
-  },
-  onLevelUp() {
-    this._record('levelUp', this.data.myOpenid)
-  },
-
-  onToggleTimer() {
-    this.setData({ showTimer: !this.data.showTimer })
-  },
-
-  onTimeUp() {
-    if (!this.data.isHost) return
-    const next = this.data.game.blindStructure[this.data.game.currentLevel + 1]
-    wx.showModal({
-      title: '盲注时间到',
-      content: next ? `升至下一级 ${next.sb}/${next.bb}？` : '已到顶级，是否重置计时？',
-      success: r => {
-        if (r.confirm) this.onLevelUp()
-      }
-    })
   },
 
   onSettleSelf() {

@@ -1,27 +1,4 @@
 <view class="container" wx:if="{{game}}">
-  <view class="timer-toggle" bindtap="onToggleTimer">
-    <text>盲注计时</text>
-    <text class="text-sub">{{showTimer ? '收起' : '需要时展开'}}</text>
-  </view>
-
-  <view wx:if="{{showTimer}}">
-    <blind-timer
-      currentLevel="{{game.currentLevel}}"
-      blindStructure="{{game.blindStructure}}"
-      blindUpMinutes="{{game.blindUpMinutes}}"
-      levelStartedAt="{{game.levelStartedAt}}"
-      paused="{{game.paused}}"
-      pausedAt="{{game.pausedAt}}"
-      pausedAccumMs="{{game.pausedAccumMs}}"
-      isHost="{{isHost}}"
-      bind:timeup="onTimeUp"
-    />
-    <view class="timer-actions" wx:if="{{isHost && !viewerMode && game.status === 'ongoing'}}">
-      <button class="btn btn--ghost timer-btn" bindtap="onPause">{{game.paused ? '恢复计时' : '暂停计时'}}</button>
-      <button class="btn btn--ghost timer-btn" bindtap="onLevelUp">升盲</button>
-    </view>
-  </view>
-
   <view class="game-top card">
     <view class="top-title">{{game.name || 'StaxKit 牌局'}}</view>
     <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · 码:积 {{game.scoreRatio}}:1</text></view>
