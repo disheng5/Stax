@@ -67,13 +67,6 @@
         <text class="result-profit {{item.profit > 0 ? 'text-success' : item.profit < 0 ? 'text-danger' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</text>
       </view>
     </view>
-    <view class="result-transfers" wx:if="{{settleResult.transfers.length}}">
-      <view class="result-subtitle">清算建议</view>
-      <view class="transfer-row" wx:for="{{settleResult.transfers}}" wx:key="index">
-        <text>{{item.from}}</text><text class="arrow"> → </text><text>{{item.to}}</text>
-        <text class="text-gold"> {{item.amount}}</text>
-      </view>
-    </view>
     <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
       <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
     </view>
