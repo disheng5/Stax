@@ -135,8 +135,8 @@ Page({
         ? settle(playerProfits.map(p => ({ nickname: p.nickname, profit: p.finalProfit })))
         : []
     const myPlayer = players.find(p => p.openid === this.data.myOpenid)
-    const canSubmitOwn = !!myPlayer && this.data.finalStacks[this.data.myOpenid] !== ''
-    const canSubmit = this.data.isHost ? true : canSubmitOwn
+    const myStackFilled = !!myPlayer && this.data.finalStacks[this.data.myOpenid] !== ''
+    const canSubmit = myStackFilled
     this.setData({
       playerProfits,
       shares,
@@ -165,14 +165,16 @@ Page({
       wx.showToast({ title: '请先填写下桌筹码', icon: 'none' })
       return
     }
+    const isFinalize = this.data.isHost && this.data.allSettled && this.data.diff === 0
+    const mode = isFinalize ? 'finalize' : 'checkout'
     this.setData({ submitting: true })
-    wx.showLoading({ title: this.data.allSettled ? '结束牌局…' : '记录中…' })
+    wx.showLoading({ title: isFinalize ? '结束牌局…' : '记录下桌筹码…' })
     try {
       const res = await wx.cloud.callFunction({
         name: 'settleGame',
         data: {
           gameId: this.data.gameId,
-          mode: 'finalize',
+          mode,
           finalStacks: this._submittedStacks(),
           extraCost: this.data.extraCost,
           expenseMode: this.data.expenseMode,
@@ -191,7 +193,7 @@ Page({
             NO_STACKS_SUBMITTED: '请先填写下桌筹码'
           }[error] ||
           error ||
-          '结算失败'
+          '操作失败'
         wx.showToast({ title: msg, icon: 'none' })
         this.setData({ submitting: false })
         return
@@ -210,16 +212,10 @@ Page({
       }
       if (ended) {
         this.setData({ submitted: true })
-        wx.showToast({ title: '牌局已结算', icon: 'success' })
+        wx.showToast({ title: '牌局已结束', icon: 'success' })
         setTimeout(() => this.onGenerateImage(false), 500)
-      } else if (
-        game &&
-        (game.players || []).every(p => p.finalStack !== null && p.finalStack !== undefined) &&
-        diff !== 0
-      ) {
-        wx.showToast({ title: `未结束，差额 ${diff}`, icon: 'none' })
       } else {
-        wx.showToast({ title: '已记录下桌筹码', icon: 'success' })
+        wx.showToast({ title: '已记录，等待其他玩家下桌', icon: 'success' })
       }
     } catch (err) {
       wx.hideLoading()

@@ -343,3 +343,9 @@
 
 .exclude-card { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 28rpx; margin-top: 16rpx; }
 .exclude-btn { font-size: 24rpx; color: var(--table-green); }
+
+.settle-status { padding: 24rpx 28rpx; }
+.settle-status-title { font-size: 26rpx; font-weight: 600; margin-bottom: 8rpx; }
+.settle-status-diff { font-size: 24rpx; }
+.settle-status-diff.balanced { color: var(--success); }
+.settle-status-diff.unbalanced { color: var(--danger); }

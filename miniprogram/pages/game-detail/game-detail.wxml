@@ -63,7 +63,7 @@
       />
   </view>
 
-  <view class="section-title" wx:if="{{recentTx.length}}">最近流水</view>
+  <view class="section-title" wx:if="{{recentTx.length}}">流水记录</view>
   <view class="card tx-list" wx:if="{{recentTx.length}}">
     <view class="tx {{tx.revoked ? 'revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
       <view class="tx-main">
@@ -84,11 +84,20 @@
     </view>
   </view>
 
+  <view class="card settle-status" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
+    <view class="settle-status-title">下桌进度 {{game.checkedOutCount || 0}}/{{game.players.length}}</view>
+    <view class="settle-status-diff {{settleDiff === 0 ? 'balanced' : 'unbalanced'}}" wx:if="{{allCheckedOut}}">
+      差额：<text class="{{settleDiff === 0 ? 'text-success' : 'text-danger'}}">{{settleDiff > 0 ? '+' : ''}}{{settleDiff}}</text>
+      <text wx:if="{{settleDiff === 0}}" class="text-success"> 水平</text>
+    </view>
+    <view class="text-sub" wx:elif="{{!allCheckedOut}}">等待所有玩家填写下桌筹码</view>
+  </view>
+
   <view class="host-panel" wx:if="{{isPlayer && !viewerMode && game.status === 'ongoing'}}">
-    <view class="settle-entry card" wx:if="{{isHost || game.playerOpsShared === false}}">
+    <view class="settle-entry card" wx:if="{{isHost}}">
       <view>
-        <view class="settle-title">最终结算</view>
-        <view class="text-sub">房主处理费用、确认账平并生成结果</view>
+        <view class="settle-title">结束对局</view>
+        <view class="text-sub">所有人下桌后，处理费用并结束牌局</view>
       </view>
       <button class="btn btn--danger settle-btn" bindtap="onEndGame">结算</button>
     </view>

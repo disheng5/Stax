@@ -21,6 +21,10 @@
     <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">下桌</button>
   </view>
 
+  <view class="actions" wx:elif="{{isSelf && canSelfOperate && gameStatus === 'ongoing' && !player.eliminatedAt && player.finalStack !== null && player.finalStack !== undefined}}">
+    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">修改筹码</button>
+  </view>
+
   <view class="actions" wx:elif="{{isHost && gameStatus === 'ongoing' && !player.eliminatedAt && (player.finalStack === null || player.finalStack === undefined)}}">
     <button class="btn btn--ghost btn-sm" bindtap="onRebuy">帮他补</button>
     <button class="btn btn--danger btn-sm" bindtap="onEliminate">踢人</button>

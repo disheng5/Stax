@@ -24,7 +24,9 @@ Page({
     isPlayer: false,
     showTimer: false,
     joining: false,
-    handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 }
+    handsPicker: { show: false, title: '', openid: '', type: '', hands: 1 },
+    allCheckedOut: false,
+    settleDiff: 0
   },
 
   async onLoad(options) {
@@ -98,6 +100,7 @@ Page({
             const isHost = !!myOpenid && game.hostOpenid === myOpenid
             const isPlayer = !!myOpenid && (game.players || []).some(p => p.openid === myOpenid)
             this.setData({ game, isHost, isPlayer, viewerMode: !isPlayer, loading: false })
+            this._computeSettleStatus(game)
             this._resolveAvatars(game.players)
             this._fetchRecentTx()
           } else {
@@ -120,23 +123,39 @@ Page({
       })
   },
 
+  _computeSettleStatus(game) {
+    const players = game.players || []
+    const checkedOut = players.filter(p => p.finalStack !== null && p.finalStack !== undefined)
+    const allCheckedOut = players.length > 0 && checkedOut.length === players.length
+    let settleDiff = 0
+    if (allCheckedOut) {
+      settleDiff = players.reduce((s, p) => s + (p.finalStack - p.totalBuyIn), 0)
+    }
+    this.setData({ allCheckedOut, settleDiff })
+  },
+
   async _fetchRecentTx() {
     if (!this.data.gameId) return
     try {
       const db = wx.cloud.database()
-      const res = await db
-        .collection('transactions')
-        .where({ gameId: this.data.gameId })
-        .orderBy('timestamp', 'desc')
-        .limit(30)
-        .get()
+      const all = []
+      for (let skip = 0; skip < 500; skip += 20) {
+        const r = await db
+          .collection('transactions')
+          .where({ gameId: this.data.gameId })
+          .orderBy('timestamp', 'desc')
+          .skip(skip)
+          .limit(20)
+          .get()
+        all.push(...r.data)
+        if (r.data.length < 20) break
+      }
       const nameMap = {}
       ;(this.data.game?.players || []).forEach(p => {
         nameMap[p.openid] = p.nickname
       })
       const buyIn = Number(this.data.game?.buyIn || 0)
-      // 按时间正序累计每位玩家到此为止的总手数与总码量
-      const asc = res.data.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      const asc = all.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
       const totalHands = {}
       const totalAmount = {}
       const handsMap = {}
@@ -145,11 +164,9 @@ Page({
       asc.forEach(t => {
         const isBuy =
           t.type === 'buyIn' || ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked)
-        const isRevoke =
-          t.type === 'revoke' || ((t.type === 'rebuy' || t.type === 'addOn') && t.revoked)
         let h = 0
         if (t.type === 'buyIn') h = 1
-        else if (t.type === 'rebuy' || t.type === 'addOn') {
+        else if ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked) {
           h =
             Number(t.meta?.hands) ||
             (buyIn > 0 ? Math.max(1, Math.round((t.amount || 0) / buyIn)) : 1)
@@ -162,7 +179,7 @@ Page({
         accHandsMap[t._id] = totalHands[t.playerOpenid] || 0
         accAmountMap[t._id] = totalAmount[t.playerOpenid] || 0
       })
-      const recentTx = res.data.slice(0, 10).map(t => {
+      const recentTx = all.map(t => {
         const d = t.timestamp ? new Date(t.timestamp) : null
         const timeStr = d
           ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -407,13 +424,16 @@ Page({
     }
     const me = (this.data.game?.players || []).find(p => p.openid === this.data.myOpenid)
     if (!me) return
+    const hasExisting = me.finalStack !== null && me.finalStack !== undefined
     wx.showModal({
-      title: '下桌筹码',
+      title: hasExisting ? '修改下桌筹码' : '下桌筹码',
       editable: true,
-      placeholderText: String(me.currentStack || 0),
+      placeholderText: String(hasExisting ? me.finalStack : me.currentStack || 0),
       success: async r => {
         if (!r.confirm) return
-        const finalStack = Number(r.content || me.currentStack || 0)
+        const val =
+          r.content !== '' ? Number(r.content) : hasExisting ? me.finalStack : me.currentStack || 0
+        const finalStack = Number(val || 0)
         if (finalStack < 0) {
           wx.showToast({ title: '筹码不能小于 0', icon: 'none' })
           return

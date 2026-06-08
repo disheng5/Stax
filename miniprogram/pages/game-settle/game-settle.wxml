@@ -9,12 +9,14 @@
   </view>
 
   <view class="card progress-card">
-    <view class="title">最终结算</view>
-    <view class="text-sub">房主确认所有人手头筹码，处理其他费用后结束牌局。</view>
+    <view class="title">下桌结算</view>
+    <view class="text-sub" wx:if="{{!isHost}}">填写手头筹码，提交后所有人可见差额。</view>
+    <view class="text-sub" wx:elif="{{!allSettled}}">等所有人填完筹码，确认水平后处理费用结束对局。</view>
+    <view class="text-sub" wx:else>所有人已下桌，确认水平后可结束对局。</view>
   </view>
 
   <view class="card {{submitted ? 'muted-card' : ''}}">
-    <view class="title">1. 手头筹码</view>
+    <view class="title">手头筹码</view>
     <view class="row" wx:for="{{playerProfits}}" wx:key="openid">
       <view class="name-col">
         <view class="name">{{item.nickname}}</view>
@@ -27,14 +29,16 @@
   </view>
 
   <view class="card {{diff !== 0 && allSettled ? 'warn' : ''}}">
-    <view>筹码差额 = <text class="{{diff === 0 ? 'text-success' : 'text-danger'}}">{{diff > 0 ? '+' : ''}}{{diff}}</text></view>
-    <view class="text-sub" wx:if="{{!allSettled}}">等所有玩家填写后自动检查是否平账</view>
-    <view class="text-sub" wx:elif="{{diff !== 0}}">需为 0 才能结束牌局</view>
+    <view>差额 = <text class="{{diff === 0 ? 'text-success' : 'text-danger'}}">{{diff > 0 ? '+' : ''}}{{diff}}</text>
+      <text wx:if="{{diff === 0 && allSettled}}" class="text-success"> 水平</text>
+    </view>
+    <view class="text-sub" wx:if="{{!allSettled}}">等所有玩家填写后自动检查</view>
+    <view class="text-sub" wx:elif="{{diff !== 0}}">差额须为 0 才能结束对局</view>
   </view>
 
-  <view class="card {{submitted ? 'muted-card' : ''}}">
-    <view class="title">2. 其他费用</view>
-    <view class="text-sub" style="margin-bottom:12rpx;">只记录费用如何分摊，不影响每人的实际盈亏积分。</view>
+  <view class="card {{submitted ? 'muted-card' : ''}}" wx:if="{{isHost}}">
+    <view class="title">其他费用（可选）</view>
+    <view class="text-sub" style="margin-bottom:12rpx;">仅记录分摊，不影响每人盈亏积分。</view>
     <view class="row aa-row">
       <text class="label">总额</text>
       <input class="num" type="digit" placeholder="0" value="{{extraCost || ''}}" bindinput="onExtraCostInput" />
@@ -52,7 +56,7 @@
   </view>
 
   <view class="card" wx:if="{{allSettled && transfers.length}}">
-    <view class="title">3. 清算建议（{{transfers.length}} 笔）</view>
+    <view class="title">清算建议（{{transfers.length}} 笔）</view>
     <view class="transfer" wx:for="{{transfers}}" wx:key="index">
       <text>{{item.from}}</text>
       <text class="arrow">→</text>
@@ -65,7 +69,9 @@
   </view>
 
   <view class="actions" wx:if="{{!submitted}}">
-    <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">最终结算</button>
+    <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">
+      {{isHost && allSettled && diff === 0 ? '结束对局' : '提交筹码'}}
+    </button>
   </view>
 
   <button wx:if="{{submitted}}" class="btn btn--ghost btn--block ai-btn" bindtap="onAIReview">AI点评</button>
