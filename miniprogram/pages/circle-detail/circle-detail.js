@@ -57,8 +57,7 @@ Page({
     }
   },
 
-  _buildMembers(circle, season) {
-    // 从排名数据里拿昵称（云函数已经查好），未上榜成员用占位名
+  async _buildMembers(circle, season) {
     const rankMap = {}
     if (season) {
       ;(season.rankings || []).forEach(r => {
@@ -67,9 +66,26 @@ Page({
     }
     const members = (circle.memberOpenids || []).map(openid => ({
       openid,
-      nickname: rankMap[openid] || '成员'
+      nickname: rankMap[openid] || ''
     }))
     this.setData({ members })
+
+    const needFetch = members.filter(m => !m.nickname).map(m => m.openid)
+    if (!needFetch.length) return
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'getAvatars',
+        data: { openids: needFetch }
+      })
+      const nicknames = res.result?.nicknames || {}
+      const updated = this.data.members.map(m => ({
+        ...m,
+        nickname: m.nickname || nicknames[m.openid] || '成员'
+      }))
+      this.setData({ members: updated })
+    } catch (err) {
+      console.error(err)
+    }
   },
 
   onHistory() {

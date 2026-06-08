@@ -4,7 +4,7 @@ const db = cloud.database()
 
 exports.main = async event => {
   const { openids = [] } = event
-  if (!openids.length) return { ok: true, avatars: {} }
+  if (!openids.length) return { ok: true, avatars: {}, nicknames: {} }
 
   try {
     const unique = [...new Set(openids)].slice(0, 20)
@@ -15,8 +15,12 @@ exports.main = async event => {
           .where({ _openid: openid })
           .limit(1)
           .get()
-          .then(r => ({ openid, avatar: (r.data && r.data[0] && r.data[0].avatar) || '' }))
-          .catch(() => ({ openid, avatar: '' }))
+          .then(r => ({
+            openid,
+            avatar: (r.data && r.data[0] && r.data[0].avatar) || '',
+            nickname: (r.data && r.data[0] && r.data[0].nickname) || ''
+          }))
+          .catch(() => ({ openid, avatar: '', nickname: '' }))
       )
     )
 
@@ -33,12 +37,13 @@ exports.main = async event => {
     }
 
     const avatars = {}
+    const nicknames = {}
     results.forEach(r => {
-      if (!r.avatar) return
-      avatars[r.openid] = tempUrlMap[r.avatar] || r.avatar
+      if (r.avatar) avatars[r.openid] = tempUrlMap[r.avatar] || r.avatar
+      if (r.nickname) nicknames[r.openid] = r.nickname
     })
 
-    return { ok: true, avatars }
+    return { ok: true, avatars, nicknames }
   } catch (err) {
     return { ok: false, error: err.message }
   }
