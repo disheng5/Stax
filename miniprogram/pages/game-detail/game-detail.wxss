@@ -450,7 +450,7 @@
 
 .crown {
   position: absolute;
-  top: -22rpx;
+  top: -26rpx;
   left: 50%;
   width: 44rpx;
   height: 26rpx;
