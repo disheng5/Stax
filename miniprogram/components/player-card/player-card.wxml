@@ -1,7 +1,10 @@
 <view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}}" bindtap="onTap">
   <view class="main-row">
     <view class="player-cell">
-      <image class="avatar" src="{{player.avatar || '/images/default-avatar.png'}}" />
+      <view class="avatar-wrap">
+        <image class="avatar" src="{{player.avatar || '/images/default-avatar.png'}}" />
+        <view class="crown" wx:if="{{isWinner && gameStatus === 'ended'}}"></view>
+      </view>
       <view class="name-wrap">
         <view class="nickname">{{player.nickname}}<text class="me-tag" wx:if="{{isSelf}}">我</text></view>
       </view>

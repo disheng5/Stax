@@ -22,97 +22,45 @@
       <view class="quick-btn ghost" bindtap="onQuickSettle">结算</view>
     </view>
   </view>
-  <view class="section-head" wx:elif="{{game.status === 'ongoing'}}">
+  <view class="section-head" wx:else>
     <view class="section-title">积分情况</view>
   </view>
 
-  <view wx:if="{{game.status === 'ongoing'}}">
-    <view class="table-head">
-      <text>玩家</text>
-      <text>手数</text>
-      <text>码量</text>
-      <text>盈亏</text>
-    </view>
-    <view class="players">
-        <player-card
-          wx:for="{{game.players}}" wx:key="openid"
-          player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
-          isSelf="{{item.openid === myOpenid && !viewerMode}}"
-          canSelfOperate="{{game.playerOpsShared !== false}}"
-          bind:playertap="onPlayerTap"
-        />
-    </view>
+  <view class="table-head">
+    <text>玩家</text>
+    <text>手数</text>
+    <text>码量</text>
+    <text>盈亏</text>
+  </view>
+  <view class="players">
+      <player-card
+        wx:for="{{game.players}}" wx:key="openid"
+        player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
+        isSelf="{{item.openid === myOpenid && !viewerMode}}"
+        canSelfOperate="{{game.playerOpsShared !== false}}"
+        isWinner="{{item.openid === settleWinnerOpenid}}"
+        bind:playertap="onPlayerTap"
+      />
   </view>
 
   <view class="settle-bar" wx:if="{{game.status === 'ongoing' && game.checkedOutCount > 0}}">
-    <view class="settle-bar-left">
-      <view wx:if="{{allCheckedOut && settleDiff === 0}}" class="settle-check">
-        <text class="check-icon">✓</text>
-        <text class="check-text">账平</text>
-      </view>
-      <text wx:elif="{{allCheckedOut}}" class="text-danger">差额 {{settleDiff}}</text>
-      <text wx:else class="text-sub">已结算 {{game.checkedOutCount || 0}}/{{game.players.length}}</text>
-    </view>
-    <view class="settle-bar-right" wx:if="{{aboveTotal > 0 || belowTotal < 0}}">
-      <text class="text-success" wx:if="{{aboveTotal > 0}}">水上: +{{aboveTotal}}</text>
-      <text class="settle-bar-sep" wx:if="{{aboveTotal > 0 && belowTotal < 0}}">  </text>
-      <text class="text-danger" wx:if="{{belowTotal < 0}}">水下: {{belowTotal}}</text>
-    </view>
+    <text class="bar-item" wx:if="{{!allCheckedOut}}">未结算: {{game.players.length - (game.checkedOutCount || 0)}}</text>
+    <text class="bar-item text-success" wx:elif="{{settleDiff === 0}}">✓ 账平</text>
+    <text class="bar-item text-danger" wx:else>ⓘ 账不平</text>
+    <text class="bar-item text-success" wx:if="{{aboveTotal > 0}}">水上: +{{aboveTotal}}</text>
+    <text class="bar-item text-danger" wx:if="{{belowTotal < 0}}">水下: {{belowTotal}}</text>
+  </view>
+
+  <view class="settle-bar ended" wx:if="{{game.status === 'ended' && settleResult}}">
+    <text class="bar-item text-success" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal === 0}}">✓ 账平</text>
+    <text class="bar-item text-warning" wx:else>ⓘ 账不平</text>
+    <text class="bar-item text-success" wx:if="{{settleResult.aboveTotal > 0}}">水上: +{{settleResult.aboveTotal}}</text>
+    <text class="bar-item text-danger" wx:if="{{settleResult.belowTotal < 0}}">水下: {{settleResult.belowTotal}}</text>
+    <text class="bar-item text-warning" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal !== 0}}">账差: {{settleResult.aboveTotal + settleResult.belowTotal > 0 ? '+' : ''}}{{settleResult.aboveTotal + settleResult.belowTotal}}</text>
   </view>
 
   <view class="host-panel" wx:if="{{isHost && !viewerMode && game.status === 'ongoing' && allCheckedOut && settleDiff === 0}}">
     <view class="quick-btn primary end-btn" bindtap="onEndGame">结束对局</view>
-  </view>
-
-  <view class="settle-result" wx:if="{{game.status === 'ended' && settleResult}}">
-    <view class="result-header">
-      <view class="result-game-name">{{settleResult.gameName}}</view>
-      <view class="result-date text-sub">{{settleResult.dateStr}}</view>
-    </view>
-
-    <view class="result-summary">
-      <view class="summary-block">
-        <view class="summary-label">本局时长</view>
-        <view class="summary-value">{{settleResult.duration}}</view>
-        <view class="summary-sub text-sub">{{settleResult.profitList.length}} 人参与</view>
-      </view>
-      <view class="summary-divider"></view>
-      <view class="summary-block">
-        <view class="summary-label">赢面玩家</view>
-        <view class="summary-value">{{settleResult.winnerCount}}</view>
-        <view class="summary-sub text-sub">共 {{settleResult.profitList.length}} 人</view>
-      </view>
-    </view>
-
-    <view class="result-rows">
-      <view class="result-row {{item.profit > 0 ? 'win' : item.profit < 0 ? 'lose' : ''}}" wx:for="{{settleResult.profitList}}" wx:key="openid">
-        <view class="result-cell-name">
-          <view class="result-avatar-wrap">
-            <image class="result-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" />
-            <view class="crown" wx:if="{{item.openid === settleResult.winner.openid}}"></view>
-          </view>
-          <text>{{item.nickname}}</text>
-        </view>
-        <text class="result-cell-sub">{{item.buyInCount}}手 · {{item.finalStack}}</text>
-        <text class="result-profit {{item.profit > 0 ? 'text-gold' : item.profit < 0 ? 'text-danger' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</text>
-      </view>
-    </view>
-
-    <view class="result-aa" wx:if="{{settleResult.extraCost > 0}}">
-      <text class="text-sub">其他费用 {{settleResult.extraCost}} · {{settleResult.expenseMode === 'winner' ? '水上AA' : '全员AA'}}</text>
-    </view>
-
-    <view class="result-waterline">
-      <view class="result-waterline-left">
-        <text class="check-icon result-check-icon">✓</text>
-        <text class="result-check-text">账平</text>
-      </view>
-      <view class="result-waterline-right">
-        <text class="result-above" wx:if="{{settleResult.aboveTotal > 0}}">水上: +{{settleResult.aboveTotal}}</text>
-        <text class="result-sep">  </text>
-        <text class="result-below" wx:if="{{settleResult.belowTotal < 0}}">水下: {{settleResult.belowTotal}}</text>
-      </view>
-    </view>
   </view>
 
   <view class="section-title" wx:if="{{recentTx.length}}">流水记录</view>

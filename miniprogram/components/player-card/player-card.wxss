@@ -31,12 +31,31 @@
   min-width: 0;
 }
 
-.avatar {
+.avatar-wrap {
+  position: relative;
   flex-shrink: 0;
+  width: 60rpx;
+  height: 60rpx;
+}
+
+.avatar {
   width: 60rpx;
   height: 60rpx;
   border-radius: 50%;
   background: var(--border);
+  display: block;
+}
+
+.crown {
+  position: absolute;
+  top: -16rpx;
+  left: 50%;
+  width: 52rpx;
+  height: 28rpx;
+  transform: translateX(-50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 28'%3E%3Cpath d='M3 23L10 8L19 18L26 3L33 18L42 8L49 23Z' fill='%23C9A961'/%3E%3Crect x='3' y='23' width='46' height='5' rx='2' fill='%23B8922E'/%3E%3Ccircle cx='10' cy='7' r='3' fill='%23E8C070'/%3E%3Ccircle cx='26' cy='2.5' r='3' fill='%23E8C070'/%3E%3Ccircle cx='42' cy='7' r='3' fill='%23E8C070'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 .name-wrap {

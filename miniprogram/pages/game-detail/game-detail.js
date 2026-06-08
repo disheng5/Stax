@@ -32,7 +32,8 @@ Page({
     aboveTotal: 0,
     belowTotal: 0,
     finalPanel: { show: false, extraCost: 0, expenseMode: 'all', submitting: false },
-    settleResult: null
+    settleResult: null,
+    settleWinnerOpenid: ''
   },
 
   async onLoad(options) {
@@ -692,7 +693,8 @@ Page({
         quote,
         gameName,
         dateStr
-      }
+      },
+      settleWinnerOpenid: winner?.openid || ''
     })
   },
 
