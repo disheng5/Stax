@@ -83,18 +83,3 @@
 .profit {
   font-weight: 700;
 }
-
-.actions {
-  display: flex;
-  gap: 12rpx;
-  margin-top: 16rpx;
-  padding-left: 74rpx;
-}
-
-.btn-sm {
-  flex: 1;
-  height: 58rpx;
-  padding: 0 20rpx;
-  font-size: 24rpx;
-  line-height: 58rpx;
-}

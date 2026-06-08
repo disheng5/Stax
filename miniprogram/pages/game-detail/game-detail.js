@@ -302,17 +302,101 @@ Page({
     }
   },
 
-  onRebuy(e) {
-    this._promptAmount('帮他补码', e.detail.openid, 'rebuy')
+  onPlayerTap(e) {
+    const { openid, player, isSelf, isHost } = e.detail
+    if (this.data.game?.status !== 'ongoing') return
+    if (player.eliminatedAt) return
+    if (this.data.viewerMode) return
+
+    const canSelfOp = this.data.game?.playerOpsShared !== false
+    const items = []
+    const actions = []
+
+    if (isSelf && canSelfOp) {
+      if (player.finalStack === null || player.finalStack === undefined) {
+        items.push('买入')
+        actions.push('selfrebuy')
+        items.push('结算')
+        actions.push('settleself')
+      } else {
+        items.push('改码')
+        actions.push('settleself')
+        items.push('买入')
+        actions.push('selfrebuy')
+      }
+    } else if (this.data.isHost) {
+      items.push('帮他补码')
+      actions.push('rebuy')
+      items.push('帮他结算')
+      actions.push('settleother')
+      items.push('踢人')
+      actions.push('eliminate')
+    } else {
+      return
+    }
+
+    wx.showActionSheet({
+      itemList: items,
+      success: res => {
+        const action = actions[res.tapIndex]
+        if (action === 'selfrebuy') {
+          this._promptAmount('补码', openid, 'rebuy')
+        } else if (action === 'settleself' || action === 'settleother') {
+          this._doSettle(openid, player)
+        } else if (action === 'rebuy') {
+          this._promptAmount('帮他补码', openid, 'rebuy')
+        } else if (action === 'eliminate') {
+          this._confirmEliminate(openid)
+        }
+      }
+    })
   },
-  onAddOn(e) {
-    this._promptAmount('代补 (Add-on)', e.detail.openid, 'addOn')
+
+  _doSettle(openid, player) {
+    const hasExisting = player.finalStack !== null && player.finalStack !== undefined
+    wx.showModal({
+      title: hasExisting ? '修改结算筹码' : '结算筹码',
+      editable: true,
+      placeholderText: String(hasExisting ? player.finalStack : player.currentStack || 0),
+      success: async r => {
+        if (!r.confirm) return
+        const val =
+          r.content !== ''
+            ? Number(r.content)
+            : hasExisting
+              ? player.finalStack
+              : player.currentStack || 0
+        const finalStack = Number(val || 0)
+        if (finalStack < 0) {
+          wx.showToast({ title: '筹码不能小于 0', icon: 'none' })
+          return
+        }
+        wx.showLoading({ title: '记录中…' })
+        try {
+          const res = await wx.cloud.callFunction({
+            name: 'settleGame',
+            data: {
+              gameId: this.data.gameId,
+              mode: 'checkout',
+              finalStacks: { [openid]: finalStack }
+            }
+          })
+          wx.hideLoading()
+          if (!res.result?.ok) {
+            wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+            return
+          }
+          wx.showToast({ title: '已记录', icon: 'success' })
+        } catch (err) {
+          wx.hideLoading()
+          console.error(err)
+          wx.showToast({ title: '网络异常', icon: 'none' })
+        }
+      }
+    })
   },
-  onSelfRebuy(e) {
-    this._promptAmount('补码', e.detail.openid, 'rebuy')
-  },
-  onEliminate(e) {
-    const openid = e.detail.openid
+
+  _confirmEliminate(openid) {
     wx.showModal({
       title: '踢出该玩家',
       content: '该玩家将不再参与本局结算，确认踢人？',
@@ -324,7 +408,16 @@ Page({
     })
   },
 
-  // 庄家：撤销最近一条 rebuy/addOn
+  onRebuy(e) {
+    this._promptAmount('帮他补码', e.detail.openid, 'rebuy')
+  },
+  onAddOn(e) {
+    this._promptAmount('代补 (Add-on)', e.detail.openid, 'addOn')
+  },
+  onSelfRebuy(e) {
+    this._promptAmount('补码', e.detail.openid, 'rebuy')
+  },
+
   onRevokeTx(e) {
     const txId = e.currentTarget.dataset.id
     wx.showModal({
@@ -391,52 +484,6 @@ Page({
     const buyIn = Number(this.data.game.buyIn || 0)
     this.setData({ 'handsPicker.show': false })
     this._record(type, openid, n * buyIn, { hands: n })
-  },
-
-  onSettleSelf() {
-    if (this.data.game?.playerOpsShared === false && !this.data.isHost) {
-      wx.showToast({ title: '本局由房主统一操作', icon: 'none' })
-      return
-    }
-    const me = (this.data.game?.players || []).find(p => p.openid === this.data.myOpenid)
-    if (!me) return
-    const hasExisting = me.finalStack !== null && me.finalStack !== undefined
-    wx.showModal({
-      title: hasExisting ? '修改下桌筹码' : '下桌筹码',
-      editable: true,
-      placeholderText: String(hasExisting ? me.finalStack : me.currentStack || 0),
-      success: async r => {
-        if (!r.confirm) return
-        const val =
-          r.content !== '' ? Number(r.content) : hasExisting ? me.finalStack : me.currentStack || 0
-        const finalStack = Number(val || 0)
-        if (finalStack < 0) {
-          wx.showToast({ title: '筹码不能小于 0', icon: 'none' })
-          return
-        }
-        wx.showLoading({ title: '记录中…' })
-        try {
-          const res = await wx.cloud.callFunction({
-            name: 'settleGame',
-            data: {
-              gameId: this.data.gameId,
-              mode: 'checkout',
-              finalStacks: { [this.data.myOpenid]: finalStack }
-            }
-          })
-          wx.hideLoading()
-          if (!res.result?.ok) {
-            wx.showToast({ title: res.result?.error || '下桌失败', icon: 'none' })
-            return
-          }
-          wx.showToast({ title: '已下桌，等待结算', icon: 'success' })
-        } catch (err) {
-          wx.hideLoading()
-          console.error(err)
-          wx.showToast({ title: '网络异常', icon: 'none' })
-        }
-      }
-    })
   },
 
   onEndGame() {

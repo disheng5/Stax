@@ -1,10 +1,10 @@
-<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}}">
+<view class="player-card {{player.eliminatedAt ? 'eliminated' : ''}} {{isSelf ? 'me' : ''}}" bindtap="onTap">
   <view class="main-row">
     <view class="player-cell">
       <image class="avatar" src="{{player.avatar || '/images/default-avatar.png'}}" />
       <view class="name-wrap">
         <view class="nickname">{{player.nickname}}<text class="me-tag" wx:if="{{isSelf}}">我</text></view>
-        <view class="text-sub status" wx:if="{{player.finalStack !== null && player.finalStack !== undefined}}">已下桌</view>
+        <view class="text-sub status" wx:if="{{player.finalStack !== null && player.finalStack !== undefined}}">已结算</view>
         <view class="text-sub status" wx:elif="{{player.eliminatedAt}}">已踢出</view>
         <view class="text-sub status" wx:else>进行中</view>
       </view>
@@ -14,19 +14,5 @@
     <view class="profit text-success" wx:if="{{player.finalStack !== null && player.finalStack !== undefined && player.profit >= 0}}">+{{player.profit}}</view>
     <view class="profit text-danger" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.profit}}</view>
     <view class="profit text-sub" wx:else>未结</view>
-  </view>
-
-  <view class="actions" wx:if="{{isSelf && canSelfOperate && gameStatus === 'ongoing' && !player.eliminatedAt && (player.finalStack === null || player.finalStack === undefined)}}">
-    <button class="btn btn--primary btn-sm" bindtap="onSelfRebuy">补码</button>
-    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">结算</button>
-  </view>
-
-  <view class="actions" wx:elif="{{isSelf && canSelfOperate && gameStatus === 'ongoing' && !player.eliminatedAt && player.finalStack !== null && player.finalStack !== undefined}}">
-    <button class="btn btn--ghost btn-sm" bindtap="onSettleSelf">改码</button>
-  </view>
-
-  <view class="actions" wx:elif="{{isHost && gameStatus === 'ongoing' && !player.eliminatedAt && (player.finalStack === null || player.finalStack === undefined)}}">
-    <button class="btn btn--ghost btn-sm" bindtap="onRebuy">帮他补</button>
-    <button class="btn btn--danger btn-sm" bindtap="onEliminate">踢人</button>
   </view>
 </view>

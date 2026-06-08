@@ -33,8 +33,7 @@
         player="{{item}}" isHost="{{isHost && !viewerMode}}" gameStatus="{{game.status}}"
         isSelf="{{item.openid === myOpenid && !viewerMode}}"
         canSelfOperate="{{game.playerOpsShared !== false}}"
-        bind:rebuy="onRebuy" bind:addon="onAddOn" bind:eliminate="onEliminate"
-        bind:selfrebuy="onSelfRebuy" bind:settleself="onSettleSelf"
+        bind:playertap="onPlayerTap"
       />
   </view>
 
