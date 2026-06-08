@@ -633,7 +633,6 @@ Page({
         finalStack: p.finalStack || 0,
         profit: p.finalStack !== null ? p.finalStack - p.totalBuyIn : 0
       }))
-      .sort((a, b) => b.profit - a.profit)
     const transfers = settle(profitList.map(p => ({ nickname: p.nickname, profit: p.profit })))
     let shares = []
     if (extraCost > 0) {
@@ -642,8 +641,8 @@ Page({
           ? aaWinnerByRatio(profitList, extraCost)
           : aaEven(profitList, extraCost)
     }
-    const winner = profitList[0] || null
-    const loser = profitList[profitList.length - 1] || null
+    const winner = profitList.slice().sort((a, b) => b.profit - a.profit)[0] || null
+    const loser = profitList.slice().sort((a, b) => a.profit - b.profit)[0] || null
     const totalPot = profitList.reduce((s, p) => s + p.totalBuyIn, 0)
     const rawGame = Array.isArray(gameOrPlayers) ? this.data.game : gameOrPlayers
     let duration = '--'

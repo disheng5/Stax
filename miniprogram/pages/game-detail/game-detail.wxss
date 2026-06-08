@@ -450,12 +450,12 @@
 
 .crown {
   position: absolute;
-  top: -26rpx;
+  top: -22rpx;
   left: 50%;
-  width: 52rpx;
-  height: 30rpx;
+  width: 44rpx;
+  height: 26rpx;
   transform: translateX(-50%);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 30'%3E%3Cpath d='M2 24L10 8L20 18L26 2L32 18L42 8L50 24Z' fill='%23C9A961'/%3E%3Crect x='2' y='24' width='48' height='5' rx='2' fill='%23B8922E'/%3E%3Ccircle cx='10' cy='7' r='3.5' fill='%23E8C070'/%3E%3Ccircle cx='26' cy='2' r='3.5' fill='%23E8C070'/%3E%3Ccircle cx='42' cy='7' r='3.5' fill='%23E8C070'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M2 21L8 7L16 16L22 2L28 16L36 7L42 21Z' fill='%23C9A961'/%3E%3Crect x='2' y='21' width='40' height='4' rx='1.5' fill='%23B8922E'/%3E%3Ccircle cx='8' cy='6' r='2.5' fill='%23E8C070'/%3E%3Ccircle cx='22' cy='1.5' r='2.5' fill='%23E8C070'/%3E%3Ccircle cx='36' cy='6' r='2.5' fill='%23E8C070'/%3E%3C/svg%3E");
   background-size: 100% 100%;
   background-repeat: no-repeat;
 }
