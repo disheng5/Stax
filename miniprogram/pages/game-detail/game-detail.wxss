@@ -23,6 +23,8 @@
   padding: 0 24rpx;
   margin: 0;
   border: none;
+  box-shadow: none;
+  outline: none;
   border-radius: var(--radius-sm);
   background: var(--table-green);
   color: #fff;
@@ -31,7 +33,7 @@
   line-height: 52rpx;
 }
 
-.share-btn::after { border: none; }
+.share-btn::after { display: none; }
 
 .notice {
   margin-bottom: 20rpx;
