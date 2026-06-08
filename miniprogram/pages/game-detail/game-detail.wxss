@@ -12,14 +12,16 @@
   font-size: 24rpx;
 }
 
+.share-wrap {
+  flex-shrink: 0;
+}
+
 .share-btn {
-  display: inline-block;
+  display: block;
   width: auto;
-  min-width: 0;
   height: 52rpx;
   padding: 0 24rpx;
   margin: 0;
-  box-sizing: border-box;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--table-green);

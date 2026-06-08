@@ -1,7 +1,9 @@
 <view class="container" wx:if="{{game}}">
   <view class="game-info">
     <text class="info-text">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · {{game.scoreRatio}}:1</text></text>
-    <button class="share-btn" open-type="share" wx:if="{{game.status === 'ongoing'}}">邀请</button>
+    <view class="share-wrap" wx:if="{{game.status === 'ongoing'}}">
+      <button class="share-btn" open-type="share">邀请</button>
+    </view>
   </view>
 
   <view class="notice" wx:if="{{game.players.length <= 1 && game.status === 'ongoing'}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
