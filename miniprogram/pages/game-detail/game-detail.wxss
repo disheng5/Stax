@@ -13,8 +13,9 @@
 }
 
 .share-btn {
-  flex-shrink: 0;
-  height: 56rpx;
+  display: block;
+  width: auto;
+  height: 52rpx;
   padding: 0 24rpx;
   margin: 0;
   border: none;
@@ -23,7 +24,7 @@
   color: #fff;
   font-size: 24rpx;
   font-weight: 600;
-  line-height: 56rpx;
+  line-height: 52rpx;
 }
 
 .share-btn::after { border: none; }
