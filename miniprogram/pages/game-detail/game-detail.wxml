@@ -3,8 +3,7 @@
     <view class="top-title">{{game.name || 'StaxKit 牌局'}}</view>
     <view class="room-config">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · 码:积 {{game.scoreRatio}}:1</text></view>
     <view class="top-actions">
-      <view class="invite-chip" bindtap="onCopyCode">邀请码 {{game.inviteCode}}</view>
-      <button class="share-small" open-type="share">邀请</button>
+      <button class="btn btn--primary share-invite-btn" open-type="share">邀请好友</button>
     </view>
   </view>
 
@@ -15,7 +14,6 @@
     <view class="text-sub">点击下方按钮直接上桌，或继续围观。</view>
     <view class="viewer-actions">
       <button class="btn btn--primary" bindtap="onJoinAsPlayer" disabled="{{joining}}">上桌</button>
-      <button class="btn btn--ghost" bindtap="onCopyCode">复制邀请码</button>
     </view>
   </view>
 

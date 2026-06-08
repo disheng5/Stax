@@ -447,13 +447,6 @@ Page({
     wx.navigateTo({ url: '/pages/game-settle/game-settle?id=' + this.data.gameId })
   },
 
-  onCopyCode() {
-    wx.setClipboardData({
-      data: this.data.game.inviteCode,
-      success: () => wx.showToast({ title: '邀请码已复制' })
-    })
-  },
-
   async onJoinAsPlayer() {
     if (this.data.joining) return
     if (!this.data.game) return

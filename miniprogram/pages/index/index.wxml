@@ -12,7 +12,6 @@
     </view>
     <view class="hero-actions">
       <view class="action-btn action-btn--primary" bindtap="onCreate">开局</view>
-      <view class="action-btn action-btn--ghost" bindtap="onJoin">加入</view>
     </view>
   </view>
 

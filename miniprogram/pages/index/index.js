@@ -98,9 +98,6 @@ Page({
   onCreate() {
     wx.navigateTo({ url: '/pages/game-create/game-create' })
   },
-  onJoin() {
-    wx.navigateTo({ url: '/pages/game-join/game-join' })
-  },
   onHistory() {
     wx.navigateTo({ url: '/pages/history/history' })
   },
