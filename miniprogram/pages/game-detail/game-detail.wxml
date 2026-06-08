@@ -80,7 +80,7 @@
         <view class="result-cell-name">
           <view class="result-avatar-wrap">
             <image class="result-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" />
-            <text class="crown" wx:if="{{index === 0}}">♛</text>
+            <view class="crown" wx:if="{{index === 0}}"></view>
           </view>
           <text>{{item.nickname}}</text>
         </view>
