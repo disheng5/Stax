@@ -86,7 +86,15 @@ async function calcForCircle(circleId) {
   for (let skip = 0; skip < 500; skip += 20) {
     const r = await db
       .collection('games')
-      .where({ status: 'ended', endedAt: _.gte(startAt).and(_.lte(endAt)) })
+      .where(
+        _.and([
+          { status: 'ended' },
+          _.or([
+            { endedAt: _.gte(startAt).and(_.lte(endAt)) },
+            { startedAt: _.gte(startAt).and(_.lte(endAt)) }
+          ])
+        ])
+      )
       .orderBy('endedAt', 'asc')
       .skip(skip)
       .limit(20)
@@ -95,9 +103,16 @@ async function calcForCircle(circleId) {
     if (r.data.length < 20) break
   }
 
+  const seen = new Set()
+  const uniqueGames = allGames.filter(g => {
+    if (seen.has(g._id)) return false
+    seen.add(g._id)
+    return true
+  })
+
   const MIN_PLAYERS = 4
   const MIN_DURATION_MS = 20 * 60 * 1000
-  const qualifiedGames = allGames.filter(g => {
+  const qualifiedGames = uniqueGames.filter(g => {
     if (g.excludeFromSeason) return false
     if ((g.players || []).length < MIN_PLAYERS) return false
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
