@@ -59,7 +59,7 @@ async function ensureSeason(circle) {
     circleId: circle._id,
     seasonNo,
     seasonName,
-    startAt: now,
+    startAt,
     endAt,
     status: 'ongoing',
     rankings: []
