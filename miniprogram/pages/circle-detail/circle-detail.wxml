@@ -16,7 +16,7 @@
       <view class="season-name">{{season.seasonName}}</view>
       <view class="season-remain">剩 {{daysLeft}} 天</view>
     </view>
-    <view class="season-sub text-sub" bindtap="onHistory">前贤录 ›</view>
+    <view class="season-sub text-sub" wx:if="{{season.seasonNo > 1}}" bindtap="onHistory">前贤录 ›</view>
   </view>
   <view class="season-card card" wx:else>
     <view class="season-name text-sub">赛季未启动</view>

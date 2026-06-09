@@ -29,6 +29,7 @@ async function ensureSeason(circle) {
     }
   }
   const now = new Date()
+  const startAt = new Date(now.getTime() - 6 * 7 * 24 * 60 * 60 * 1000)
   const endAt = new Date(now.getTime() + 6 * 7 * 24 * 60 * 60 * 1000)
   const countRes = await db.collection('seasons').where({ circleId: circle._id }).count()
   const seasonNo = (countRes.total || 0) + 1
@@ -39,7 +40,7 @@ async function ensureSeason(circle) {
       circleId: circle._id,
       seasonNo,
       seasonName,
-      startAt: now,
+      startAt,
       endAt,
       status: 'ongoing',
       rankings: [],
