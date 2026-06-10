@@ -27,7 +27,7 @@
           <view class="rank-name">{{item.nickname}}</view>
           <view class="rank-title" wx:if="{{item.title}}">{{item.title}}</view>
         </view>
-        <view class="rank-score {{item.profitBB >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
+        <view class="rank-games text-sub">{{item.games}} 场</view>
       </view>
       <view class="rank-divider" wx:if="{{unranked.length && ranked.length}}">—— 上榜线 ——</view>
       <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid">
@@ -36,7 +36,6 @@
           <view class="rank-name">{{item.nickname}}</view>
           <view class="rank-hint text-sub">{{item.games < 1 ? '打一场即可上榜' : item.games + ' 场'}}</view>
         </view>
-        <view class="rank-score text-sub">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
       </view>
     </view>
     <view class="empty-rank" wx:else>

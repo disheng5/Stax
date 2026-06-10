@@ -133,15 +133,20 @@ async function calcForCircle(circleId) {
     .filter(([, s]) => s.games >= MIN_GAMES)
     .sort(([, a], [, b]) => b.profitBB - a.profitBB)
 
-  const userQ = await db
-    .collection('users')
-    .where({ _openid: _.in(members) })
-    .limit(50)
-    .get()
   const nameMap = {}
-  ;(userQ.data || []).forEach(u => {
-    nameMap[u._openid] = u.nickname || '玩家'
-  })
+  await Promise.all(
+    members.map(openid =>
+      db
+        .collection('users')
+        .where({ _openid: openid })
+        .limit(1)
+        .get()
+        .then(r => {
+          if (r.data && r.data[0]) nameMap[openid] = r.data[0].nickname || '玩家'
+        })
+        .catch(() => {})
+    )
+  )
 
   const rankings = ranked.map(([openid, s], i) => ({
     openid,
