@@ -39,7 +39,7 @@
       <view class="rank-badge rank-n">-</view>
       <view class="rank-info">
         <view class="rank-name">{{item.nickname}}</view>
-        <view class="rank-hint text-sub" wx:if="{{item.games < 3}}">再打 {{3 - item.games}} 场可上榜</view>
+        <view class="rank-hint text-sub" wx:if="{{item.games < 1}}">打一场即可上榜</view>
         <view class="rank-hint text-sub" wx:else>积分计算中</view>
       </view>
       <view class="rank-score text-sub">{{item.profitBB}} BB</view>
@@ -47,6 +47,17 @@
   </view>
   <view class="card empty-rank" wx:elif="{{!loading}}">
     <view class="text-sub">暂无排名，打一场就能开始积分</view>
+  </view>
+
+  <view class="card season-games-card" wx:if="{{seasonGames.length}}">
+    <view class="members-title text-sub">本赛季比赛 ({{seasonGames.length}})</view>
+    <view class="season-game" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="sg-left">
+        <view class="sg-name">{{item.name || 'StaxKit 牌局'}}</view>
+        <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}}</view>
+      </view>
+      <view class="sg-right text-sub">{{item.durationStr}}</view>
+    </view>
   </view>
 
   <!-- 成员 -->

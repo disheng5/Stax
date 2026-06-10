@@ -128,7 +128,7 @@ async function calcForCircle(circleId) {
   })
 
   const titles = getTitles()
-  const MIN_GAMES = 3
+  const MIN_GAMES = 1
   const ranked = Object.entries(memberStats)
     .filter(([, s]) => s.games >= MIN_GAMES)
     .sort(([, a], [, b]) => b.profitBB - a.profitBB)

@@ -8,6 +8,7 @@ Page({
     ranked: [],
     unranked: [],
     members: [],
+    seasonGames: [],
     isOwner: false,
     daysLeft: 0,
     loading: true
@@ -51,6 +52,7 @@ Page({
 
       this.setData({ circle, season, ranked, unranked, isOwner, daysLeft, loading: false })
       this._buildMembers(circle, season)
+      this._fetchSeasonGames(circle, season)
     } catch (err) {
       console.error(err)
       this.setData({ loading: false })
@@ -86,6 +88,63 @@ Page({
     } catch (err) {
       console.error(err)
     }
+  },
+
+  async _fetchSeasonGames(circle, season) {
+    if (!season) return
+    try {
+      const db = wx.cloud.database()
+      const _ = db.command
+      const members = circle.memberOpenids || []
+      const seasonStart = new Date(season.startAt)
+      const seasonEnd = new Date(season.endAt)
+      const circleCreatedAt = circle.createdAt ? new Date(circle.createdAt) : seasonStart
+      const queryStart = circleCreatedAt < seasonStart ? circleCreatedAt : seasonStart
+
+      const r = await db
+        .collection('games')
+        .where(
+          _.and([
+            { status: 'ended' },
+            { startedAt: _.lt(seasonEnd) },
+            { endedAt: _.gt(queryStart) }
+          ])
+        )
+        .orderBy('endedAt', 'desc')
+        .limit(50)
+        .get()
+
+      const MIN_PLAYERS = 4
+      const MIN_DURATION_MS = 20 * 60 * 1000
+      const games = r.data
+        .filter(g => {
+          if (g.excludeFromSeason) return false
+          if ((g.players || []).length < MIN_PLAYERS) return false
+          const dur = new Date(g.endedAt) - new Date(g.startedAt)
+          if (dur < MIN_DURATION_MS) return false
+          return (g.players || []).some(p => members.includes(p.openid))
+        })
+        .map(g => {
+          const dur = new Date(g.endedAt) - new Date(g.startedAt)
+          const h = Math.floor(dur / 3600000)
+          const m = Math.floor((dur % 3600000) / 60000)
+          const d = new Date(g.endedAt)
+          return {
+            _id: g._id,
+            name: g.name,
+            playerCount: (g.players || []).length,
+            dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
+            durationStr: h > 0 ? `${h}h ${m}m` : `${m}m`
+          }
+        })
+      this.setData({ seasonGames: games })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  onOpenGame(e) {
+    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
   },
 
   onHistory() {

@@ -43,3 +43,11 @@
 .owner-actions { display: flex; flex-direction: column; gap: 20rpx; align-items: center; }
 .footer-link { font-size: 24rpx; color: var(--text-sub); padding: 8rpx 0; }
 .footer-link.danger { color: var(--danger); }
+
+.season-games-card { margin-top: 20rpx; }
+.season-game { display: flex; align-items: center; justify-content: space-between; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
+.season-game:last-child { border-bottom: none; }
+.sg-left { flex: 1; min-width: 0; }
+.sg-name { font-size: 26rpx; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-meta { font-size: 22rpx; margin-top: 4rpx; }
+.sg-right { font-size: 22rpx; flex-shrink: 0; margin-left: 16rpx; }
