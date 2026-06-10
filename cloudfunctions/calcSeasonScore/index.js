@@ -29,7 +29,7 @@ async function ensureSeason(circle) {
     }
   }
   const now = new Date()
-  const startAt = new Date(now.getTime() - 6 * 7 * 24 * 60 * 60 * 1000)
+  const startAt = now
   const endAt = new Date(now.getTime() + 6 * 7 * 24 * 60 * 60 * 1000)
   const countRes = await db.collection('seasons').where({ circleId: circle._id }).count()
   const seasonNo = (countRes.total || 0) + 1
@@ -78,15 +78,19 @@ async function calcForCircle(circleId) {
   const season = await ensureSeason(circle)
   if (!season || season.status !== 'ongoing') return
 
-  const startAt = new Date(season.startAt)
-  const endAt = new Date(season.endAt)
+  const seasonStart = new Date(season.startAt)
+  const seasonEnd = new Date(season.endAt)
   const members = circle.memberOpenids || []
+  const circleCreatedAt = circle.createdAt ? new Date(circle.createdAt) : seasonStart
+  const queryStart = circleCreatedAt < seasonStart ? circleCreatedAt : seasonStart
 
   const allGames = []
   for (let skip = 0; skip < 500; skip += 20) {
     const r = await db
       .collection('games')
-      .where(_.and([{ status: 'ended' }, { startedAt: _.lt(endAt) }, { endedAt: _.gt(startAt) }]))
+      .where(
+        _.and([{ status: 'ended' }, { startedAt: _.lt(seasonEnd) }, { endedAt: _.gt(queryStart) }])
+      )
       .orderBy('endedAt', 'asc')
       .skip(skip)
       .limit(20)
