@@ -1,5 +1,4 @@
 <view class="container" wx:if="{{circle}}">
-  <!-- 顶部信息 -->
   <view class="header card">
     <view class="header-top">
       <view class="circle-name">{{circle.name}}</view>
@@ -10,57 +9,61 @@
     </view>
   </view>
 
-  <!-- 赛季 -->
-  <view class="season-card card" wx:if="{{season}}">
-    <view class="season-top">
-      <view class="season-name">{{season.seasonName}}</view>
-      <view class="season-remain">剩 {{daysLeft}} 天</view>
-    </view>
-    <view class="season-sub text-sub" wx:if="{{season.seasonNo > 1}}" bindtap="onHistory">前贤录 ›</view>
-  </view>
-  <view class="season-card card" wx:else>
-    <view class="season-name text-sub">赛季未启动</view>
-    <view class="season-sub text-sub">打一场合规局即可开启（≥4人、≥20分钟）</view>
-  </view>
-
-  <!-- 排名榜 -->
-  <view class="card ranking-card" wx:if="{{ranked.length}}">
-    <view class="rank-item" wx:for="{{ranked}}" wx:key="openid">
-      <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.rank}}</view>
-      <view class="rank-info">
-        <view class="rank-name">{{item.nickname}}</view>
-        <view class="rank-title" wx:if="{{item.title}}">{{item.title}}</view>
+  <view class="season-block card" wx:if="{{season}}">
+    <view class="season-header">
+      <view class="season-header-left">
+        <view class="season-name">{{season.seasonName}}</view>
+        <view class="season-remain text-sub">剩 {{daysLeft}} 天</view>
       </view>
-      <view class="rank-score {{item.profitBB >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
+      <view class="season-history" wx:if="{{season.seasonNo > 1}}" bindtap="onHistory">前贤录 ›</view>
     </view>
 
-    <view class="rank-divider" wx:if="{{unranked.length}}">—— 上榜线 ——</view>
-    <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid">
-      <view class="rank-badge rank-n">-</view>
-      <view class="rank-info">
-        <view class="rank-name">{{item.nickname}}</view>
-        <view class="rank-hint text-sub" wx:if="{{item.games < 1}}">打一场即可上榜</view>
-        <view class="rank-hint text-sub" wx:else>积分计算中</view>
+    <view class="block-divider"></view>
+
+    <view wx:if="{{ranked.length || unranked.length}}">
+      <view class="rank-item" wx:for="{{ranked}}" wx:key="openid">
+        <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.rank}}</view>
+        <view class="rank-info">
+          <view class="rank-name">{{item.nickname}}</view>
+          <view class="rank-title" wx:if="{{item.title}}">{{item.title}}</view>
+        </view>
+        <view class="rank-score {{item.profitBB >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
       </view>
-      <view class="rank-score text-sub">{{item.profitBB}} BB</view>
-    </view>
-  </view>
-  <view class="card empty-rank" wx:elif="{{!loading}}">
-    <view class="text-sub">暂无排名，打一场就能开始积分</view>
-  </view>
-
-  <view class="card season-games-card" wx:if="{{seasonGames.length}}">
-    <view class="members-title text-sub">本赛季比赛 ({{seasonGames.length}})</view>
-    <view class="season-game" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
-      <view class="sg-left">
-        <view class="sg-name">{{item.name || 'StaxKit 牌局'}}</view>
-        <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}}</view>
+      <view class="rank-divider" wx:if="{{unranked.length && ranked.length}}">—— 上榜线 ——</view>
+      <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid">
+        <view class="rank-badge rank-n">-</view>
+        <view class="rank-info">
+          <view class="rank-name">{{item.nickname}}</view>
+          <view class="rank-hint text-sub">{{item.games < 1 ? '打一场即可上榜' : item.games + ' 场'}}</view>
+        </view>
+        <view class="rank-score text-sub">{{item.profitBB > 0 ? '+' : ''}}{{item.profitBB}} BB</view>
       </view>
-      <view class="sg-right text-sub">{{item.durationStr}}</view>
+    </view>
+    <view class="empty-rank" wx:else>
+      <text class="text-sub">赛季刚开始，快来打第一场吧</text>
+    </view>
+
+    <view wx:if="{{seasonGames.length}}">
+      <view class="block-divider"></view>
+      <view class="games-header">
+        <text class="games-label text-sub">本赛季 {{seasonGames.length}} 场</text>
+      </view>
+      <view class="season-game" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+        <view class="sg-left">
+          <view class="sg-name">{{item.name || 'StaxKit 牌局'}}</view>
+          <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}}</view>
+        </view>
+        <view class="sg-right text-sub">{{item.durationStr}}</view>
+      </view>
     </view>
   </view>
 
-  <!-- 成员 -->
+  <view class="season-block card" wx:else>
+    <view class="empty-rank">
+      <text class="text-sub">赛季未启动，打一场合规局即可开启（≥4人、≥20分钟）</text>
+    </view>
+  </view>
+
   <view class="card members-card" wx:if="{{members.length}}">
     <view class="members-title text-sub">成员</view>
     <view class="member-list">
@@ -68,7 +71,6 @@
     </view>
   </view>
 
-  <!-- 操作区 -->
   <view class="footer-actions">
     <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出圈子</view>
     <view wx:if="{{isOwner}}" class="owner-actions">

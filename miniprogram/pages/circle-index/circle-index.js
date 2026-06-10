@@ -46,7 +46,7 @@ Page({
           seasonInfo = s.seasonName || '进行中'
           const me = (s.rankings || []).find(r => r.openid === openid)
           if (me && me.rank > 0) myRank = `第 ${me.rank} 名`
-          else if (me && me.games < 1) myRank = '打一场即可上榜'
+          else if (me && me.games < 1) myRank = '再打 1 场上榜'
           else if (me) myRank = '积分计算中'
           else myRank = '暂无数据'
         }

@@ -4,18 +4,21 @@
 .share-chip { font-size: 22rpx; color: var(--table-green); background: rgba(43,108,176,0.08); padding: 8rpx 20rpx; border-radius: 16rpx; border: none; line-height: 1.5; min-height: 0; flex-shrink: 0; }
 .share-chip::after { border: none; }
 .header-meta { display: flex; align-items: center; gap: 8rpx; font-size: 22rpx; }
-.dot { color: var(--text-sub); }
-.code-text { color: var(--table-green); font-weight: 500; }
 
-/* 赛季卡 */
-.season-card { margin-bottom: 0; }
-.season-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8rpx; }
+/* 赛季大块 */
+.season-block { }
+.season-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+.season-header-left { display: flex; align-items: baseline; gap: 12rpx; }
 .season-name { font-size: 28rpx; font-weight: 600; }
-.season-remain { font-size: 22rpx; color: var(--text-sub); }
-.season-sub { font-size: 22rpx; color: var(--table-green); }
+.season-remain { font-size: 22rpx; }
+.season-history { font-size: 22rpx; color: var(--table-green); }
+
+.block-divider { height: 1rpx; background: var(--border); margin: 16rpx -28rpx; }
+
+.games-header { padding: 8rpx 0 12rpx; }
+.games-label { font-size: 22rpx; }
 
 /* 排名榜 */
-.ranking-card { padding: 8rpx 28rpx; }
 .rank-item { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
 .rank-item:last-child { border: none; }
 .rank-badge { width: 44rpx; height: 44rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22rpx; font-weight: 700; color: #fff; flex-shrink: 0; }
@@ -30,7 +33,15 @@
 .rank-score { font-size: 28rpx; font-weight: 700; flex-shrink: 0; }
 .rank-divider { text-align: center; padding: 14rpx 0; font-size: 22rpx; color: var(--text-sub); border-bottom: 1rpx solid var(--border); }
 .unranked { opacity: 0.6; }
-.empty-rank { text-align: center; padding: 32rpx 0; }
+.empty-rank { padding: 24rpx 0; }
+
+/* 赛季比赛 */
+.season-game { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
+.season-game:last-child { border-bottom: none; }
+.sg-left { flex: 1; min-width: 0; }
+.sg-name { font-size: 26rpx; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-meta { font-size: 22rpx; margin-top: 4rpx; }
+.sg-right { font-size: 22rpx; flex-shrink: 0; margin-left: 16rpx; }
 
 /* 成员 */
 .members-card { }
@@ -43,11 +54,3 @@
 .owner-actions { display: flex; flex-direction: column; gap: 20rpx; align-items: center; }
 .footer-link { font-size: 24rpx; color: var(--text-sub); padding: 8rpx 0; }
 .footer-link.danger { color: var(--danger); }
-
-.season-games-card { margin-top: 20rpx; }
-.season-game { display: flex; align-items: center; justify-content: space-between; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
-.season-game:last-child { border-bottom: none; }
-.sg-left { flex: 1; min-width: 0; }
-.sg-name { font-size: 26rpx; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sg-meta { font-size: 22rpx; margin-top: 4rpx; }
-.sg-right { font-size: 22rpx; flex-shrink: 0; margin-left: 16rpx; }
