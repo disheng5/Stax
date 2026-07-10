@@ -2,8 +2,14 @@
 const app = getApp()
 const { settle } = require('../../utils/settle.js')
 const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
-const { invalidateGamesCache } = require('../../utils/game-data.js')
+const {
+  invalidateGamesCache,
+  cacheGame,
+  getCachedGame,
+  removeCachedGame
+} = require('../../utils/game-data.js')
 const avatarCache = require('../../utils/avatar.js')
+const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 const SUNZI = require('../../utils/sunzi.js')
 
 const TX_TYPE_LABEL = {
@@ -41,15 +47,18 @@ Page({
   },
 
   async onLoad(options) {
+    const gameId = options.id || ''
     this.setData({
-      gameId: options.id || '',
+      gameId,
       inviteCode: (options.code || '').toUpperCase(),
       viewerMode: options.mode === 'viewer'
     })
-    if (!this.data.gameId) {
+    if (!gameId) {
       this.setData({ loading: false, notFound: true })
       return
     }
+    const cachedGame = getCachedGame(gameId)
+    if (cachedGame) this._applyGame(cachedGame, { cached: true })
     // HTTP 直拉先上屏，watch 作为实时升级通道，两者并行；
     // 若 watch 首包抢先到达，这次直拉结果作废，避免重复渲染（deferToWatch）
     this._watchDelivered = false
@@ -112,43 +121,113 @@ Page({
     }
   },
 
-  // watch 与单次拉取共用的落地逻辑
-  _applyGame(game) {
+  _gameSignature(game) {
+    if (!game) return ''
+    return JSON.stringify({
+      id: game._id,
+      status: game.status,
+      name: game.name,
+      hostOpenid: game.hostOpenid,
+      inviteCode: game.inviteCode,
+      buyIn: game.buyIn,
+      smallBlind: game.smallBlind,
+      bigBlind: game.bigBlind,
+      scoreRatio: game.scoreRatio,
+      playerOpsShared: game.playerOpsShared,
+      totalPot: game.totalPot,
+      checkedOutCount: game.checkedOutCount,
+      excludeFromSeason: game.excludeFromSeason,
+      endedAt: game.endedAt,
+      extraCost: game.extraCost,
+      expenseMode: game.expenseMode,
+      players: (game.players || []).map(p => [
+        p.openid,
+        p.nickname,
+        p.avatar,
+        p.profileUpdatedAt,
+        p.buyInCount,
+        p.totalBuyIn,
+        p.currentStack,
+        p.finalStack,
+        p.profit,
+        p.finalProfit,
+        p.eliminatedAt
+      ])
+    })
+  },
+
+  _getSettleStatus(game) {
+    const players = (game.players || []).filter(p => !p.eliminatedAt)
+    const checkedOut = players.filter(p => p.finalStack !== null && p.finalStack !== undefined)
+    const allCheckedOut = players.length > 0 && checkedOut.length === players.length
+    let settleDiff = 0
+    let aboveTotal = 0
+    let belowTotal = 0
+    checkedOut.forEach(p => {
+      const profit = Number(p.finalStack) - Number(p.totalBuyIn || 0)
+      if (profit > 0) aboveTotal += profit
+      else if (profit < 0) belowTotal += profit
+      if (allCheckedOut) settleDiff += profit
+    })
+    return { allCheckedOut, settleDiff, aboveTotal, belowTotal }
+  },
+
+  // watch、HTTP 与本地快照共用的落地逻辑。
+  _applyGame(game, options = {}) {
     const myOpenid = this.data.myOpenid || app.globalData.openid || ''
-    if (myOpenid && myOpenid !== this.data.myOpenid) this.setData({ myOpenid })
     const isHost = !!myOpenid && game.hostOpenid === myOpenid
     const isPlayer = !!myOpenid && (game.players || []).some(p => p.openid === myOpenid)
-    // 同步用缓存补齐「未存头像」的玩家，并优先使用已缓存的可显示头像 URL。
+    avatarCache.putProfiles(game.players || [], { source: 'snapshot' })
+    // users 缓存优先于牌局快照；旧局不能再把新资料反向覆盖回去。
     const players = (game.players || []).map(p => {
       const c = avatarCache.cached(p.openid)
-      const avatar = p.avatar || c?.avatar || ''
+      const avatar = c?.avatar || p.avatar || ''
+      const nickname = avatarCache.meaningfulNickname(c?.nickname)
+        ? c.nickname
+        : avatarCache.meaningfulNickname(p.nickname)
+          ? p.nickname
+          : '玩家'
       return {
         ...p,
         avatar,
-        nickname: p.nickname || c?.nickname || '玩家',
-        displayAvatar: avatarCache.displayCached(avatar) || avatar
+        nickname,
+        displayAvatar:
+          avatarCache.displayCached(avatar) ||
+          (avatar && !avatar.startsWith('cloud://') ? avatar : '')
       }
     })
     avatarCache.putProfiles(players)
     const g = { ...game, players }
-    this.setData({
+    const signature = this._gameSignature(g)
+    if (signature === this._renderSignature) {
+      cacheGame(g)
+      if (!options.cached) this._resolveAvatars(players)
+      return
+    }
+    this._renderSignature = signature
+    if (this.data.game?.status === 'ongoing' && g.status === 'ended') {
+      invalidateGamesCache()
+    }
+    const settleStatus = this._getSettleStatus(g)
+    const patch = {
       game: g,
       isHost,
       isPlayer,
       viewerMode: !isPlayer,
       loading: false,
       notFound: false,
-      loadError: false
-    })
-    this._computeSettleStatus(g)
+      loadError: false,
+      ...settleStatus
+    }
+    if (g.status === 'ended') Object.assign(patch, this._createSettleResult(g))
+    if (myOpenid && myOpenid !== this.data.myOpenid) patch.myOpenid = myOpenid
+    this.setData(patch)
+    cacheGame(g)
     this._resolveAvatars(players, {
-      force: !this._profileRefreshAt || Date.now() - this._profileRefreshAt > 10000
+      force: !this._profileRefreshAt || Date.now() - this._profileRefreshAt > 60000
     })
     this._resolveDisplayAvatars(players)
     this._fetchRecentTx()
-    if (game.status === 'ended' && !this.data.settleResult) {
-      this._buildSettleResult(game)
-    }
   },
 
   _startWatch() {
@@ -174,6 +253,7 @@ Page({
               this._applyGame(snapshot.docs[0])
             } else {
               // watch 正常回调但查无此文档，才是真的不存在/已删除
+              removeCachedGame(this.data.gameId)
               this.setData({ game: null, loading: false, notFound: true })
             }
           },
@@ -239,6 +319,7 @@ Page({
       if (got && got.data) {
         this._applyGame(got.data)
       } else {
+        removeCachedGame(this.data.gameId)
         this.setData({ game: null, loading: false, notFound: true })
       }
     } catch (err) {
@@ -246,6 +327,7 @@ Page({
       const msg = (err && (err.errMsg || err.message)) || ''
       if (/not.?exist|non.?exist|不存在|-502004/i.test(msg)) {
         // 确证文档不存在
+        removeCachedGame(this.data.gameId)
         this.setData({ game: null, loading: false, notFound: true })
       } else if (!this.data.game) {
         // 网络/权限等失败且手上没有任何数据：如实展示加载失败，可重试，
@@ -262,23 +344,6 @@ Page({
     this._watchRetries = 0
     this._fetchGameOnce()
     this._startWatch()
-  },
-
-  _computeSettleStatus(game) {
-    // 被淘汰/踢出的玩家不参与结算状态计算（新踢人已移除，此处兜底旧数据）
-    const players = (game.players || []).filter(p => !p.eliminatedAt)
-    const checkedOut = players.filter(p => p.finalStack !== null && p.finalStack !== undefined)
-    const allCheckedOut = players.length > 0 && checkedOut.length === players.length
-    let settleDiff = 0
-    let aboveTotal = 0
-    let belowTotal = 0
-    checkedOut.forEach(p => {
-      const profit = p.finalStack - p.totalBuyIn
-      if (profit > 0) aboveTotal += profit
-      else if (profit < 0) belowTotal += profit
-      if (allCheckedOut) settleDiff += profit
-    })
-    this.setData({ allCheckedOut, settleDiff, aboveTotal, belowTotal })
   },
 
   // 用 game 文档中与流水相关的字段构造签名：
@@ -304,7 +369,11 @@ Page({
   },
 
   async _fetchRecentTx(force = false) {
-    if (!this.data.gameId || this._txFetching) return
+    if (!this.data.gameId) return
+    if (this._txFetching) {
+      this._txRefreshQueued = this._txRefreshQueued || force
+      return
+    }
     const sig = this._txSignature(this.data.game)
     if (!force && sig && sig === this._lastTxSig) return
     this._txFetching = true
@@ -345,7 +414,7 @@ Page({
         all = first.data
         const total = countRes.total || 0
         if (total > 20) {
-          for (let skip = 20; skip < total; skip += 20) {
+          for (let skip = 20; skip < total; skip += 100) {
             const fetches = []
             for (let s = skip; s < Math.min(skip + 100, total); s += 20) {
               fetches.push(coll.orderBy('timestamp', 'desc').skip(s).limit(20).get())
@@ -410,6 +479,11 @@ Page({
       console.error(err)
     } finally {
       this._txFetching = false
+      if (this._txRefreshQueued !== undefined) {
+        const queuedForce = this._txRefreshQueued
+        delete this._txRefreshQueued
+        setTimeout(() => this._fetchRecentTx(queuedForce), 0)
+      }
     }
   },
 
@@ -442,31 +516,41 @@ Page({
           ...p,
           avatar: nextAvatar,
           nickname: nextName,
-          displayAvatar: avatarCache.displayCached(nextAvatar) || nextAvatar
+          displayAvatar:
+            avatarCache.displayCached(nextAvatar) ||
+            (nextAvatar && !nextAvatar.startsWith('cloud://') ? nextAvatar : '')
         }
       }
       return p
     })
-    if (changed) this.setData({ 'game.players': updated })
+    if (changed) {
+      const game = { ...this.data.game, players: updated }
+      this._renderSignature = this._gameSignature(game)
+      this.setData({ 'game.players': updated })
+      cacheGame(game)
+    }
     this._resolveDisplayAvatars(updated)
   },
 
   async _resolveDisplayAvatars(players) {
     const list = players || this.data.game?.players || []
-    const cloudAvatars = list.map(p => p.avatar).filter(a => a && a.startsWith('cloud://'))
-    if (!cloudAvatars.length) return
-    const map = await avatarCache.resolveDisplayUrls(cloudAvatars)
-    const cur = this.data.game?.players || []
+    const fileIDs = list.map(player => player.avatar).filter(Boolean)
+    if (!fileIDs.some(fileID => fileID.startsWith('cloud://'))) return
+    const urls = await avatarCache.resolveDisplayUrls(fileIDs)
+    const current = this.data.game?.players || []
     let changed = false
-    const updated = cur.map(p => {
-      const displayAvatar = map[p.avatar]
-      if (displayAvatar && displayAvatar !== p.displayAvatar) {
+    const updated = current.map(player => {
+      const displayAvatar = urls[player.avatar] || player.displayAvatar || ''
+      if (displayAvatar && displayAvatar !== player.displayAvatar) {
         changed = true
-        return { ...p, displayAvatar }
+        return { ...player, displayAvatar }
       }
-      return p
+      return player
     })
-    if (changed) this.setData({ 'game.players': updated })
+    if (!changed) return
+    const game = { ...this.data.game, players: updated }
+    this.setData({ 'game.players': updated })
+    cacheGame(game)
   },
 
   // ===== 操作 =====
@@ -478,8 +562,12 @@ Page({
     const players = (game.players || []).map(p =>
       p.openid === openid ? { ...p, ...patch(p) } : p
     )
-    this.setData({ 'game.players': players, ...extraSet })
-    this._computeSettleStatus({ ...game, players })
+    const nextGame = { ...game, players }
+    if (extraSet['game.totalPot'] !== undefined) nextGame.totalPot = extraSet['game.totalPot']
+    const settleStatus = this._getSettleStatus(nextGame)
+    this._renderSignature = this._gameSignature(nextGame)
+    this.setData({ 'game.players': players, ...extraSet, ...settleStatus })
+    cacheGame(nextGame)
     try {
       wx.vibrateShort({ type: 'light' })
     } catch (_) {}
@@ -527,6 +615,8 @@ Page({
           '操作失败'
         wx.showToast({ title: msg, icon: 'none' })
         if (optimistic) this._fetchGameOnce()
+      } else {
+        this._fetchRecentTx()
       }
     } catch (err) {
       if (!optimistic) wx.hideLoading()
@@ -648,6 +738,7 @@ Page({
             return
           }
           wx.showToast({ title: '已记录', icon: 'success' })
+          this._fetchRecentTx()
         } catch (err) {
           console.error(err)
           wx.showToast({ title: '网络异常', icon: 'none' })
@@ -705,7 +796,7 @@ Page({
             wx.showToast({ title: res.result?.error || '撤销失败', icon: 'none' })
           else {
             wx.showToast({ title: '已撤销', icon: 'success' })
-            this._fetchRecentTx()
+            this._fetchRecentTx(true)
           }
         } catch (err) {
           wx.hideLoading()
@@ -826,7 +917,7 @@ Page({
     return stacks
   },
 
-  _buildSettleResult(gameOrPlayers) {
+  _createSettleResult(gameOrPlayers) {
     const game = Array.isArray(gameOrPlayers) ? null : gameOrPlayers
     const players = Array.isArray(gameOrPlayers)
       ? gameOrPlayers
@@ -870,12 +961,14 @@ Page({
       const m = Math.floor((ms % 3600000) / 60000)
       duration = h > 0 ? `${h}h ${m}m` : `${m} 分钟`
     }
-    const quote = SUNZI[Math.floor(Math.random() * SUNZI.length)] || { text: '', from: '' }
+    const quote =
+      this.data.settleResult?.quote ||
+      SUNZI[Math.floor(Math.random() * SUNZI.length)] || { text: '', from: '' }
     const gameName =
       (Array.isArray(gameOrPlayers) ? this.data.game?.name : gameOrPlayers?.name) || 'StaxKit 牌局'
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    this.setData({
+    const endedDate = new Date(rawGame?.endedAt || rawGame?.startedAt || Date.now())
+    const dateStr = `${endedDate.getFullYear()}-${String(endedDate.getMonth() + 1).padStart(2, '0')}-${String(endedDate.getDate()).padStart(2, '0')}`
+    return {
       settleResult: {
         profitList,
         transfers,
@@ -898,15 +991,20 @@ Page({
         dateStr
       },
       settleWinnerOpenid: winner?.openid || ''
-    })
+    }
+  },
+
+  _buildSettleResult(gameOrPlayers) {
+    this.setData(this._createSettleResult(gameOrPlayers))
   },
 
   async onJoinAsPlayer() {
     if (this.data.joining) return
     if (!this.data.game) return
-    const { readLocalProfile } = require('../../utils/user.js')
-    const profile = readLocalProfile() || {}
-    if (!profile.nickname) {
+    await app.globalData.openidReady
+    await app.refreshCurrentUser()
+    const profile = readLocalProfile(app.globalData.openid) || {}
+    if (!isMeaningfulNickname(profile.nickname)) {
       wx.showModal({
         title: '先完善资料',
         content: '设置昵称和头像后，牌友才能认出你',
@@ -950,6 +1048,7 @@ Page({
             const msg =
               {
                 GAME_NOT_FOUND: '牌局已结束',
+                PROFILE_REQUIRED: '请先完善真实昵称',
                 CONFLICT_RETRY: '操作冲突，请重试'
               }[error] ||
               error ||

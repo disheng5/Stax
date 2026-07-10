@@ -16,7 +16,20 @@ Page({
   },
 
   onLoad(options) {
-    this.setData({ circleId: options.id || '' })
+    const circleId = options.id || ''
+    this.setData({ circleId })
+    if (!circleId) return
+    try {
+      const snapshot = wx.getStorageSync(`stax_circle_${circleId}`)
+      if (snapshot?.circle && Date.now() - (snapshot.ts || 0) < 2 * 24 * 60 * 60 * 1000) {
+        const isOwner = snapshot.circle.ownerOpenid === app.globalData.openid
+        this.setData({ circle: snapshot.circle, isOwner })
+        this._applySeason(snapshot.season || null)
+        if (Array.isArray(snapshot.season?.gameSummaries)) {
+          this._setSeasonGames(snapshot.season.gameSummaries)
+        }
+      }
+    } catch (_) {}
   },
 
   async onShow() {
@@ -31,9 +44,10 @@ Page({
   },
 
   async _fetch() {
-    const openid = app.globalData.openid
     if (!this.data.circleId) return
     try {
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
       const db = wx.cloud.database()
       const got = await db.collection('circles').doc(this.data.circleId).get()
       const circle = got.data
@@ -51,12 +65,24 @@ Page({
 
       this.setData({ circle, isOwner })
       this._applySeason(season)
+      this._persistSnapshot(circle, season)
       this._loadSeasonGames(circle, season)
       this._startSeasonWatch(circle, season)
     } catch (err) {
       console.error(err)
       this.setData({ loading: false })
     }
+  },
+
+  _persistSnapshot(circle = this.data.circle, season = this.data.season) {
+    if (!this.data.circleId || !circle) return
+    try {
+      wx.setStorageSync(`stax_circle_${this.data.circleId}`, {
+        ts: Date.now(),
+        circle,
+        season
+      })
+    } catch (_) {}
   },
 
   _applySeason(season) {
@@ -69,14 +95,23 @@ Page({
       ranked = (season.rankings || []).filter(r => r.rank > 0).sort((a, b) => a.rank - b.rank)
       unranked = (season.rankings || []).filter(r => r.rank === 0)
     }
-    // 同步用缓存补齐头像（老赛季 rankings 无 avatar 字段时首屏即有头像，不闪）
+    avatarCache.putProfiles([...(ranked || []), ...(unranked || [])], { source: 'snapshot' })
+    // users 缓存优先于赛季快照，避免旧排名把刚修改的新资料覆盖回去。
     const fill = r => {
       const cached = avatarCache.cached(r.openid) || {}
-      const avatar = r.avatar || cached.avatar || ''
+      const avatar = cached.avatar || r.avatar || ''
+      const nickname = avatarCache.meaningfulNickname(cached.nickname)
+        ? cached.nickname
+        : avatarCache.meaningfulNickname(r.nickname)
+          ? r.nickname
+          : '玩家'
       return {
         ...r,
+        nickname,
         avatar,
-        displayAvatar: avatarCache.displayCached(avatar) || avatar
+        displayAvatar:
+          avatarCache.displayCached(avatar) ||
+          (avatar && !avatar.startsWith('cloud://') ? avatar : '')
       }
     }
     const enrich = r => {
@@ -93,6 +128,7 @@ Page({
     ranked = ranked.map(enrich)
     unranked = unranked.map(enrich)
     this.setData({ season, ranked, unranked, daysLeft, loading: false })
+    if (this.data.circle) this._persistSnapshot(this.data.circle, season)
     this._resolveRankProfiles()
     this._resolveRankDisplayAvatars()
     this._repairBrokenWinRate(season)
@@ -100,6 +136,12 @@ Page({
 
   _isBrokenWinRateSeason(season) {
     if (!season || !Array.isArray(season.rankings)) return false
+    const algorithmVersion = Number(season.calculationMeta?.algorithmVersion) || 0
+    if (season.rankings.length && algorithmVersion < 4) return true
+    const hasGenericProfiles = season.rankings.some(
+      rank => !avatarCache.meaningfulNickname(rank.nickname)
+    )
+    if (hasGenericProfiles) return true
     const played = season.rankings.filter(r => Number(r.games) > 0)
     if (played.length < 2) return false
     const hasAnyWin = played.some(r => Number(r.wins) > 0 || Number(r.winRate) > 0)
@@ -181,7 +223,8 @@ Page({
   // 排名资料以 users 表为准，节流刷新；旧 season.rankings 里的头像/昵称只用于首帧。
   async _resolveRankProfiles() {
     const all = [...(this.data.ranked || []), ...(this.data.unranked || [])]
-    const shouldRefreshAll = !this._rankProfileRefreshAt || Date.now() - this._rankProfileRefreshAt > 60000
+    const shouldRefreshAll =
+      !this._rankProfileRefreshAt || Date.now() - this._rankProfileRefreshAt > 60000
     const need = all
       .filter(r => shouldRefreshAll || !r.avatar || !r.nickname || avatarCache.isStale(r.openid))
       .map(r => r.openid)
@@ -200,8 +243,12 @@ Page({
         const latest = map[r.openid]
         if (!latest) return r
         const avatar = latest.avatar || r.avatar || ''
-        const nickname = latest.nickname || r.nickname || '玩家'
-        const displayAvatar = avatarCache.displayCached(avatar) || avatar
+        const nickname = avatarCache.meaningfulNickname(latest.nickname)
+          ? latest.nickname
+          : r.nickname || '玩家'
+        const displayAvatar =
+          avatarCache.displayCached(avatar) ||
+          (avatar && !avatar.startsWith('cloud://') ? avatar : '')
         return avatar !== r.avatar || nickname !== r.nickname || displayAvatar !== r.displayAvatar
           ? { ...r, avatar, nickname, displayAvatar }
           : r
@@ -211,21 +258,30 @@ Page({
   },
 
   async _resolveRankDisplayAvatars() {
-    if (this._rankDisplayRefreshing) return
+    if (this._rankDisplayRefreshing) {
+      this._rankDisplayQueued = true
+      return
+    }
     const all = [...(this.data.ranked || []), ...(this.data.unranked || [])]
-    const cloudAvatars = all.map(r => r.avatar).filter(a => a && a.startsWith('cloud://'))
-    if (!cloudAvatars.length) return
+    const fileIDs = all.map(rank => rank.avatar).filter(Boolean)
+    if (!fileIDs.some(fileID => fileID.startsWith('cloud://'))) return
     this._rankDisplayRefreshing = true
     try {
-      const map = await avatarCache.resolveDisplayUrls(cloudAvatars)
+      const urls = await avatarCache.resolveDisplayUrls(fileIDs)
       const patch = list =>
-        (list || []).map(r => {
-          const displayAvatar = map[r.avatar]
-          return displayAvatar && displayAvatar !== r.displayAvatar ? { ...r, displayAvatar } : r
+        (list || []).map(rank => {
+          const displayAvatar = urls[rank.avatar] || rank.displayAvatar || ''
+          return displayAvatar && displayAvatar !== rank.displayAvatar
+            ? { ...rank, displayAvatar }
+            : rank
         })
       this.setData({ ranked: patch(this.data.ranked), unranked: patch(this.data.unranked) })
     } finally {
       this._rankDisplayRefreshing = false
+      if (this._rankDisplayQueued) {
+        this._rankDisplayQueued = false
+        setTimeout(() => this._resolveRankDisplayAvatars(), 0)
+      }
     }
   },
 
@@ -245,9 +301,14 @@ Page({
   },
 
   // 统一设置赛季比赛列表 + 计数（本赛季 N 场只数未排除的）
-  _setSeasonGames(summaries) {
+  _setSeasonGames(summaries, season = this.data.season) {
     const list = (summaries || []).map(g => this._decorateSummary(g))
-    this.setData({ seasonGames: list, seasonCount: list.filter(g => !g.excluded).length })
+    const listedCount = list.filter(g => !g.excluded).length
+    const exactCount = Number(season?.calculationMeta?.qualifiedCount)
+    this.setData({
+      seasonGames: list,
+      seasonCount: Number.isFinite(exactCount) ? exactCount : listedCount
+    })
   },
 
   // 榜主行内排除/恢复某场比赛
@@ -278,7 +339,7 @@ Page({
           )
           this.setData({
             seasonGames,
-            seasonCount: seasonGames.filter(g => !g.excluded).length
+            seasonCount: Math.max(0, this.data.seasonCount + (nextExclude ? -1 : 1))
           })
           this._lastFetch = 0
           wx.showToast({ title: nextExclude ? '已排除' : '已恢复', icon: 'success' })

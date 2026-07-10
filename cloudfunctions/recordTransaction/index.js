@@ -32,18 +32,6 @@ async function withGameTxn(gameId, fn) {
   }
 }
 
-function addTxLog(data) {
-  // 流水是展示/撤销用的账本，玩家权威数据在 game.players 上；
-  // 写入失败不阻塞主流程，仅记录日志
-  return db
-    .collection('transactions')
-    .add({ data })
-    .catch(err => {
-      console.error('[tx log]', err)
-      return null
-    })
-}
-
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
   const { gameId, type, playerOpenid, amount = 0, hands: handsInput, txId } = event
@@ -86,21 +74,22 @@ exports.main = async event => {
         .update({
           data: { players, totalPot: (Number(game.totalPot) || 0) + amount }
         })
-      return { ok: true, isHost }
+      const tx = await transaction.collection('transactions').add({
+        data: {
+          gameId,
+          type,
+          playerOpenid: targetOpenid,
+          amount,
+          operatorOpenid: OPENID,
+          byHost: isHost,
+          revoked: false,
+          timestamp: now,
+          meta: { hands }
+        }
+      })
+      return { ok: true, isHost, txId: tx && tx._id }
     })
-    if (!res.ok) return res
-    const tx = await addTxLog({
-      gameId,
-      type,
-      playerOpenid: targetOpenid,
-      amount,
-      operatorOpenid: OPENID,
-      byHost: res.isHost,
-      revoked: false,
-      timestamp: now,
-      meta: { hands }
-    })
-    return { ok: true, txId: tx && tx._id }
+    return res
   }
 
   case 'revoke': {
@@ -174,24 +163,25 @@ exports.main = async event => {
             ]
           }
         })
-      return { ok: true }
+      const tx = await transaction.collection('transactions').add({
+        data: {
+          gameId,
+          type,
+          playerOpenid,
+          amount: -removedBuyIn,
+          operatorOpenid: OPENID,
+          byHost: true,
+          revoked: false,
+          timestamp: now,
+          meta: {
+            nickname: removed.nickname || '',
+            removedBuyIn
+          }
+        }
+      })
+      return { ok: true, txId: tx && tx._id }
     })
-    if (!res.ok) return res
-    await addTxLog({
-      gameId,
-      type,
-      playerOpenid,
-      amount: -(Number(removed && removed.totalBuyIn) || 0),
-      operatorOpenid: OPENID,
-      byHost: true,
-      revoked: false,
-      timestamp: now,
-      meta: {
-        nickname: (removed && removed.nickname) || '',
-        removedBuyIn: Number(removed && removed.totalBuyIn) || 0
-      }
-    })
-    return { ok: true }
+    return res
   }
 
   case 'pauseToggle': {

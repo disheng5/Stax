@@ -1,28 +1,44 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const _ = db.command
 
-async function fetchActiveCircles() {
+async function fetchActiveCircles(memberOpenids = []) {
   const PAGE_SIZE = 100
-  const query = () => db.collection('circles').where({ status: 'active' })
-  const countRes = await query()
-    .count()
-    .catch(() => null)
-  const out = []
-  if (countRes && typeof countRes.total === 'number') {
-    const total = countRes.total || 0
-    for (let skip = 0; skip < total; skip += PAGE_SIZE) {
-      const page = await query().skip(skip).limit(PAGE_SIZE).get()
-      out.push(...(page.data || []))
+  const query = filtered =>
+    db.collection('circles').where(
+      filtered && memberOpenids.length
+        ? { status: 'active', memberOpenids: _.elemMatch(_.in(memberOpenids)) }
+        : { status: 'active' }
+    )
+  const fetch = async filtered => {
+    const out = []
+    const countRes = await query(filtered)
+      .count()
+      .catch(() => null)
+    if (countRes && typeof countRes.total === 'number') {
+      for (let skip = 0; skip < countRes.total; skip += PAGE_SIZE) {
+        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
+        out.push(...(page.data || []))
+      }
+    } else {
+      for (let skip = 0; ; skip += PAGE_SIZE) {
+        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
+        out.push(...(page.data || []))
+        if ((page.data || []).length < PAGE_SIZE) break
+      }
     }
-  } else {
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const page = await query().skip(skip).limit(PAGE_SIZE).get()
-      out.push(...(page.data || []))
-      if ((page.data || []).length < PAGE_SIZE) break
-    }
+    return out
   }
-  return out
+  try {
+    return await fetch(true)
+  } catch (err) {
+    console.warn('[fetchActiveCircles member fallback]', err)
+    const memberSet = new Set(memberOpenids)
+    return (await fetch(false)).filter(circle =>
+      (circle.memberOpenids || []).some(openid => memberSet.has(openid))
+    )
+  }
 }
 
 exports.main = async event => {
@@ -64,7 +80,7 @@ exports.main = async event => {
     playerOpenids.forEach(openid => {
       if (openid) playerSet[openid] = true
     })
-    const circles = await fetchActiveCircles()
+    const circles = await fetchActiveCircles(playerOpenids)
     await Promise.all(
       circles
         .filter(c => (c.memberOpenids || []).some(openid => playerSet[openid]))

@@ -22,7 +22,7 @@ stax/
 │   ├── utils/           # 工具函数（结算 / 邀请码 / 统计 / Mock）
 │   ├── images/          # 静态图片
 │   └── styles/          # 主题样式
-└── cloudfunctions/      # 18 个云函数（牌局 / 圈子赛季 / AI / 用户）
+└── cloudfunctions/      # 19 个云函数（牌局 / 圈子赛季 / AI / 用户）
 ```
 
 ## 本地开发

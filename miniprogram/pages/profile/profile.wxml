@@ -10,7 +10,7 @@
 
   <view class="card user">
     <button class="avatar-wrap" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-      <image class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <image class="avatar" src="{{avatarDisplayUrl}}" mode="aspectFill" fade-in="{{false}}" />
       <view class="avatar-tip text-sub">点击更换头像</view>
     </button>
     <view class="nickname-row">

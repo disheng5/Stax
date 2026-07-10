@@ -3,6 +3,16 @@ const app = getApp()
 Page({
   data: { circles: [], loading: true },
 
+  onLoad() {
+    try {
+      const openid = app.globalData.openid || wx.getStorageSync('last_openid')
+      const snapshot = openid && wx.getStorageSync(`snap_circles_${openid}`)
+      if (snapshot && Array.isArray(snapshot.circles)) {
+        this.setData({ circles: snapshot.circles, loading: false })
+      }
+    } catch (_) {}
+  },
+
   async onShow() {
     if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     try {
@@ -21,14 +31,39 @@ Page({
     try {
       const db = wx.cloud.database()
       const _ = db.command
-      const res = await db
-        .collection('circles')
-        .where({ status: 'active', memberOpenids: _.elemMatch(_.eq(openid)) })
-        .orderBy('createdAt', 'desc')
-        .limit(20)
-        .get()
+      const query = () =>
+        db
+          .collection('circles')
+          .where({ status: 'active', memberOpenids: _.elemMatch(_.eq(openid)) })
+          .orderBy('createdAt', 'desc')
+      const [first, countRes] = await Promise.all([
+        query().limit(20).get(),
+        query()
+          .count()
+          .catch(() => null)
+      ])
+      let circleDocs = first.data || []
+      if (countRes && typeof countRes.total === 'number') {
+        const total = countRes.total || circleDocs.length
+        for (let skip = 20; skip < total; skip += 100) {
+          const batch = []
+          for (let s = skip; s < Math.min(skip + 100, total); s += 20) {
+            batch.push(query().skip(s).limit(20).get())
+          }
+          const pages = await Promise.all(batch)
+          pages.forEach(page => {
+            circleDocs = circleDocs.concat(page.data || [])
+          })
+        }
+      } else {
+        for (let skip = 20; circleDocs.length === skip; skip += 20) {
+          const page = await query().skip(skip).limit(20).get()
+          circleDocs = circleDocs.concat(page.data || [])
+          if ((page.data || []).length < 20) break
+        }
+      }
 
-      const seasonFetches = res.data.map(c => {
+      const seasonFetches = circleDocs.map(c => {
         if (!c.currentSeasonId) return Promise.resolve(null)
         return db
           .collection('seasons')
@@ -38,7 +73,7 @@ Page({
       })
       const seasonResults = await Promise.all(seasonFetches)
 
-      const circles = res.data.map((c, i) => {
+      const circles = circleDocs.map((c, i) => {
         let seasonInfo = '赛季未启动'
         let myRank = ''
         const s = seasonResults[i]?.data
@@ -53,6 +88,9 @@ Page({
         return { ...c, seasonInfo, myRank }
       })
       this.setData({ circles })
+      try {
+        wx.setStorageSync(`snap_circles_${openid}`, { ts: Date.now(), circles })
+      } catch (_) {}
       this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)

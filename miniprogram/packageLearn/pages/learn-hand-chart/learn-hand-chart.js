@@ -164,11 +164,25 @@ Page({
     cloudData: {}
   },
 
+  onLoad() {
+    this.setData({ loading: false })
+    this._buildMatrix()
+    try {
+      const cached = wx.getStorageSync('stax_hand_ranks_v1')
+      if (cached && cached.data) {
+        this._cloudCacheAt = cached.ts || 0
+        this.setData({ cloudData: cached.data })
+        this._buildMatrix()
+      }
+    } catch (_) {}
+  },
+
   async onShow() {
+    if (this._cloudCacheAt && Date.now() - this._cloudCacheAt < 24 * 60 * 60 * 1000) return
     try {
       const db = wx.cloud.database()
       const all = []
-      for (let skip = 0; skip < 200; skip += 20) {
+      for (let skip = 0; ; skip += 20) {
         const res = await db.collection('handRanks').skip(skip).limit(20).get()
         all.push(...res.data)
         if (res.data.length < 20) break
@@ -177,6 +191,10 @@ Page({
       all.forEach(r => {
         map[r.hand] = r
       })
+      this._cloudCacheAt = Date.now()
+      try {
+        wx.setStorageSync('stax_hand_ranks_v1', { ts: this._cloudCacheAt, data: map })
+      } catch (_) {}
       this.setData({ cloudData: map, loading: false })
       this._buildMatrix()
     } catch (err) {

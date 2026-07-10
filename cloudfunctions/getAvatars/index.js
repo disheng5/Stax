@@ -2,36 +2,71 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
+const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
+const BATCH_SIZE = 10
+
+function meaningfulNickname(value) {
+  const nickname = typeof value === 'string' ? value.trim() : ''
+  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+}
+
+function profileTime(profile) {
+  const n = +new Date(profile.updatedAt || profile.profileUpdatedAt || profile.createdAt || 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+function mergeUserDocs(docs) {
+  const sorted = docs.slice().sort((a, b) => {
+    const nameDiff = Number(meaningfulNickname(b.nickname)) - Number(meaningfulNickname(a.nickname))
+    return nameDiff || profileTime(b) - profileTime(a) || Number(!!b.avatar) - Number(!!a.avatar)
+  })
+  const named = sorted.find(u => meaningfulNickname(u.nickname))
+  const withAvatar = sorted.filter(u => u.avatar).sort((a, b) => profileTime(b) - profileTime(a))[0]
+  const latest = sorted.slice().sort((a, b) => profileTime(b) - profileTime(a))[0] || {}
+  return {
+    nickname: named ? named.nickname.trim() : '',
+    avatar: withAvatar ? withAvatar.avatar : '',
+    updatedAt: latest.updatedAt || latest.profileUpdatedAt || latest.createdAt || ''
+  }
+}
+
 exports.main = async event => {
-  const { openids = [] } = event
-  if (!openids.length) return { ok: true, avatars: {}, nicknames: {} }
+  const unique = [...new Set(((event && event.openids) || []).filter(Boolean))].slice(0, 500)
+  if (!unique.length) return { ok: true, profiles: {}, avatars: {}, nicknames: {} }
 
   try {
-    // 一次 _.in 批量查，替代每个 openid 单独查询
     const _ = db.command
-    const unique = [...new Set(openids)].filter(Boolean)
     const users = []
-    for (let i = 0; i < unique.length; i += 100) {
-      const batch = unique.slice(i, i + 100)
+    for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+      const batch = unique.slice(i, i + BATCH_SIZE)
       const res = await db
         .collection('users')
         .where({ _openid: _.in(batch) })
-        .limit(100)
+        .limit(1000)
         .get()
       users.push(...(res.data || []))
     }
 
-    // 返回原始 avatar（cloud:// 原样透传）：小程序端 <image> 原生渲染 cloud://
-    // 且自带缓存，跨页秒显不闪；不再换 getTempFileURL（临时链接会过期、且引发闪烁）
-    const avatars = {}
-    const nicknames = {}
-    users.forEach(u => {
-      if (u.avatar) avatars[u._openid] = u.avatar
-      if (u.nickname) nicknames[u._openid] = u.nickname
+    const grouped = {}
+    users.forEach(user => {
+      if (!user._openid) return
+      if (!grouped[user._openid]) grouped[user._openid] = []
+      grouped[user._openid].push(user)
     })
 
-    return { ok: true, avatars, nicknames }
+    const profiles = {}
+    const avatars = {}
+    const nicknames = {}
+    Object.keys(grouped).forEach(openid => {
+      const profile = mergeUserDocs(grouped[openid])
+      profiles[openid] = profile
+      if (profile.avatar) avatars[openid] = profile.avatar
+      if (profile.nickname) nicknames[openid] = profile.nickname
+    })
+
+    return { ok: true, profiles, avatars, nicknames }
   } catch (err) {
-    return { ok: false, error: err.message }
+    console.error('[getAvatars]', err)
+    return { ok: false, error: err.message || String(err) }
   }
 }

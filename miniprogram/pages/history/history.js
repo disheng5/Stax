@@ -3,7 +3,8 @@ const {
   fetchAllGames,
   getCachedGames,
   invalidateGamesCache,
-  getCacheVersion
+  getCacheVersion,
+  cacheGame
 } = require('../../utils/game-data.js')
 const { computeGameStats, gameScore } = require('../../utils/stats.js')
 const app = getApp()
@@ -23,6 +24,14 @@ Page({
     aiSummary: []
   },
 
+  onLoad() {
+    try {
+      const openid = app.globalData.openid || wx.getStorageSync('last_openid')
+      const cached = openid && getCachedGames(openid)
+      if (cached && cached.length) this._applyGames(openid, cached)
+    } catch (_) {}
+  },
+
   async onShow() {
     const ver = getCacheVersion()
     if (this._lastFetch && Date.now() - this._lastFetch < 30000 && this._cacheVer === ver) return
@@ -31,7 +40,7 @@ Page({
   },
 
   async _fetch(force = false) {
-    this.setData({ loading: true })
+    if (!this.data.games.length) this.setData({ loading: true })
     try {
       await app.globalData.openidReady
       const openid = app.globalData.openid
@@ -205,7 +214,10 @@ Page({
   },
 
   onOpenGame(e) {
-    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
+    const id = e.currentTarget.dataset.id
+    const game = (this._rawGames || []).find(item => item._id === id)
+    if (game) cacheGame(game)
+    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })
   },
 
   onDeleteRecord(e) {

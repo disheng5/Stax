@@ -2,7 +2,33 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
-const ALGO_VERSION = 3
+const ALGO_VERSION = 4
+const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
+
+function meaningfulNickname(value) {
+  const nickname = typeof value === 'string' ? value.trim() : ''
+  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+}
+
+function profileTime(profile) {
+  const n = +new Date(profile.updatedAt || profile.profileUpdatedAt || profile.createdAt || 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+function mergeUserDocs(docs) {
+  const sorted = docs.slice().sort((a, b) => {
+    const nameDiff = Number(meaningfulNickname(b.nickname)) - Number(meaningfulNickname(a.nickname))
+    return nameDiff || profileTime(b) - profileTime(a) || Number(!!b.avatar) - Number(!!a.avatar)
+  })
+  const named = sorted.find(u => meaningfulNickname(u.nickname))
+  const withAvatar = sorted.filter(u => u.avatar).sort((a, b) => profileTime(b) - profileTime(a))[0]
+  const latest = sorted.slice().sort((a, b) => profileTime(b) - profileTime(a))[0] || {}
+  return {
+    nickname: named ? named.nickname.trim() : '',
+    avatar: withAvatar ? withAvatar.avatar : '',
+    updatedAt: latest.updatedAt || latest.profileUpdatedAt || latest.createdAt || ''
+  }
+}
 
 function getSeasonName(date, seasonNo) {
   const m = date.getMonth() + 1
@@ -67,18 +93,24 @@ async function ensureSeason(circle) {
   }
 }
 
-function endedGamesQuery(queryStart, seasonEnd) {
+function endedGamesQuery(queryStart, seasonEnd, memberBatch) {
+  const conditions = [
+    { status: 'ended' },
+    { endedAt: _.gte(queryStart) },
+    { endedAt: _.lt(seasonEnd) }
+  ]
+  if (memberBatch && memberBatch.length) {
+    conditions.push({ players: _.elemMatch({ openid: _.in(memberBatch) }) })
+  }
   return db
     .collection('games')
-    .where(
-      _.and([{ status: 'ended' }, { endedAt: _.gte(queryStart) }, { endedAt: _.lt(seasonEnd) }])
-    )
+    .where(_.and(conditions))
 }
 
-async function fetchEndedGames(queryStart, seasonEnd) {
+async function fetchEndedGamesForBatch(queryStart, seasonEnd, memberBatch) {
   const PAGE_SIZE = 100
   const readPage = skip =>
-    endedGamesQuery(queryStart, seasonEnd)
+    endedGamesQuery(queryStart, seasonEnd, memberBatch)
       .field({
         players: true,
         bigBlind: true,
@@ -93,7 +125,7 @@ async function fetchEndedGames(queryStart, seasonEnd) {
       .get()
 
   const pages = []
-  const countRes = await endedGamesQuery(queryStart, seasonEnd)
+  const countRes = await endedGamesQuery(queryStart, seasonEnd, memberBatch)
     .count()
     .catch(() => null)
   if (countRes && typeof countRes.total === 'number') {
@@ -113,14 +145,24 @@ async function fetchEndedGames(queryStart, seasonEnd) {
     }
   }
 
-  return [
-    ...new Map(
-      pages
-        .reduce((list, r) => list.concat(r.data || []), [])
-        .filter(Boolean)
-        .map(g => [g._id, g])
-    ).values()
-  ]
+  return pages.reduce((list, r) => list.concat(r.data || []), []).filter(Boolean)
+}
+
+async function fetchEndedGames(queryStart, seasonEnd, members) {
+  try {
+    const pages = []
+    for (let i = 0; i < members.length; i += 10) {
+      pages.push(...(await fetchEndedGamesForBatch(queryStart, seasonEnd, members.slice(i, i + 10))))
+    }
+    return [...new Map(pages.map(game => [game._id, game])).values()].sort(
+      (a, b) => new Date(a.endedAt) - new Date(b.endedAt)
+    )
+  } catch (err) {
+    // 老环境若尚未建立 players.openid 复合索引，先保证计分可用；部署清单已要求补索引。
+    console.warn('[calcSeasonScore member query fallback]', err)
+    const all = await fetchEndedGamesForBatch(queryStart, seasonEnd, null)
+    return [...new Map(all.map(game => [game._id, game])).values()]
+  }
 }
 
 async function fetchActiveCircles() {
@@ -185,7 +227,7 @@ async function calcForCircle(circleId) {
   const queryStart =
     Number(season.seasonNo) <= 1 && circleCreatedAt < seasonStart ? circleCreatedAt : seasonStart
 
-  const allGames = await fetchEndedGames(queryStart, seasonEnd)
+  const allGames = await fetchEndedGames(queryStart, seasonEnd, members)
 
   const MIN_PLAYERS = 4
   const MIN_DURATION_MS = 20 * 60 * 1000
@@ -239,17 +281,43 @@ async function calcForCircle(circleId) {
         oa.localeCompare(ob)
     )
 
-  const nameMap = {}
-  const avatarMap = {}
+  // 老数据 users 资料缺失时，优先从最近一局的玩家快照恢复真名和头像。
+  // allGames 已按 endedAt 升序，后出现的快照自然覆盖更早的快照。
+  const profileMap = {}
+  allGames.forEach(game => {
+    activePlayers(game).forEach(player => {
+      if (!memberSet[player.openid]) return
+      const previous = profileMap[player.openid] || {}
+      profileMap[player.openid] = {
+        nickname: meaningfulNickname(player.nickname) ? player.nickname.trim() : previous.nickname || '',
+        avatar: player.avatar || previous.avatar || '',
+        updatedAt:
+          player.profileUpdatedAt || game.profileUpdatedAt || game.endedAt || previous.updatedAt || ''
+      }
+    })
+  })
+
   try {
-    const usersRes = await db
-      .collection('users')
-      .where({ _openid: _.in(members) })
-      .limit(1000)
-      .get()
-    usersRes.data.forEach(u => {
-      nameMap[u._openid] = u.nickname || '玩家'
-      avatarMap[u._openid] = u.avatar || ''
+    const grouped = {}
+    for (let i = 0; i < members.length; i += 10) {
+      const usersRes = await db
+        .collection('users')
+        .where({ _openid: _.in(members.slice(i, i + 10)) })
+        .limit(1000)
+        .get()
+      ;(usersRes.data || []).forEach(user => {
+        if (!grouped[user._openid]) grouped[user._openid] = []
+        grouped[user._openid].push(user)
+      })
+    }
+    Object.keys(grouped).forEach(openid => {
+      const user = mergeUserDocs(grouped[openid])
+      const fallback = profileMap[openid] || {}
+      profileMap[openid] = {
+        nickname: user.nickname || fallback.nickname || '',
+        avatar: user.avatar || fallback.avatar || '',
+        updatedAt: user.updatedAt || fallback.updatedAt || ''
+      }
     })
   } catch (err) {
     console.error('[calcSeasonScore users]', err)
@@ -257,8 +325,9 @@ async function calcForCircle(circleId) {
 
   const rankings = ranked.map(([openid, s], i) => ({
     openid,
-    nickname: nameMap[openid] || '玩家',
-    avatar: avatarMap[openid] || '',
+    nickname: profileMap[openid]?.nickname || '玩家',
+    avatar: profileMap[openid]?.avatar || '',
+    profileUpdatedAt: profileMap[openid]?.updatedAt || '',
     profitBB: s.profitBB,
     rawProfit: s.rawProfit,
     games: s.games,
@@ -276,8 +345,9 @@ async function calcForCircle(circleId) {
       const wins = s.wins || 0
       return {
         openid,
-        nickname: nameMap[openid] || '玩家',
-        avatar: avatarMap[openid] || '',
+        nickname: profileMap[openid]?.nickname || '玩家',
+        avatar: profileMap[openid]?.avatar || '',
+        profileUpdatedAt: profileMap[openid]?.updatedAt || '',
         profitBB: s.profitBB || 0,
         rawProfit: s.rawProfit || 0,
         games,

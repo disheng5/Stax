@@ -10,6 +10,61 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
+async function fetchVisibleGames(openid) {
+  const PAGE_SIZE = 100
+  const query = () =>
+    db
+      .collection('games')
+      .where({ status: 'ended', players: _.elemMatch({ openid }) })
+      .orderBy('endedAt', 'desc')
+  const countRes = await query()
+    .count()
+    .catch(() => null)
+  const all = []
+  if (countRes && typeof countRes.total === 'number') {
+    for (let skip = 0; skip < countRes.total; skip += PAGE_SIZE) {
+      const page = await query().skip(skip).limit(PAGE_SIZE).get()
+      all.push(...(page.data || []))
+    }
+  } else {
+    for (let skip = 0; ; skip += PAGE_SIZE) {
+      const page = await query().skip(skip).limit(PAGE_SIZE).get()
+      all.push(...(page.data || []))
+      if ((page.data || []).length < PAGE_SIZE) break
+    }
+  }
+  return all.filter(
+    item => !(Array.isArray(item.hiddenForOpenids) && item.hiddenForOpenids.includes(openid))
+  )
+}
+
+async function rebuildUserStats(openid) {
+  const games = await fetchVisibleGames(openid)
+  let totalProfit = 0
+  let biggestWin = 0
+  let biggestLoss = 0
+  let wins = 0
+  let totalGames = 0
+  games.forEach(item => {
+    const player = (item.players || []).find(p => p.openid === openid)
+    if (!player) return
+    const ratio = Number(item.scoreRatio) > 0 ? Number(item.scoreRatio) : 1
+    const score = Math.round(Number(player.finalProfit ?? player.profit ?? 0) / ratio)
+    totalGames++
+    totalProfit += score
+    biggestWin = Math.max(biggestWin, score)
+    biggestLoss = Math.min(biggestLoss, score)
+    if (score > 0) wins++
+  })
+  const stats = { totalGames, totalProfit, biggestWin, biggestLoss, wins }
+  const users = await db.collection('users').where({ _openid: openid }).limit(100).get()
+  await Promise.all(
+    (users.data || []).map(user =>
+      db.collection('users').doc(user._id).update({ data: { stats } })
+    )
+  )
+}
+
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
   const { gameId } = event || {}
@@ -26,7 +81,18 @@ exports.main = async event => {
   if (!me) return { ok: false, error: 'NOT_PLAYER' }
 
   const hidden = Array.isArray(game.hiddenForOpenids) ? game.hiddenForOpenids : []
-  if (hidden.includes(OPENID)) return { ok: true, alreadyHidden: true }
+  if (hidden.includes(OPENID)) {
+    let statsRebuilt = true
+    if (game.status === 'ended') {
+      try {
+        await rebuildUserStats(OPENID)
+      } catch (err) {
+        statsRebuilt = false
+        console.error('[deleteGameRecord rebuild]', err)
+      }
+    }
+    return { ok: true, alreadyHidden: true, statsRebuilt }
+  }
 
   await db
     .collection('games')
@@ -35,27 +101,16 @@ exports.main = async event => {
       data: { hiddenForOpenids: _.addToSet(OPENID) }
     })
 
-  // 扣减用户战绩
+  // 从仍可见的权威牌局重建统计；增量减法无法正确修复“最大赢/最大亏”。
+  let statsRebuilt = true
   if (game.status === 'ended') {
-    const myProfit = Number(me.finalProfit ?? me.profit ?? 0) || 0
-    const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
-    const score = Math.round(myProfit / ratio)
-    const userQ = await db.collection('users').where({ _openid: OPENID }).limit(1).get()
-    if (userQ.data.length) {
-      const u = userQ.data[0]
-      const s = u.stats || { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, wins: 0 }
-      await db
-        .collection('users')
-        .doc(u._id)
-        .update({
-          data: {
-            'stats.totalGames': Math.max(0, (s.totalGames || 0) - 1),
-            'stats.totalProfit': (s.totalProfit || 0) - score,
-            'stats.wins': Math.max(0, (s.wins || 0) - (score > 0 ? 1 : 0))
-          }
-        })
+    try {
+      await rebuildUserStats(OPENID)
+    } catch (err) {
+      statsRebuilt = false
+      console.error('[deleteGameRecord rebuild]', err)
     }
   }
 
-  return { ok: true }
+  return { ok: true, statsRebuilt }
 }

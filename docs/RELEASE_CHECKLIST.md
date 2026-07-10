@@ -40,19 +40,28 @@ handRanks
 
 按 `docs/DEPLOY.md §3.2` 配置每个集合的数据权限。
 
-### 2.3 部署 10 个云函数
+### 2.3 部署 19 个云函数
 
 对 `cloudfunctions/` 下每个目录右键 → **上传并部署：云端安装依赖**：
 
 ```
+whoami
 createGame
 joinGame
 recordTransaction
 settleGame
 seedTerms
-whoami
 aiReview
 termAi
+getAvatars
+createCircle
+joinCircle
+leaveCircle
+dissolveCircle
+calcSeasonScore
+settleSeason
+resetSeason
+excludeGame
 deleteGameRecord
 removeCircleMember
 ```

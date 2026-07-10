@@ -2,8 +2,14 @@ const app = getApp()
 const { formatProfit, formatDate } = require('../../utils/format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { getDailyWord } = require('../../utils/dailyWord.js')
-const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/game-data.js')
+const {
+  fetchAllGames,
+  getCachedGames,
+  getCacheVersion,
+  cacheGame
+} = require('../../utils/game-data.js')
 const { computeGameStats, gameScore } = require('../../utils/stats.js')
+const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 
 Page({
   data: {
@@ -20,7 +26,8 @@ Page({
     this.setData({ quote: SUNZI[Math.floor(Math.random() * SUNZI.length)] })
     // 上屏快照：同步渲染上次的最近记录，冷启动首帧即有内容（随后 onShow 拉取校正）
     try {
-      const snap = wx.getStorageSync('snap_recent')
+      const lastOpenid = wx.getStorageSync('last_openid')
+      const snap = lastOpenid && wx.getStorageSync(`snap_recent_${lastOpenid}`)
       if (snap && Array.isArray(snap.recentGames) && snap.recentGames.length) {
         this.setData({ recentGames: snap.recentGames, myStats: snap.myStats || null, loading: false })
       }
@@ -53,8 +60,7 @@ Page({
   },
 
   _checkProfileGuide() {
-    const cached = wx.getStorageSync('user_profile') || {}
-    const hasProfile = !!(cached.nickname || cached.nickName)
+    const hasProfile = isMeaningfulNickname(readLocalProfile(app.globalData.openid).nickname)
     const guided = wx.getStorageSync('profile_guided')
     if (!hasProfile && !guided) {
       wx.setStorageSync('profile_guided', true)
@@ -82,10 +88,11 @@ Page({
       this._applyRecent(ongoingRes.data, endedAll, openid)
       // 回写快照供下次冷启动秒开
       try {
-        wx.setStorageSync('snap_recent', {
+        wx.setStorageSync(`snap_recent_${openid}`, {
           recentGames: this.data.recentGames,
           myStats: this.data.myStats
         })
+        wx.removeStorageSync('snap_recent')
       } catch (_) {}
     } catch (err) {
       console.error(err)
@@ -127,7 +134,10 @@ Page({
   },
 
   onOpenGame(e) {
-    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
+    const id = e.currentTarget.dataset.id
+    const game = this.data.recentGames.find(item => item._id === id)
+    if (game) cacheGame(game)
+    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + id })
   },
 
   onShareAppMessage() {

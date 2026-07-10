@@ -9,6 +9,12 @@ const { buildSeed, MY_OPENID } = require('./mock-data.js')
 const { aaEven, aaWinnerByRatio } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
 
+const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
+const meaningfulNickname = value => {
+  const nickname = typeof value === 'string' ? value.trim() : ''
+  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+}
+
 let MOCK_DB = null
 let installed = false
 
@@ -24,31 +30,48 @@ function reset() {
 
 // ===== 云函数本地实现 =====
 const handlers = {
-  async whoami({ upsertNickname, upsertAvatar }) {
+  async whoami({
+    upsertNickname,
+    upsertAvatar,
+    bootstrapNickname,
+    bootstrapAvatar,
+    bootstrapOpenid
+  }) {
     const db = getDb()
+    const canBootstrap = bootstrapOpenid === MY_OPENID
     const q = await db.collection('users').where({ _openid: MY_OPENID }).limit(1).get()
     let user = q.data[0]
     if (!user) {
       const created = await db.collection('users').add({
         data: {
-          nickname: upsertNickname || '玩家',
-          avatar: upsertAvatar || '',
+          nickname: upsertNickname || (canBootstrap && bootstrapNickname) || '玩家',
+          avatar: upsertAvatar || (canBootstrap && bootstrapAvatar) || '',
           createdAt: new Date(),
+          updatedAt: new Date(),
           stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, wins: 0 }
         }
       })
       user = (await db.collection('users').doc(created._id).get()).data
-    } else if (
-      (upsertNickname && upsertNickname !== user.nickname) ||
-      (upsertAvatar && upsertAvatar !== user.avatar)
-    ) {
+    } else {
+      const nickname =
+        upsertNickname ||
+        (canBootstrap &&
+        !meaningfulNickname(user.nickname) && meaningfulNickname(bootstrapNickname)
+          ? bootstrapNickname.trim()
+          : user.nickname)
+      const avatar =
+        upsertAvatar || (canBootstrap && !user.avatar && bootstrapAvatar) || user.avatar
+      if (nickname === user.nickname && avatar === user.avatar) {
+        return { ok: true, openid: MY_OPENID, user }
+      }
       await db
         .collection('users')
         .doc(user._id)
         .update({
           data: {
-            nickname: upsertNickname || user.nickname,
-            avatar: upsertAvatar || user.avatar
+            nickname,
+            avatar,
+            updatedAt: new Date()
           }
         })
       user = (await db.collection('users').doc(user._id).get()).data
@@ -631,7 +654,21 @@ const handlers = {
 
     const users = {}
     ;(raw.users || []).forEach(u => {
-      users[u._openid] = u
+      if (!users[u._openid]) users[u._openid] = { nickname: '', avatar: '' }
+      if (meaningfulNickname(u.nickname)) users[u._openid].nickname = u.nickname
+      if (u.avatar) users[u._openid].avatar = u.avatar
+    })
+    qualifiedGames.forEach(game => {
+      activePlayers(game).forEach(player => {
+        if (!memberSet[player.openid]) return
+        if (!users[player.openid]) users[player.openid] = { nickname: '', avatar: '' }
+        if (!users[player.openid].nickname && meaningfulNickname(player.nickname)) {
+          users[player.openid].nickname = player.nickname
+        }
+        if (!users[player.openid].avatar && player.avatar) {
+          users[player.openid].avatar = player.avatar
+        }
+      })
     })
     const rankedEntries = Object.entries(stats)
       .filter(([, s]) => s.games > 0)
@@ -684,14 +721,14 @@ const handlers = {
         endedAt: g.endedAt
       }))
     season.calculatedAt = new Date()
-    season.calculationMeta = { algorithmVersion: 3, qualifiedCount: qualifiedGames.length }
+    season.calculationMeta = { algorithmVersion: 4, qualifiedCount: qualifiedGames.length }
     db._notify('seasons', season._id)
     return {
       ok: true,
       seasonId: season._id,
       rankedCount: rankings.filter(r => r.rank > 0).length,
       qualifiedCount: qualifiedGames.length,
-      algorithmVersion: 3
+      algorithmVersion: 4
     }
   },
 
@@ -718,15 +755,21 @@ const handlers = {
     const db = getDb()
     const avatars = {}
     const nicknames = {}
+    const profiles = {}
     for (const openid of [...new Set(openids)].filter(Boolean)) {
       const r = await db.collection('users').where({ _openid: openid }).limit(1).get()
       const u = r.data && r.data[0]
       if (u) {
         if (u.avatar) avatars[openid] = u.avatar
-        if (u.nickname) nicknames[openid] = u.nickname
+        if (meaningfulNickname(u.nickname)) nicknames[openid] = u.nickname
+        profiles[openid] = {
+          avatar: u.avatar || '',
+          nickname: meaningfulNickname(u.nickname) ? u.nickname : '',
+          updatedAt: u.updatedAt || u.createdAt || ''
+        }
       }
     }
-    return { ok: true, avatars, nicknames }
+    return { ok: true, profiles, avatars, nicknames }
   }
 }
 

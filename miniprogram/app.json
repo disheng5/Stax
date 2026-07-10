@@ -30,8 +30,8 @@
     }
   ],
   "preloadRule": {
-    "pages/profile/profile": {
-      "network": "all",
+    "pages/index/index": {
+      "network": "wifi",
       "packages": ["packageLearn"]
     }
   },

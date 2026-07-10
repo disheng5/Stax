@@ -1,5 +1,7 @@
 // pages/game-join/game-join.js — 加入牌局
-const { readLocalProfile } = require('../../utils/user.js')
+const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
+const { cacheGame } = require('../../utils/game-data.js')
+const app = getApp()
 
 Page({
   data: {
@@ -77,8 +79,10 @@ Page({
       return
     }
 
-    const profile = readLocalProfile()
-    if (!profile.nickname && mode === 'player') {
+    await app.globalData.openidReady
+    await app.refreshCurrentUser()
+    const profile = readLocalProfile(app.globalData.openid)
+    if (!isMeaningfulNickname(profile.nickname) && mode === 'player') {
       wx.showModal({
         title: '先完善资料',
         content: '设置昵称和头像后，牌友才能认出你',
@@ -89,7 +93,7 @@ Page({
       })
       return
     }
-    if (profile.nickname && mode === 'player') {
+    if (isMeaningfulNickname(profile.nickname) && mode === 'player') {
       wx.showModal({
         title: '上桌几手？',
         editable: true,
@@ -108,7 +112,7 @@ Page({
   },
 
   async _doJoin(mode, hands = 1) {
-    const profile = readLocalProfile()
+    const profile = readLocalProfile(app.globalData.openid)
     this.setData({ submitting: true })
     wx.showLoading({ title: mode === 'viewer' ? '进入中…' : '上桌中…' })
     try {
@@ -126,13 +130,19 @@ Page({
       const { ok, gameId, error, alreadyJoined } = res.result || {}
       if (!ok) {
         wx.showToast({
-          title: error === 'GAME_NOT_FOUND' ? '邀请码无效或牌局已结束' : error || '加入失败',
+          title:
+            error === 'GAME_NOT_FOUND'
+              ? '邀请码无效或牌局已结束'
+              : error === 'PROFILE_REQUIRED'
+                ? '请先完善真实昵称'
+                : error || '加入失败',
           icon: 'none'
         })
         return
       }
       if (alreadyJoined) wx.showToast({ title: '您已在该牌局中', icon: 'none' })
       const query = mode === 'viewer' ? '&mode=viewer' : ''
+      if (this.data.game && this.data.game._id === gameId) cacheGame(this.data.game)
       wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}${query}` })
     } catch (err) {
       wx.hideLoading()

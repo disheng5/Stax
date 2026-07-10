@@ -4,6 +4,11 @@ let _cacheOpenid = ''
 let _version = 0
 const CACHE_TTL = 30000
 const STALE_CACHE_TTL = 10 * 60 * 1000
+const SNAPSHOT_STORE_KEY = 'stax_game_snapshots_v1'
+const SNAPSHOT_TTL = 2 * 24 * 60 * 60 * 1000
+const SNAPSHOT_LIMIT = 12
+let _snapshotMem = null
+let _snapshotSaveTimer = null
 
 function _storageKey(openid) {
   return `stax_games_${openid}`
@@ -11,6 +16,85 @@ function _storageKey(openid) {
 
 function _wxStorage() {
   return typeof wx !== 'undefined' && wx.getStorageSync ? wx : null
+}
+
+function _loadSnapshots() {
+  if (_snapshotMem) return _snapshotMem
+  const store = _wxStorage()
+  if (!store) return {}
+  try {
+    _snapshotMem = store.getStorageSync(SNAPSHOT_STORE_KEY) || {}
+  } catch (_) {
+    _snapshotMem = {}
+  }
+  return _snapshotMem
+}
+
+function _saveSnapshots() {
+  const store = _wxStorage()
+  if (!store) return
+  const now = Date.now()
+  const entries = Object.entries(_loadSnapshots())
+    .filter(([, item]) => item && item.game && now - (item.ts || 0) <= SNAPSHOT_TTL)
+    .sort(([, a], [, b]) => (b.ts || 0) - (a.ts || 0))
+    .slice(0, SNAPSHOT_LIMIT)
+  _snapshotMem = {}
+  entries.forEach(([id, item]) => {
+    _snapshotMem[id] = item
+  })
+  try {
+    store.setStorageSync(SNAPSHOT_STORE_KEY, _snapshotMem)
+  } catch (err) {
+    console.warn('[game snapshot persist]', err)
+  }
+}
+
+function _scheduleSnapshotSave() {
+  clearTimeout(_snapshotSaveTimer)
+  _snapshotSaveTimer = setTimeout(() => {
+    _snapshotSaveTimer = null
+    _saveSnapshots()
+  }, 120)
+}
+
+function cacheGame(game) {
+  if (!game || !game._id) return
+  const snapshots = _loadSnapshots()
+  snapshots[game._id] = { ts: Date.now(), game }
+  _scheduleSnapshotSave()
+}
+
+function getCachedGame(gameId, maxAge = SNAPSHOT_TTL) {
+  if (!gameId) return null
+  if (_cache) {
+    const inHistory = _cache.find(game => game._id === gameId)
+    if (inHistory) return inHistory
+  }
+  const item = _loadSnapshots()[gameId]
+  if (!item || !item.game || Date.now() - (item.ts || 0) > maxAge) return null
+  return item.game
+}
+
+function removeCachedGame(gameId) {
+  if (!gameId) return
+  const snapshots = _loadSnapshots()
+  if (!snapshots[gameId]) return
+  delete snapshots[gameId]
+  _scheduleSnapshotSave()
+}
+
+function getCachedAvatarFileIDs(limit = 50) {
+  const ids = []
+  const seen = {}
+  Object.values(_loadSnapshots()).forEach(item => {
+    ;(item?.game?.players || []).forEach(player => {
+      const fileID = player.avatar
+      if (!fileID || !fileID.startsWith('cloud://') || seen[fileID] || ids.length >= limit) return
+      seen[fileID] = true
+      ids.push(fileID)
+    })
+  })
+  return ids
 }
 
 function _persist(openid, games) {
@@ -61,6 +145,19 @@ function _invalidate() {
 
 function getCacheVersion() {
   return _version
+}
+
+function clearGamesCache() {
+  _invalidate()
+  clearTimeout(_snapshotSaveTimer)
+  _snapshotSaveTimer = null
+  _snapshotMem = {}
+  const store = _wxStorage()
+  if (store) {
+    try {
+      store.removeStorageSync(SNAPSHOT_STORE_KEY)
+    } catch (_) {}
+  }
 }
 
 function getCachedGames(openid, maxAge = STALE_CACHE_TTL) {
@@ -119,6 +216,10 @@ async function fetchAllGames(openid, opts = {}) {
   _cacheTime = Date.now()
   _cacheOpenid = openid
   _persist(openid, filtered)
+  filtered.slice(0, SNAPSHOT_LIMIT).forEach(game => {
+    _loadSnapshots()[game._id] = { ts: Date.now(), game }
+  })
+  _scheduleSnapshotSave()
   return filtered
 }
 
@@ -126,5 +227,10 @@ module.exports = {
   fetchAllGames,
   getCachedGames,
   invalidateGamesCache: _invalidate,
-  getCacheVersion
+  getCacheVersion,
+  clearGamesCache,
+  cacheGame,
+  getCachedGame,
+  removeCachedGame,
+  getCachedAvatarFileIDs
 }

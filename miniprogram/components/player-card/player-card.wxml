@@ -2,7 +2,7 @@
   <view class="main-row">
     <view class="player-cell">
       <view class="avatar-wrap">
-        <image class="avatar" src="{{player.displayAvatar || player.avatar || '/images/default-avatar.png'}}" />
+        <image class="avatar" src="{{player.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
         <view class="crown" wx:if="{{isWinner && gameStatus === 'ended'}}"></view>
       </view>
       <view class="name-wrap">

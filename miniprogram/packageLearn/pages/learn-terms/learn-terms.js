@@ -16,7 +16,19 @@ Page({
     loading: true
   },
 
+  onLoad() {
+    try {
+      const cached = wx.getStorageSync('stax_terms_v1')
+      if (cached && Array.isArray(cached.data)) {
+        this._cacheAt = cached.ts || 0
+        this.setData({ terms: cached.data, loading: false })
+        this._filter()
+      }
+    } catch (_) {}
+  },
+
   async onShow() {
+    if (this._cacheAt && Date.now() - this._cacheAt < 24 * 60 * 60 * 1000) return
     await this._fetch()
   },
 
@@ -25,12 +37,16 @@ Page({
       const db = wx.cloud.database()
       // 集合最多 20 条/请求，分页拉取
       const all = []
-      for (let skip = 0; skip < 200; skip += 20) {
+      for (let skip = 0; ; skip += 20) {
         const res = await db.collection('terms').skip(skip).limit(20).get()
         all.push(...res.data)
         if (res.data.length < 20) break
       }
       this.setData({ terms: all })
+      this._cacheAt = Date.now()
+      try {
+        wx.setStorageSync('stax_terms_v1', { ts: this._cacheAt, data: all })
+      } catch (_) {}
       this._filter()
     } catch (err) {
       console.error(err)

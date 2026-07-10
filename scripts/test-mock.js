@@ -148,7 +148,8 @@ function step(name, fn) {
     raw.users.push(
       { _id: 'user_bob_rank', _openid: 'mock_bob', nickname: 'Bob', avatar: '' },
       { _id: 'user_carol_rank', _openid: 'mock_carol', nickname: 'Carol', avatar: '' },
-      { _id: 'user_dan_rank', _openid: 'mock_dan', nickname: 'Dan', avatar: '' }
+      { _id: 'user_dan_rank', _openid: 'mock_dan', nickname: 'Dan', avatar: '' },
+      { _id: 'user_bob_legacy_duplicate', _openid: 'mock_bob', nickname: '玩家', avatar: '' }
     )
     const now = Date.now()
     const makeGame = (id, offsetMin, profits) => {
@@ -184,6 +185,7 @@ function step(name, fn) {
     assert.strictEqual(me.wins, 1)
     assert.strictEqual(me.winRate, 50)
     assert.strictEqual(bob.winRate, 50)
+    assert.strictEqual(bob.nickname, 'Bob', '重复的默认用户记录不能覆盖真实昵称')
 
     const removed = await wx.cloud.callFunction({
       name: 'removeCircleMember',

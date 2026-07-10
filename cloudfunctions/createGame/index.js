@@ -2,6 +2,32 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
+
+function meaningfulNickname(value) {
+  const nickname = typeof value === 'string' ? value.trim() : ''
+  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+}
+
+function profileTime(user) {
+  const n = +new Date(user.updatedAt || user.profileUpdatedAt || user.createdAt || 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+async function getLatestProfile(openid) {
+  const res = await db.collection('users').where({ _openid: openid }).limit(100).get()
+  const users = res.data || []
+  const named = users
+    .filter(u => meaningfulNickname(u.nickname))
+    .sort((a, b) => profileTime(b) - profileTime(a))[0]
+  const withAvatar = users.filter(u => u.avatar).sort((a, b) => profileTime(b) - profileTime(a))[0]
+  const latest = users.slice().sort((a, b) => profileTime(b) - profileTime(a))[0] || {}
+  return {
+    nickname: named ? named.nickname.trim() : '',
+    avatar: withAvatar ? withAvatar.avatar : '',
+    updatedAt: latest.updatedAt || latest.profileUpdatedAt || latest.createdAt || ''
+  }
+}
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 function genCode(len = 6) {
@@ -45,9 +71,7 @@ exports.main = async event => {
     bigBlind = 5,
     blindUpMinutes = 999,
     playerOpsShared = true,
-    scoreRatio = 1,
-    nickname = '庄家',
-    avatar = ''
+    scoreRatio = 1
   } = event
 
   if (!name || typeof name !== 'string') return { ok: false, error: 'INVALID_NAME' }
@@ -57,16 +81,16 @@ exports.main = async event => {
   const now = new Date()
   const blindStructure = buildBlindStructure(smallBlind, bigBlind)
 
-  let finalNickname = nickname
-  let finalAvatar = avatar
+  let finalNickname = ''
+  let finalAvatar = ''
+  let profileUpdatedAt = ''
   try {
-    const userQ = await db.collection('users').where({ _openid: OPENID }).limit(1).get()
-    if (userQ.data.length) {
-      const u = userQ.data[0]
-      if (u.nickname) finalNickname = u.nickname
-      if (u.avatar) finalAvatar = u.avatar
-    }
+    const user = await getLatestProfile(OPENID)
+    if (user.nickname) finalNickname = user.nickname
+    if (user.avatar) finalAvatar = user.avatar
+    profileUpdatedAt = user.updatedAt || ''
   } catch (_) {}
+  if (!meaningfulNickname(finalNickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
 
   const doc = {
     hostOpenid: OPENID,
@@ -92,6 +116,7 @@ exports.main = async event => {
         openid: OPENID,
         nickname: finalNickname,
         avatar: finalAvatar,
+        profileUpdatedAt,
         buyInCount: 1,
         totalBuyIn: buyIn,
         currentStack: buyIn,

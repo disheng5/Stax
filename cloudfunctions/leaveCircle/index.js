@@ -24,8 +24,17 @@ exports.main = async event => {
     .collection('circles')
     .doc(circleId)
     .update({
-      data: { memberOpenids: _.pull(OPENID) }
+      data: {
+        memberOpenids: _.pull(OPENID),
+        [`memberJoinedAt.${OPENID}`]: _.remove()
+      }
     })
 
-  return { ok: true }
+  const calc = await cloud
+    .callFunction({ name: 'calcSeasonScore', data: { circleId } })
+    .catch(err => {
+      console.error('[leaveCircle calc]', err)
+      return null
+    })
+  return { ok: true, scoreUpdated: !!calc?.result?.ok }
 }

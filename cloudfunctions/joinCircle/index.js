@@ -27,10 +27,20 @@ exports.main = async event => {
     .doc(circle._id)
     .update({
       data: {
-        memberOpenids: _.push([OPENID]),
+        memberOpenids: _.addToSet(OPENID),
         [`memberJoinedAt.${OPENID}`]: now
       }
     })
 
-  return { ok: true, circleId: circle._id }
+  const calc = await cloud
+    .callFunction({ name: 'calcSeasonScore', data: { circleId: circle._id } })
+    .catch(err => {
+      console.error('[joinCircle calc]', err)
+      return null
+    })
+  return {
+    ok: true,
+    circleId: circle._id,
+    scoreUpdated: !!calc?.result?.ok
+  }
 }

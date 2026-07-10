@@ -1,13 +1,24 @@
 const app = getApp()
-const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/game-data.js')
+const {
+  fetchAllGames,
+  getCachedGames,
+  getCacheVersion,
+  clearGamesCache
+} = require('../../utils/game-data.js')
 const { computeGameStats } = require('../../utils/stats.js')
 const avatarCache = require('../../utils/avatar.js')
+const {
+  isMeaningfulNickname,
+  readLocalProfile,
+  writeLocalProfile
+} = require('../../utils/user.js')
 
 const DEFAULT_AVATAR = '/images/default-avatar.png'
 
 Page({
   data: {
     avatarUrl: DEFAULT_AVATAR,
+    avatarDisplayUrl: DEFAULT_AVATAR,
     nickname: '',
     editing: false,
     demoMode: false,
@@ -23,35 +34,83 @@ Page({
 
   async onShow() {
     const ver = getCacheVersion()
-    if (
+    const local = readLocalProfile()
+    const localMatches =
+      !app.globalData.openid || !local.openid || local.openid === app.globalData.openid
+    const initial = { demoMode: !!app.globalData.demoMode }
+    if (localMatches && local.nickname) initial.nickname = local.nickname
+    if (localMatches && local.avatar) {
+      initial.avatarUrl = local.avatar
+      initial.avatarDisplayUrl =
+        avatarCache.displayCached(local.avatar) ||
+        (local.avatar.startsWith('cloud://') ? DEFAULT_AVATAR : local.avatar)
+    }
+    const snapshotOpenid = app.globalData.openid || local.openid
+    if (localMatches && snapshotOpenid) {
+      const cachedGames = getCachedGames(snapshotOpenid)
+      if (cachedGames.length) initial.stats = computeGameStats(cachedGames, snapshotOpenid)
+    }
+    this.setData(initial)
+    if (localMatches && local.avatar) this._resolveOwnAvatar(local.avatar)
+
+    const statsFresh =
       this._lastFetch &&
       Date.now() - this._lastFetch < 30000 &&
       !this._dirty &&
       this._cacheVer === ver
-    )
-      return
     this._dirty = false
     this._cacheVer = ver
-    this.setData({ demoMode: !!app.globalData.demoMode })
-    const cached = wx.getStorageSync('user_profile') || {}
-    if (cached.nickname) this.setData({ nickname: cached.nickname })
-    if (cached.avatarUrl) this.setData({ avatarUrl: cached.avatarUrl })
-    await this._refresh()
+    await this._refresh({ statsFresh })
     this._lastFetch = Date.now()
   },
 
-  async _refresh() {
+  _applyProfile(user = {}) {
+    const local = readLocalProfile()
+    const localMatches =
+      !app.globalData.openid || !local.openid || local.openid === app.globalData.openid
+    const nickname = isMeaningfulNickname(user.nickname)
+      ? user.nickname.trim()
+      : localMatches
+        ? local.nickname
+        : ''
+    const avatar = user.avatar || (localMatches ? local.avatar : '') || ''
+    const patch = {}
+    if (nickname && (!this.data.editing || !this.data.nickname)) patch.nickname = nickname
+    if (avatar && (!this.data.editing || this.data.avatarUrl === DEFAULT_AVATAR)) {
+      patch.avatarUrl = avatar
+      patch.avatarDisplayUrl =
+        avatarCache.displayCached(avatar) ||
+        (avatar.startsWith('cloud://') ? DEFAULT_AVATAR : avatar)
+    }
+    if (!localMatches && !isMeaningfulNickname(user.nickname) && !this.data.editing) {
+      patch.nickname = ''
+      patch.avatarUrl = user.avatar || DEFAULT_AVATAR
+      patch.avatarDisplayUrl = user.avatar
+        ? avatarCache.displayCached(user.avatar) || DEFAULT_AVATAR
+        : DEFAULT_AVATAR
+    }
+    if (Object.keys(patch).length) this.setData(patch)
+    if (avatar) this._resolveOwnAvatar(avatar)
+  },
+
+  async _resolveOwnAvatar(fileID) {
+    if (!fileID || !fileID.startsWith('cloud://')) return
+    const map = await avatarCache.resolveDisplayUrls([fileID])
+    if (this.data.avatarUrl === fileID && map[fileID]) {
+      this.setData({ avatarDisplayUrl: map[fileID] })
+    }
+  },
+
+  async _refresh(options = {}) {
     try {
       await app.globalData.openidReady
+      const latestUser = await app.refreshCurrentUser({ force: true })
       const openid = app.globalData.openid
-      const user = app.globalData.userDoc
       if (!openid) return
-      if (user?.nickname && !this.data.nickname) this.setData({ nickname: user.nickname })
-      if (user?.avatar && this.data.avatarUrl === DEFAULT_AVATAR)
-        this.setData({ avatarUrl: user.avatar })
+      this._applyProfile(latestUser || app.globalData.userDoc || {})
       const cached = getCachedGames(openid)
       if (cached.length) this.setData({ stats: computeGameStats(cached, openid) })
-      await this._computeRealStats(openid)
+      if (!options.statsFresh || !cached.length) await this._computeRealStats(openid)
     } catch (err) {
       console.error(err)
     }
@@ -68,7 +127,7 @@ Page({
 
   onChooseAvatar(e) {
     const { avatarUrl } = e.detail
-    this.setData({ avatarUrl, editing: true })
+    this.setData({ avatarUrl, avatarDisplayUrl: avatarUrl, editing: true })
   },
 
   onNicknameInput(e) {
@@ -77,13 +136,14 @@ Page({
 
   async onSaveProfile() {
     const nickname = (this.data.nickname || '').trim()
-    if (!nickname) {
-      wx.showToast({ title: '请输入昵称', icon: 'none' })
+    if (!isMeaningfulNickname(nickname)) {
+      wx.showToast({ title: '请输入你的真实昵称', icon: 'none' })
       return
     }
 
-    let avatarUrl = this.data.avatarUrl
-    if (avatarUrl && !avatarUrl.startsWith('cloud://') && !avatarUrl.startsWith('/')) {
+    let avatarUrl = this.data.avatarUrl === DEFAULT_AVATAR ? '' : this.data.avatarUrl
+    const chosenDisplayUrl = this.data.avatarDisplayUrl
+    if (avatarUrl && !avatarUrl.startsWith('cloud://')) {
       try {
         wx.showLoading({ title: '上传头像…' })
         const upload = await wx.cloud.uploadFile({
@@ -102,17 +162,42 @@ Page({
 
     wx.showLoading({ title: '保存中…' })
     try {
-      await wx.cloud.callFunction({
+      const res = await wx.cloud.callFunction({
         name: 'whoami',
-        data: { upsertNickname: nickname, upsertAvatar: avatarUrl }
+        data: {
+          upsertNickname: nickname,
+          upsertAvatar: avatarUrl || undefined,
+          clientProfileUpdatedAt: Date.now()
+        }
       })
-      wx.setStorageSync('user_profile', { nickname, avatarUrl })
-      app.globalData.userInfo = { nickName: nickname, avatarUrl }
-      app.globalData.userDoc = { ...(app.globalData.userDoc || {}), nickname, avatar: avatarUrl }
+      if (!res.result?.ok) throw new Error(res.result?.error || 'SAVE_PROFILE_FAILED')
+      const user = res.result.user || { nickname, avatar: avatarUrl }
+      const savedAvatar = user.avatar || avatarUrl || ''
+      writeLocalProfile({ nickname: user.nickname || nickname, avatar: savedAvatar, updatedAt: user.updatedAt })
+      app.globalData.userInfo = { nickName: user.nickname || nickname, avatarUrl: savedAvatar }
+      app.applyCurrentUser(res.result.openid || app.globalData.openid, user)
       if (app.globalData.openid) {
-        avatarCache.putProfiles([{ openid: app.globalData.openid, nickname, avatar: avatarUrl }])
+        avatarCache.putProfiles(
+          [
+            {
+              openid: app.globalData.openid,
+              nickname: user.nickname || nickname,
+              avatar: savedAvatar,
+              updatedAt: user.updatedAt
+            }
+          ],
+          { source: 'self', authoritative: true }
+        )
       }
-      this.setData({ editing: false, avatarUrl })
+      this.setData({
+        editing: false,
+        firstTime: false,
+        nickname: user.nickname || nickname,
+        avatarUrl: savedAvatar || DEFAULT_AVATAR,
+        avatarDisplayUrl:
+          avatarCache.displayCached(savedAvatar) || chosenDisplayUrl || DEFAULT_AVATAR
+      })
+      this._resolveOwnAvatar(savedAvatar)
       this._lastFetch = 0
       wx.hideLoading()
       wx.showToast({ title: '已保存', icon: 'success' })
@@ -145,10 +230,21 @@ Page({
     wx.navigateTo({ url: '/packageLearn/pages/learn-rules/learn-rules' })
   },
   onClearCache() {
-    wx.clearStorageSync()
-    wx.showToast({ title: '已清除', icon: 'success' })
-    this.setData({ avatarUrl: DEFAULT_AVATAR, nickname: '' })
+    const keep = new Set(['user_profile', 'compliance_shown', 'profile_guided', 'last_openid'])
+    try {
+      const info = wx.getStorageInfoSync()
+      ;(info.keys || []).forEach(key => {
+        if (!keep.has(key)) wx.removeStorageSync(key)
+      })
+    } catch (err) {
+      console.warn('[clear cache]', err)
+    }
+    avatarCache.clear()
+    clearGamesCache()
+    wx.showToast({ title: '缓存已清理，资料已保留', icon: 'none' })
     this._lastFetch = 0
+    this.setData({ avatarUrl: DEFAULT_AVATAR, avatarDisplayUrl: DEFAULT_AVATAR })
+    this._refresh()
   },
 
   onResetDemo() {

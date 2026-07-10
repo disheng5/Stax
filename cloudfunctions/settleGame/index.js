@@ -99,27 +99,43 @@ async function updateUserStats(players, game, now) {
   )
 }
 
-async function fetchActiveCircles() {
+async function fetchActiveCircles(memberOpenids = []) {
   const PAGE_SIZE = 100
-  const query = () => db.collection('circles').where({ status: 'active' })
-  const countRes = await query()
-    .count()
-    .catch(() => null)
-  const out = []
-  if (countRes && typeof countRes.total === 'number') {
-    const total = countRes.total || 0
-    for (let skip = 0; skip < total; skip += PAGE_SIZE) {
-      const page = await query().skip(skip).limit(PAGE_SIZE).get()
-      out.push(...(page.data || []))
+  const query = filtered =>
+    db.collection('circles').where(
+      filtered && memberOpenids.length
+        ? { status: 'active', memberOpenids: _.elemMatch(_.in(memberOpenids)) }
+        : { status: 'active' }
+    )
+  const fetch = async filtered => {
+    const out = []
+    const countRes = await query(filtered)
+      .count()
+      .catch(() => null)
+    if (countRes && typeof countRes.total === 'number') {
+      const total = countRes.total || 0
+      for (let skip = 0; skip < total; skip += PAGE_SIZE) {
+        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
+        out.push(...(page.data || []))
+      }
+    } else {
+      for (let skip = 0; ; skip += PAGE_SIZE) {
+        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
+        out.push(...(page.data || []))
+        if ((page.data || []).length < PAGE_SIZE) break
+      }
     }
-  } else {
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const page = await query().skip(skip).limit(PAGE_SIZE).get()
-      out.push(...(page.data || []))
-      if ((page.data || []).length < PAGE_SIZE) break
-    }
+    return out
   }
-  return out
+  try {
+    return await fetch(true)
+  } catch (err) {
+    console.warn('[fetchActiveCircles member fallback]', err)
+    const memberSet = new Set(memberOpenids)
+    return (await fetch(false)).filter(circle =>
+      (circle.memberOpenids || []).some(openid => memberSet.has(openid))
+    )
+  }
 }
 
 // 触发相关圈子的赛季积分重算。
@@ -130,10 +146,8 @@ async function triggerSeasonCalc(players) {
     players.forEach(p => {
       if (p.openid) playerSet[p.openid] = true
     })
-    const circles = await fetchActiveCircles()
-    const related = circles.filter(c =>
-      (c.memberOpenids || []).some(openid => playerSet[openid])
-    )
+    const circles = await fetchActiveCircles(Object.keys(playerSet))
+    const related = circles.filter(c => (c.memberOpenids || []).some(openid => playerSet[openid]))
     await Promise.all(
       related.map(c =>
         cloud
@@ -240,24 +254,9 @@ exports.main = async event => {
       }
 
       await transaction.collection('games').doc(gameId).update({ data: update })
-      // active 与结算数学同源返回，后续统计不再各自过滤（避免口径漂移）
-      const activeFinal = players.filter(p => !p.eliminatedAt)
-      return { ok: true, ended, diff, game, players, activePlayers: activeFinal, update, isHost }
-    }, 3)
-  } catch (err) {
-    console.error('[settleGame txn]', err)
-    return { ok: false, error: 'CONFLICT_RETRY' }
-  }
-  if (!txn.ok) return txn
-
-  const { ended, diff, game, players, activePlayers, update, isHost } = txn
-
-  // 流水并行写（账本，权威数据已在事务内落库）
-  await Promise.all(
-    submittedOpenids.map(openid =>
-      db
-        .collection('transactions')
-        .add({
+      // 牌局状态与流水同事务提交，watch 不会再看到“数据已变、流水尚未落库”的中间态。
+      for (const openid of submittedOpenids) {
+        await transaction.collection('transactions').add({
           data: {
             gameId,
             type: ended ? 'settle' : 'settlePartial',
@@ -270,9 +269,18 @@ exports.main = async event => {
             meta: { mode, expenseMode, extraCost }
           }
         })
-        .catch(err => console.error('[settle tx log]', openid, err))
-    )
-  )
+      }
+      // active 与结算数学同源返回，后续统计不再各自过滤（避免口径漂移）
+      const activeFinal = players.filter(p => !p.eliminatedAt)
+      return { ok: true, ended, diff, game, players, activePlayers: activeFinal, update, isHost }
+    }, 3)
+  } catch (err) {
+    console.error('[settleGame txn]', err)
+    return { ok: false, error: 'CONFLICT_RETRY' }
+  }
+  if (!txn.ok) return txn
+
+  const { ended, diff, game, players, activePlayers, update } = txn
 
   if (ended) {
     // 两者相互独立（users.stats 与 circles/seasons），并行执行缩短结算等待

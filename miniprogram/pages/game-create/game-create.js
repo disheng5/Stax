@@ -1,6 +1,6 @@
 // pages/game-create/game-create.js — 创建牌局
 const { formatDate } = require('../../utils/format.js')
-const { readLocalProfile } = require('../../utils/user.js')
+const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 const app = getApp()
 
 const NAME_ADJECTIVES = [
@@ -41,7 +41,7 @@ Page({
 
   onLoad() {
     const def = app.globalData.defaultBlind || { sb: 5, bb: 5, blindUpMinutes: 999 }
-    const profile = readLocalProfile() || {}
+    const profile = readLocalProfile(app.globalData.openid) || {}
     const nickname = profile.nickname || app.globalData.userDoc?.nickname || ''
     this.setData({
       name: genGameName(nickname),
@@ -89,8 +89,10 @@ Page({
       return
     }
 
-    const profile = readLocalProfile()
-    if (!profile.nickname) {
+    await app.globalData.openidReady
+    await app.refreshCurrentUser()
+    const profile = readLocalProfile(app.globalData.openid)
+    if (!isMeaningfulNickname(profile.nickname)) {
       wx.showModal({
         title: '先完善资料',
         content: '设置昵称和头像后，牌友才能认出你',
@@ -121,7 +123,10 @@ Page({
       wx.hideLoading()
       const { ok, gameId, error } = res.result || {}
       if (!ok) {
-        wx.showToast({ title: error || '创建失败', icon: 'none' })
+        wx.showToast({
+          title: error === 'PROFILE_REQUIRED' ? '请先完善真实昵称' : error || '创建失败',
+          icon: 'none'
+        })
         return
       }
       wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
