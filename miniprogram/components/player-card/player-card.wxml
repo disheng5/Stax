@@ -2,7 +2,7 @@
   <view class="main-row">
     <view class="player-cell">
       <view class="avatar-wrap">
-        <image class="avatar" src="{{player.avatar || '/images/default-avatar.png'}}" />
+        <image class="avatar" src="{{player.displayAvatar || player.avatar || '/images/default-avatar.png'}}" />
         <view class="crown" wx:if="{{isWinner && gameStatus === 'ended'}}"></view>
       </view>
       <view class="name-wrap">
@@ -12,9 +12,9 @@
     <view class="metric">{{player.buyInCount}}</view>
     <view class="metric" wx:if="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.finalStack}}</view>
     <view class="metric text-sub" wx:else>--</view>
-    <view class="profit text-gold" wx:if="{{player.finalStack !== null && player.finalStack !== undefined && player.profit > 0}}">+{{player.profit}}</view>
+    <view class="profit text-gain" wx:if="{{player.finalStack !== null && player.finalStack !== undefined && player.profit > 0}}">+{{player.profit}}</view>
     <view class="profit text-sub" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined && player.profit === 0}}">0</view>
-    <view class="profit text-danger" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.profit}}</view>
+    <view class="profit text-loss" wx:elif="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.profit}}</view>
     <view class="profit-action" wx:elif="{{gameStatus === 'ongoing'}}">
       <text class="action-text">未结算</text>
       <text class="action-arrow">></text>

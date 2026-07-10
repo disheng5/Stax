@@ -5,6 +5,10 @@
   <view wx:else class="chart-body" style="height:{{heightRpx}}rpx;">
     <view class="y-label" wx:for="{{yLabels}}" wx:key="label"
       style="top:{{item.top}};">{{item.label}}</view>
+    <view class="grid-line" wx:for="{{gridLines}}" wx:key="label"
+      style="top:{{item.top}};"></view>
+    <view class="bar" wx:for="{{bars}}" wx:key="index"
+      style="left:{{item.left}};top:{{item.top}};width:{{item.width}};height:{{item.height}};background:{{item.color}};"></view>
     <view class="seg" wx:for="{{segments}}" wx:key="index"
       style="left:{{item.left}};top:{{item.top}};width:{{item.width}};transform:rotate({{item.angle}}deg);background:{{item.color}};"></view>
     <view class="dot" wx:for="{{dots}}" wx:key="index"

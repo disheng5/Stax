@@ -6,8 +6,7 @@
 
 const { createMockDb } = require('./db-mock.js')
 const { buildSeed, MY_OPENID } = require('./mock-data.js')
-const { settle } = require('./settle.js')
-const { aaEven, aaWinnerByRatio, applyShares } = require('./aa.js')
+const { aaEven, aaWinnerByRatio } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
 
 let MOCK_DB = null
@@ -272,21 +271,38 @@ const handlers = {
       return { ok: true }
     }
     if (type === 'eliminate') {
+      // 与线上一致：踢出 = 彻底移除玩家，买入从总池扣除，快照入 removedPlayers
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
+      if (playerOpenid === game.hostOpenid) return { ok: false, error: 'CANT_ELIMINATE_HOST' }
       const idx = players.findIndex(p => p.openid === playerOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
-      players[idx] = { ...players[idx], eliminatedAt: now, currentStack: 0 }
-      await db.collection('games').doc(gameId).update({ data: { players } })
+      const removed = players[idx]
+      players.splice(idx, 1)
+      const removedBuyIn = Number(removed.totalBuyIn) || 0
+      await db
+        .collection('games')
+        .doc(gameId)
+        .update({
+          data: {
+            players,
+            totalPot: Math.max(0, (game.totalPot || 0) - removedBuyIn),
+            removedPlayers: [
+              ...(game.removedPlayers || []),
+              { ...removed, removedAt: now, removedBy: MY_OPENID }
+            ]
+          }
+        })
       await db.collection('transactions').add({
         data: {
           gameId,
           type,
           playerOpenid,
-          amount: 0,
+          amount: -removedBuyIn,
           operatorOpenid: MY_OPENID,
           byHost: true,
           revoked: false,
-          timestamp: now
+          timestamp: now,
+          meta: { nickname: removed.nickname || '', removedBuyIn }
         }
       })
       return { ok: true }
@@ -340,27 +356,34 @@ const handlers = {
         checkedOutAt: p.checkedOutAt || now
       }
     })
-    const allSettled = players.every(p => p.finalStack !== null && p.finalStack !== undefined)
+    // 与线上一致：被淘汰/踢出的玩家不参与结算计算
+    const active = players.filter(p => !p.eliminatedAt)
+    const allSettled =
+      active.length > 0 && active.every(p => p.finalStack !== null && p.finalStack !== undefined)
     let ended = false
     let diff = 0
     if (mode === 'finalize') {
       if (!allSettled) return { ok: false, error: 'NOT_ALL_CHECKED_OUT' }
-      diff = players.reduce((s, p) => s + p.profit, 0)
+      diff = active.reduce((s, p) => s + p.profit, 0)
       if (diff !== 0) return { ok: false, error: 'PROFIT_NOT_ZERO', diff }
       {
-        let shares = players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
-        if (extraCost > 0 && expenseMode === 'all') shares = aaEven(players, extraCost)
+        let shares = active.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+        if (extraCost > 0 && expenseMode === 'all') shares = aaEven(active, extraCost)
         else if (extraCost > 0 && expenseMode === 'winner')
-          shares = aaWinnerByRatio(players, extraCost)
+          shares = aaWinnerByRatio(active, extraCost)
         const shareMap = {}
         shares.forEach(s => {
           shareMap[s.openid] = s.share || 0
         })
-        players = players.map(p => ({
-          ...p,
-          share: shareMap[p.openid] || 0,
-          finalProfit: p.profit
-        }))
+        players = players.map(p =>
+          p.eliminatedAt
+            ? p
+            : {
+              ...p,
+              share: shareMap[p.openid] || 0,
+              finalProfit: p.profit
+            }
+        )
         ended = true
       }
     }
@@ -369,9 +392,8 @@ const handlers = {
       extraCost,
       expenseMode,
       aaMode: expenseMode,
-      checkedOutCount: players.filter(p => p.finalStack !== null && p.finalStack !== undefined)
-        .length,
-      settledCount: players.filter(p => p.finalStack !== null && p.finalStack !== undefined).length
+      checkedOutCount: active.filter(p => p.finalStack !== null && p.finalStack !== undefined)
+        .length
     }
     if (ended) {
       update.status = 'ended'
@@ -452,12 +474,12 @@ const handlers = {
       lines.push(`全场补了 ${totalRebuys} 次码，人均两轮起步，今晚的 ATM 不是机器，是你们。`)
     else if (totalRebuys >= facts.playerCount)
       lines.push(`全场 ${totalRebuys} 次补码，谁也不肯先认怂。`)
-    else if (totalRebuys === 0) lines.push(`全场零补码，要么紧得像保险柜，要么牌不肯给力。`)
+    else if (totalRebuys === 0) lines.push('全场零补码，要么紧得像保险柜，要么牌不肯给力。')
     if (me) {
       const v = me.finalProfit ?? me.profit
       if (v > 0) lines.push(`你今晚 +${v}，宵夜随便点，"兵贵胜，不贵久"，及时收手最帅。`)
       else if (v < 0) lines.push(`你今晚 ${v}，没事，"多算胜，少算不胜"，下次先算完再下注。`)
-      else lines.push(`你今晚账面持平，不输就是赢，回家睡个好觉。`)
+      else lines.push('你今晚账面持平，不输就是赢，回家睡个好觉。')
     }
     if (facts.extraCost > 0) {
       const label = facts.expenseMode === 'winner' ? '水上 AA' : '全员 AA'
@@ -522,6 +544,189 @@ const handlers = {
 
   async seedTerms() {
     return { ok: true, termsInserted: 10, handRanksInserted: 169, note: 'mock 模式数据已内置' }
+  },
+
+  async createCircle({ name }) {
+    if (!name || String(name).trim().length > 12) return { ok: false, error: 'INVALID_NAME' }
+    const db = getDb()
+    const now = new Date()
+    const inviteCode = generateInviteCode(8)
+    const res = await db.collection('circles').add({
+      data: {
+        name: String(name).trim(),
+        ownerOpenid: MY_OPENID,
+        inviteCode,
+        memberOpenids: [MY_OPENID],
+        memberJoinedAt: { [MY_OPENID]: now },
+        currentSeasonId: null,
+        status: 'active',
+        createdAt: now
+      }
+    })
+    return { ok: true, circleId: res._id, inviteCode }
+  },
+
+  async calcSeasonScore({ circleId }) {
+    if (!circleId) return { ok: false, error: 'INVALID_PARAMS' }
+    const db = getDb()
+    const raw = db._raw
+    const circle = (raw.circles || []).find(c => c._id === circleId)
+    if (!circle || circle.status !== 'active') return { ok: false, error: 'CIRCLE_NOT_ACTIVE' }
+
+    let season = circle.currentSeasonId
+      ? (raw.seasons || []).find(s => s._id === circle.currentSeasonId)
+      : null
+    if (!season) {
+      const now = new Date()
+      const created = await db.collection('seasons').add({
+        data: {
+          circleId,
+          seasonNo: 1,
+          seasonName: `${now.getFullYear()} · 测试赛季 · 第1回`,
+          startAt: now,
+          endAt: new Date(now.getTime() + 42 * 24 * 3600 * 1000),
+          status: 'ongoing',
+          rankings: []
+        }
+      })
+      circle.currentSeasonId = created._id
+      season = (raw.seasons || []).find(s => s._id === created._id)
+    }
+
+    const members = circle.memberOpenids || []
+    const memberSet = {}
+    members.forEach(o => {
+      memberSet[o] = true
+    })
+    const seasonStart = new Date(season.startAt)
+    const seasonEnd = new Date(season.endAt)
+    const circleCreatedAt = circle.createdAt ? new Date(circle.createdAt) : seasonStart
+    const queryStart =
+      Number(season.seasonNo) <= 1 && circleCreatedAt < seasonStart ? circleCreatedAt : seasonStart
+    const activePlayers = g => (g.players || []).filter(p => !p.eliminatedAt)
+    const qualifiedGames = (raw.games || [])
+      .filter(g => g.status === 'ended')
+      .filter(g => new Date(g.endedAt || g.startedAt) >= queryStart)
+      .filter(g => new Date(g.endedAt || g.startedAt) < seasonEnd)
+      .filter(g => !g.excludeFromSeason)
+      .filter(g => activePlayers(g).length >= 4)
+      .filter(g => new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60 * 1000)
+      .filter(g => activePlayers(g).some(p => memberSet[p.openid]))
+
+    const stats = {}
+    members.forEach(openid => {
+      stats[openid] = { profitBB: 0, rawProfit: 0, games: 0, wins: 0 }
+    })
+    qualifiedGames.forEach(g => {
+      const bb = Math.max(1, Number(g.bigBlind) || 1)
+      activePlayers(g).forEach(p => {
+        if (!memberSet[p.openid]) return
+        const profit = p.finalProfit ?? p.profit ?? 0
+        stats[p.openid].profitBB += Math.round(profit / bb)
+        stats[p.openid].rawProfit += Number(profit) || 0
+        stats[p.openid].games++
+        if (profit > 0) stats[p.openid].wins++
+      })
+    })
+
+    const users = {}
+    ;(raw.users || []).forEach(u => {
+      users[u._openid] = u
+    })
+    const rankedEntries = Object.entries(stats)
+      .filter(([, s]) => s.games > 0)
+      .sort(([, a], [, b]) => b.profitBB - a.profitBB)
+    const rankedSet = {}
+    const rankings = rankedEntries.map(([openid, s], i) => {
+      rankedSet[openid] = true
+      const u = users[openid] || {}
+      return {
+        openid,
+        nickname: u.nickname || openid,
+        avatar: u.avatar || '',
+        profitBB: s.profitBB,
+        rawProfit: s.rawProfit,
+        games: s.games,
+        wins: s.wins,
+        winRate: s.games ? Math.round((s.wins * 1000) / s.games) / 10 : 0,
+        rank: i + 1,
+        title: null
+      }
+    })
+    members
+      .filter(openid => !rankedSet[openid])
+      .forEach(openid => {
+        const s = stats[openid] || { profitBB: 0, rawProfit: 0, games: 0, wins: 0 }
+        const u = users[openid] || {}
+        rankings.push({
+          openid,
+          nickname: u.nickname || openid,
+          avatar: u.avatar || '',
+          profitBB: s.profitBB,
+          rawProfit: s.rawProfit,
+          games: s.games,
+          wins: s.wins,
+          winRate: s.games ? Math.round((s.wins * 1000) / s.games) / 10 : 0,
+          rank: 0,
+          title: null
+        })
+      })
+
+    season.rankings = rankings
+    season.gameSummaries = qualifiedGames
+      .slice(-50)
+      .reverse()
+      .map(g => ({
+        _id: g._id,
+        name: g.name || '',
+        playerCount: activePlayers(g).length,
+        startedAt: g.startedAt,
+        endedAt: g.endedAt
+      }))
+    season.calculatedAt = new Date()
+    season.calculationMeta = { algorithmVersion: 3, qualifiedCount: qualifiedGames.length }
+    db._notify('seasons', season._id)
+    return {
+      ok: true,
+      seasonId: season._id,
+      rankedCount: rankings.filter(r => r.rank > 0).length,
+      qualifiedCount: qualifiedGames.length,
+      algorithmVersion: 3
+    }
+  },
+
+  async resetSeason({ circleId }) {
+    return handlers.calcSeasonScore({ circleId })
+  },
+
+  async removeCircleMember({ circleId, targetOpenid }) {
+    if (!circleId || !targetOpenid) return { ok: false, error: 'INVALID_PARAMS' }
+    const db = getDb()
+    const circle = (db._raw.circles || []).find(c => c._id === circleId)
+    if (!circle || circle.status !== 'active') return { ok: false, error: 'NOT_FOUND' }
+    if (circle.ownerOpenid !== MY_OPENID) return { ok: false, error: 'NOT_OWNER' }
+    if (targetOpenid === circle.ownerOpenid) return { ok: false, error: 'OWNER_CANNOT_REMOVE' }
+    if (!(circle.memberOpenids || []).includes(targetOpenid)) return { ok: false, error: 'NOT_MEMBER' }
+    circle.memberOpenids = circle.memberOpenids.filter(o => o !== targetOpenid)
+    if (circle.memberJoinedAt) delete circle.memberJoinedAt[targetOpenid]
+    db._notify('circles', circleId)
+    const calc = await handlers.calcSeasonScore({ circleId })
+    return { ok: true, ...calc }
+  },
+
+  async getAvatars({ openids = [] }) {
+    const db = getDb()
+    const avatars = {}
+    const nicknames = {}
+    for (const openid of [...new Set(openids)].filter(Boolean)) {
+      const r = await db.collection('users').where({ _openid: openid }).limit(1).get()
+      const u = r.data && r.data[0]
+      if (u) {
+        if (u.avatar) avatars[openid] = u.avatar
+        if (u.nickname) nicknames[openid] = u.nickname
+      }
+    }
+    return { ok: true, avatars, nicknames }
   }
 }
 
@@ -557,6 +762,15 @@ function install() {
   // 上传/存储简单忽略
   wx.cloud.uploadFile = async function ({ filePath }) {
     return { fileID: filePath }
+  }
+
+  wx.cloud.getTempFileURL = async function ({ fileList = [] }) {
+    return {
+      fileList: fileList.map(item => {
+        const fileID = typeof item === 'string' ? item : item.fileID
+        return { fileID, tempFileURL: fileID }
+      })
+    }
   }
 
   console.log('[cloud-mock] installed — running in DEMO MODE')

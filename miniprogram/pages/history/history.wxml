@@ -10,7 +10,7 @@
       </view>
       <view class="overview-divider"></view>
       <view class="overview-item">
-        <view class="ov-num {{stats.totalProfit >= 0 ? 'text-success' : 'text-danger'}}">{{stats.totalProfit}}</view>
+        <view class="ov-num {{stats.totalProfit >= 0 ? 'text-gain' : 'text-loss'}}">{{stats.totalProfit}}</view>
         <view class="ov-label">累计盈亏</view>
       </view>
       <view class="overview-divider"></view>
@@ -20,12 +20,12 @@
       </view>
       <view class="overview-divider"></view>
       <view class="overview-item">
-        <view class="ov-num text-success">{{stats.biggestWin}}</view>
+        <view class="ov-num text-gain">{{stats.biggestWin}}</view>
         <view class="ov-label">最大赢</view>
       </view>
       <view class="overview-divider"></view>
       <view class="overview-item">
-        <view class="ov-num text-danger">{{stats.biggestLoss}}</view>
+        <view class="ov-num text-loss">{{stats.biggestLoss}}</view>
         <view class="ov-label">最大亏</view>
       </view>
     </view>
@@ -43,7 +43,7 @@
           <view class="chart-range-btn {{chartRange === 'm3' ? 'active' : ''}}"  data-k="m3"  bindtap="onChartRangeChange">近3月</view>
           <view class="chart-range-btn {{chartRange === 'all' ? 'active' : ''}}" data-k="all" bindtap="onChartRangeChange">全部</view>
         </scroll-view>
-        <line-chart points="{{points}}" height="180" color="#2B6CB0" />
+        <line-chart points="{{points}}" height="180" color="#2E8540" />
       </view>
     </view>
 
@@ -52,7 +52,7 @@
       <view class="section-title" style="margin-bottom:16rpx;">维度分析</view>
       <scroll-view scroll-x class="dim-tabs">
         <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
-        <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">补码次数</view>
+        <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">买入次数</view>
         <view class="dim-tab {{dim === 'weekday' ? 'active' : ''}}"   data-k="weekday"   bindtap="onDimChange">星期</view>
         <view class="dim-tab {{dim === 'opponents' ? 'active' : ''}}" data-k="opponents" bindtap="onDimChange">对手</view>
       </scroll-view>
@@ -66,9 +66,19 @@
       <view class="dim-row" wx:for="{{dimData}}" wx:key="key">
         <view class="col-key">{{item.key}}</view>
         <view class="col">{{item.games}}</view>
-        <view class="col {{item.profit >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitStr}}</view>
-        <view class="col {{item.avg >= 0 ? 'text-success' : 'text-danger'}}">{{item.avg}}</view>
+        <view class="col {{item.profit >= 0 ? 'text-gain' : 'text-loss'}}">{{item.profitStr}}</view>
+        <view class="col {{item.avg >= 0 ? 'text-gain' : 'text-loss'}}">{{item.avg}}</view>
         <view class="col">{{item.winRate}}%</view>
+      </view>
+    </view>
+
+    <view class="card ai-card" bindtap="onToggleAi">
+      <view class="ai-head">
+        <view class="section-title">AI 趋势分析</view>
+        <view class="text-sub">{{aiExpanded ? '收起' : '展开'}}</view>
+      </view>
+      <view class="ai-body" wx:if="{{aiExpanded && aiSummary.length}}">
+        <view class="ai-line text-sub" wx:for="{{aiSummary}}" wx:key="*this">{{item}}</view>
       </view>
     </view>
 
@@ -78,12 +88,12 @@
       <view class="record-main" data-id="{{item._id}}" bindtap="onOpenGame">
         <view class="head">
           <view class="name ellipsis">{{item.name}}</view>
-          <view class="profit {{item.myProfit > 0 ? 'text-success' : item.myProfit < 0 ? 'text-danger' : 'text-sub'}}">{{item.myProfitFormatted}}</view>
+          <view class="profit {{item.myProfit > 0 ? 'text-gain' : item.myProfit < 0 ? 'text-loss' : 'text-sub'}}">{{item.myProfitFormatted}}</view>
         </view>
         <view class="meta text-sub">
           <text>{{item.dateStr}}</text>
           <text>·</text>
-          <text>{{item.players.length}} 人</text>
+          <text>{{item.playerCount}} 人</text>
           <text>·</text>
           <text>{{item.durationStr}}</text>
           <text wx:if="{{item.scoreRatio > 1}}"> · 码:积 {{item.scoreRatio}}:1</text>
@@ -98,5 +108,5 @@
     </view>
   </block>
 
-  <empty-state wx:if="{{!loading && !games.length}}" title="还没有战绩" desc="参与一场牌局后会显示在这里" />
+  <empty-state wx:if="{{!loading && !games.length}}" title="还没有战绩" desc="参与一场记录后会显示在这里" />
 </view>

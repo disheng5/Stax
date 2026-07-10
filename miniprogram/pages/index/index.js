@@ -2,6 +2,8 @@ const app = getApp()
 const { formatProfit, formatDate } = require('../../utils/format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { getDailyWord } = require('../../utils/dailyWord.js')
+const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/game-data.js')
+const { computeGameStats, gameScore } = require('../../utils/stats.js')
 
 Page({
   data: {
@@ -16,22 +18,32 @@ Page({
 
   onLoad() {
     this.setData({ quote: SUNZI[Math.floor(Math.random() * SUNZI.length)] })
+    // 上屏快照：同步渲染上次的最近记录，冷启动首帧即有内容（随后 onShow 拉取校正）
+    try {
+      const snap = wx.getStorageSync('snap_recent')
+      if (snap && Array.isArray(snap.recentGames) && snap.recentGames.length) {
+        this.setData({ recentGames: snap.recentGames, myStats: snap.myStats || null, loading: false })
+      }
+    } catch (_) {}
   },
 
   async onShow() {
-    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
+    // 30s 内不重复拉取；但缓存版本变了（刚结算/删除）立即刷新
+    const ver = getCacheVersion()
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000 && this._cacheVer === ver) return
     try {
       await app.globalData.openidReady
       const openid = app.globalData.openid
       if (openid) this.setData({ myOpenid: openid })
       this._loadDailyWord()
-      await Promise.all([this._fetchRecent(openid), this._fetchStats()])
+      await this._fetchRecent(openid)
       this._checkProfileGuide()
     } catch (err) {
       console.error('[onShow]', err)
     } finally {
       this.setData({ loading: false })
       this._lastFetch = Date.now()
+      this._cacheVer = getCacheVersion()
     }
   },
 
@@ -55,44 +67,49 @@ Page({
     try {
       const db = wx.cloud.database()
       const _ = db.command
-      const [ongoingRes, endedRes] = await Promise.all([
+      const cachedEnded = getCachedGames(openid)
+      if (cachedEnded.length) this._applyRecent([], cachedEnded)
+      // 已结束的局走共享缓存（与历史/我的 同源），战绩随结算实时更新
+      const [ongoingRes, endedAll] = await Promise.all([
         db
           .collection('games')
           .where({ status: 'ongoing', players: _.elemMatch({ openid }) })
           .orderBy('startedAt', 'desc')
           .limit(5)
           .get(),
-        db
-          .collection('games')
-          .where({ status: 'ended', players: _.elemMatch({ openid }) })
-          .orderBy('endedAt', 'desc')
-          .limit(5)
-          .get()
+        fetchAllGames(openid)
       ])
-      const ongoing = ongoingRes.data.map(g => ({ ...g, _status: 'ongoing' }))
-      const ended = endedRes.data
-        .filter(g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid)))
-        .map(g => {
-          const me = (g.players || []).find(p => p.openid === openid) || {}
-          const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-          const profit = Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
-          return {
-            ...g,
-            _status: 'ended',
-            _profit: profit,
-            _profitStr: formatProfit(profit),
-            _dateStr: formatDate(g.endedAt || g.startedAt)
-          }
+      this._applyRecent(ongoingRes.data, endedAll, openid)
+      // 回写快照供下次冷启动秒开
+      try {
+        wx.setStorageSync('snap_recent', {
+          recentGames: this.data.recentGames,
+          myStats: this.data.myStats
         })
-      this.setData({ recentGames: [...ongoing, ...ended].slice(0, 8) })
+      } catch (_) {}
     } catch (err) {
       console.error(err)
     }
   },
 
-  async _fetchStats() {
-    const u = app.globalData.userDoc
-    if (u?.stats?.totalGames > 0) this.setData({ myStats: u.stats })
+  _applyRecent(ongoingList, endedAll, openid = app.globalData.openid) {
+    const ongoing = (ongoingList || []).map(g => ({ ...g, _status: 'ongoing' }))
+    const ended = (endedAll || []).slice(0, 5).map(g => {
+      const profit = gameScore(g, openid) || 0
+      return {
+        ...g,
+        _status: 'ended',
+        _profit: profit,
+        _profitStr: formatProfit(profit),
+        _dateStr: formatDate(g.endedAt || g.startedAt)
+      }
+    })
+    const stats = computeGameStats(endedAll || [], openid)
+    this.setData({
+      recentGames: [...ongoing, ...ended].slice(0, 5),
+      myStats: stats.totalGames > 0 ? stats : null,
+      loading: false
+    })
   },
 
   onCreate() {

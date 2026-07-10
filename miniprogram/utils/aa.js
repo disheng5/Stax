@@ -11,11 +11,6 @@
 //   - winnerByRatio    ：仅赢家分摊，按 profit 占总盈利比例
 //                       特殊：若没有赢家（理论上不会，因 Σ=0），退化为 even
 
-function settleRound(value) {
-  // 全部按整数处理，最多处理到分（小数 2 位输入可在外部 *100）
-  return Math.round(value)
-}
-
 function aaEven(players, totalCost) {
   if (!players.length || totalCost <= 0)
     return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))

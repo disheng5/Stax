@@ -47,21 +47,21 @@ const command = {
 function matchValue(actual, expected) {
   if (isCommand(expected)) {
     switch (expected.__cmd) {
-      case 'eq':  return actual === expected.v
-      case 'neq': return actual !== expected.v
-      case 'gt':  return actual >  expected.v
-      case 'gte': return actual >= expected.v
-      case 'lt':  return actual <  expected.v
-      case 'lte': return actual <= expected.v
-      case 'in':  return Array.isArray(expected.v) && expected.v.includes(actual)
-      case 'nin': return Array.isArray(expected.v) && !expected.v.includes(actual)
-      case 'exists': return (actual !== undefined) === !!expected.v
-      case 'elemMatch':
-        if (!Array.isArray(actual)) return false
-        return actual.some(item => Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k])))
-      case 'and': return expected.args.every(c => matchValue(actual, c))
-      case 'or':  return expected.args.some(c => matchValue(actual, c))
-      default: return false
+    case 'eq':  return actual === expected.v
+    case 'neq': return actual !== expected.v
+    case 'gt':  return actual >  expected.v
+    case 'gte': return actual >= expected.v
+    case 'lt':  return actual <  expected.v
+    case 'lte': return actual <= expected.v
+    case 'in':  return Array.isArray(expected.v) && expected.v.includes(actual)
+    case 'nin': return Array.isArray(expected.v) && !expected.v.includes(actual)
+    case 'exists': return (actual !== undefined) === !!expected.v
+    case 'elemMatch':
+      if (!Array.isArray(actual)) return false
+      return actual.some(item => Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k])))
+    case 'and': return expected.args.every(c => matchValue(actual, c))
+    case 'or':  return expected.args.some(c => matchValue(actual, c))
+    default: return false
     }
   }
   if (Array.isArray(expected)) return JSON.stringify(actual) === JSON.stringify(expected)
@@ -89,12 +89,12 @@ function applyUpdate(doc, update) {
         target = target[p]
       }
       switch (val.__cmd) {
-        case 'inc':    target[last] = (target[last] || 0) + val.v; break
-        case 'push':   if (!Array.isArray(target[last])) target[last] = []; target[last].push(...(Array.isArray(val.v) ? val.v : [val.v])); break
-        case 'pull':   if (Array.isArray(target[last])) target[last] = target[last].filter(x => !matchValue(x, val.v)); break
-        case 'remove': delete target[last]; break
-        case 'set':    target[last] = val.v; break
-        default: target[last] = val
+      case 'inc':    target[last] = (target[last] || 0) + val.v; break
+      case 'push':   if (!Array.isArray(target[last])) target[last] = []; target[last].push(...(Array.isArray(val.v) ? val.v : [val.v])); break
+      case 'pull':   if (Array.isArray(target[last])) target[last] = target[last].filter(x => !matchValue(x, val.v)); break
+      case 'remove': delete target[last]; break
+      case 'set':    target[last] = val.v; break
+      default: target[last] = val
       }
     } else if (key.includes('.')) {
       const path = key.split('.')

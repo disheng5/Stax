@@ -20,8 +20,8 @@
       <view class="dim-row" wx:for="{{dimData}}" wx:key="key">
         <view class="col-key">{{item.key}}</view>
         <view class="col">{{item.games}}</view>
-        <view class="col {{item.profit >= 0 ? 'text-success' : 'text-danger'}}">{{item.profitFormatted}}</view>
-        <view class="col {{item.avg >= 0 ? 'text-success' : 'text-danger'}}">{{item.avg}}</view>
+        <view class="col {{item.profit >= 0 ? 'text-gain' : 'text-loss'}}">{{item.profitFormatted}}</view>
+        <view class="col {{item.avg >= 0 ? 'text-gain' : 'text-loss'}}">{{item.avg}}</view>
         <view class="col">{{item.winRate}}%</view>
       </view>
     </view>

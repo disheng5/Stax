@@ -1,3 +1,17 @@
+<view class="container" wx:if="{{loading && !circle}}">
+  <view class="sk-card">
+    <view class="sk sk-line sk-w-40" style="height: 36rpx;"></view>
+    <view class="sk sk-line sk-w-20"></view>
+  </view>
+  <view class="sk-card">
+    <view class="sk-row" style="margin-bottom: 20rpx;" wx:for="{{[1, 2, 3]}}" wx:key="*this">
+      <view class="sk sk-avatar" style="width: 48rpx; height: 48rpx;"></view>
+      <view class="sk-flex">
+        <view class="sk sk-line sk-w-60" style="margin-bottom: 0;"></view>
+      </view>
+    </view>
+  </view>
+</view>
 <view class="container" wx:if="{{circle}}">
   <view class="header card">
     <view class="header-top">
@@ -21,17 +35,26 @@
     <view class="block-divider"></view>
 
     <view wx:if="{{ranked.length || unranked.length}}">
-      <view class="rank-item" wx:for="{{ranked}}" wx:key="openid">
+      <view class="rank-item" wx:for="{{ranked}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
         <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.rank}}</view>
-        <view class="rank-info">
-          <view class="rank-name">{{item.nickname}}</view>
-          <view class="rank-title" wx:if="{{item.title}}">{{item.title}}</view>
+        <view class="rank-avatar-wrap">
+          <view class="rank-crown" wx:if="{{item.rank === 1}}"></view>
+          <image class="rank-avatar" src="{{item.displayAvatar || item.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
         </view>
-        <view class="rank-games text-sub">{{item.games}} 场</view>
+        <view class="rank-info">
+          <view class="rank-name rank-name-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.nickname}}</view>
+        </view>
+        <view class="rank-side text-sub">
+          <view>{{item.games}} 场</view>
+          <view>{{item.winRate}}%</view>
+        </view>
       </view>
       <view class="rank-divider" wx:if="{{unranked.length && ranked.length}}">—— 上榜线 ——</view>
-      <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid">
+      <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
         <view class="rank-badge rank-n">-</view>
+        <view class="rank-avatar-wrap">
+          <image class="rank-avatar" src="{{item.displayAvatar || item.avatar || '/images/default-avatar.png'}}" mode="aspectFill" />
+        </view>
         <view class="rank-info">
           <view class="rank-name">{{item.nickname}}</view>
           <view class="rank-hint text-sub">{{item.games < 1 ? '打一场即可上榜' : item.games + ' 场'}}</view>
@@ -45,14 +68,15 @@
     <view wx:if="{{seasonGames.length}}">
       <view class="block-divider"></view>
       <view class="games-header">
-        <text class="games-label text-sub">本赛季 {{seasonGames.length}} 场</text>
+        <text class="games-label text-sub">本赛季 {{seasonCount}} 场</text>
       </view>
-      <view class="season-game" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="season-game {{item.excluded ? 'excluded' : ''}}" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
         <view class="sg-left">
-          <view class="sg-name">{{item.name || 'StaxKit 牌局'}}</view>
-          <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}}</view>
+          <view class="sg-name">{{item.name || 'StaxKit 记录'}}</view>
+          <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}} · {{item.durationStr}}</view>
         </view>
-        <view class="sg-right text-sub">{{item.durationStr}}</view>
+        <view wx:if="{{isOwner}}" class="sg-chip {{item.excluded ? 'restore' : 'exclude'}}" catchtap="onToggleSeasonGame" data-id="{{item._id}}" data-excluded="{{item.excluded}}">{{item.excluded ? '恢复' : '排除'}}</view>
+        <view wx:else class="sg-right text-sub">{{item.durationStr}}</view>
       </view>
     </view>
   </view>
@@ -63,18 +87,11 @@
     </view>
   </view>
 
-  <view class="card members-card" wx:if="{{members.length}}">
-    <view class="members-title text-sub">成员</view>
-    <view class="member-list">
-      <view class="member-tag" wx:for="{{members}}" wx:key="openid">{{item.nickname}}</view>
-    </view>
-  </view>
-
   <view class="footer-actions">
-    <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出圈子</view>
+    <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出积分榜</view>
     <view wx:if="{{isOwner}}" class="owner-actions">
       <view class="footer-link" wx:if="{{season}}" bindtap="onResetSeason">重置本季积分</view>
-      <view class="footer-link danger" bindtap="onDissolve">解散圈子</view>
+      <view class="footer-link danger" bindtap="onDissolve">解散积分榜</view>
     </view>
   </view>
 </view>

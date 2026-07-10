@@ -35,6 +35,12 @@
 .col-key { flex: 1.5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col { flex: 1; text-align: center; }
 
+.ai-card { padding: 26rpx 28rpx; margin-bottom: 22rpx; }
+.ai-head { display: flex; align-items: center; justify-content: space-between; }
+.ai-body { padding-top: 18rpx; }
+.ai-line { font-size: 24rpx; line-height: 1.7; margin-bottom: 8rpx; }
+.ai-line:last-child { margin-bottom: 0; }
+
 .section-title-plain { font-size: 24rpx; color: var(--text-sub); margin: 4rpx 4rpx 16rpx; }
 
 .record { display: flex; align-items: center; gap: 16rpx; padding-right: 22rpx; margin-bottom: 12rpx; }

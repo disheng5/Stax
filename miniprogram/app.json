@@ -13,15 +13,28 @@
     "pages/game-review/game-review",
     "pages/history/history",
     "pages/stats/stats",
-    "pages/learn-index/learn-index",
-    "pages/learn-terms/learn-terms",
-    "pages/learn-term-detail/learn-term-detail",
-    "pages/learn-hand-chart/learn-hand-chart",
-    "pages/learn-odds/learn-odds",
-    "pages/learn-rules/learn-rules",
-    "pages/profile/profile",
-    "pages/about/about"
+    "pages/profile/profile"
   ],
+  "subpackages": [
+    {
+      "root": "packageLearn",
+      "pages": [
+        "pages/learn-index/learn-index",
+        "pages/learn-terms/learn-terms",
+        "pages/learn-term-detail/learn-term-detail",
+        "pages/learn-hand-chart/learn-hand-chart",
+        "pages/learn-odds/learn-odds",
+        "pages/learn-rules/learn-rules",
+        "pages/about/about"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/profile/profile": {
+      "network": "all",
+      "packages": ["packageLearn"]
+    }
+  },
   "window": {
     "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#2B6CB0",
@@ -43,7 +56,7 @@
       },
       {
         "pagePath": "pages/circle-index/circle-index",
-        "text": "江湖",
+        "text": "积分榜",
         "iconPath": "images/tab-learn.png",
         "selectedIconPath": "images/tab-learn-active.png"
       },

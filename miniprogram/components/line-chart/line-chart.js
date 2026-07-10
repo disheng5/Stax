@@ -21,26 +21,38 @@ Component({
   methods: {
     _build(pts) {
       if (!pts || !pts.length) {
-        this.setData({ segments: [], dots: [], yLabels: [], xLabels: [], empty: true })
+        this.setData({
+          segments: [],
+          dots: [],
+          bars: [],
+          gridLines: [],
+          yLabels: [],
+          xLabels: [],
+          empty: true
+        })
         return
       }
 
       const W = 300
-      const H = 140
+      const H = 150
       const PAD_L = 36
       const PAD_R = 8
-      const PAD_T = 10
-      const PAD_B = 20
+      const PAD_T = 12
+      const PAD_B = 24
       const plotW = W - PAD_L - PAD_R
       const plotH = H - PAD_T - PAD_B
 
       const ys = pts.map(p => Number(p.y) || 0)
-      const rawMax = Math.max(...ys)
-      const rawMin = Math.min(...ys)
-      const spread = rawMax - rawMin
-      const pad = spread === 0 ? Math.max(Math.abs(rawMax) * 0.2, 10) : spread * 0.15
-      const domainMax = rawMax + pad
-      const domainMin = rawMin - pad
+      const deltas = pts.map(p => Number(p.delta) || 0)
+      const rawMax = Math.max(...ys, ...deltas, 0)
+      const rawMin = Math.min(...ys, ...deltas, 0)
+      const niceStep = this._niceStep(rawMax - rawMin)
+      let domainMax = Math.ceil(rawMax / niceStep) * niceStep
+      let domainMin = Math.floor(rawMin / niceStep) * niceStep
+      if (domainMax === domainMin) {
+        domainMax += niceStep
+        domainMin -= niceStep
+      }
       const range = domainMax - domainMin
 
       const toX = i => PAD_L + (pts.length > 1 ? (i / (pts.length - 1)) * plotW : plotW / 2)
@@ -49,8 +61,22 @@ Component({
       const toXp = i => ((toX(i) / W) * 100).toFixed(2) + '%'
       const toYp = v => ((toY(v) / H) * 100).toFixed(2) + '%'
 
-      const positive = ys[ys.length - 1] >= 0
-      const lineColor = positive ? this.data.color : '#c8102e'
+      const lineColor = this.data.color || '#2E8540'
+      const zeroY = toY(0)
+
+      const barWidth = Math.max(4, Math.min(16, plotW / Math.max(pts.length * 1.8, 1)))
+      const bars = deltas.map((v, i) => {
+        const y = toY(v)
+        const top = Math.min(y, zeroY)
+        const height = Math.max(2, Math.abs(zeroY - y))
+        return {
+          left: (((toX(i) - barWidth / 2) / W) * 100).toFixed(2) + '%',
+          top: ((top / H) * 100).toFixed(2) + '%',
+          width: ((barWidth / W) * 100).toFixed(2) + '%',
+          height: ((height / H) * 100).toFixed(2) + '%',
+          color: v >= 0 ? 'rgba(239, 68, 68, 0.48)' : 'rgba(46, 157, 91, 0.42)'
+        }
+      })
 
       // 折线 segments
       const segments = []
@@ -79,16 +105,15 @@ Component({
         color: lineColor
       }))
 
-      // Y 轴标签
-      const yLabelCandidates = [rawMax]
-      if (rawMin < 0 && rawMax > 0) yLabelCandidates.push(0)
-      if (rawMin !== rawMax) yLabelCandidates.push(rawMin)
       const yLabels = []
-      for (const v of yLabelCandidates) {
+      for (let v = domainMin; v <= domainMax + niceStep / 2; v += niceStep) {
         const yp = toY(v)
-        if (yLabels.some(l => Math.abs(Number(l.topRaw) - yp) < 12)) continue
-        yLabels.push({ label: String(v), top: ((yp / H) * 100).toFixed(2) + '%', topRaw: yp })
+        yLabels.unshift({
+          label: this._label(v),
+          top: ((yp / H) * 100).toFixed(2) + '%'
+        })
       }
+      const gridLines = yLabels.map(l => ({ ...l }))
 
       // X 轴标签（最多 5 个）
       const maxX = 5
@@ -97,12 +122,30 @@ Component({
         .map((p, i) => ({ left: toXp(i), label: p.x, i }))
         .filter((_, i) => i % step === 0 || i === pts.length - 1)
 
-      this.setData({ segments, dots, yLabels, xLabels, empty: false })
+      this.setData({ segments, dots, bars, gridLines, yLabels, xLabels, empty: false })
+    },
+
+    _niceStep(range) {
+      if (!range || range <= 0) return 100
+      const raw = range / 5
+      const pow = Math.pow(10, Math.floor(Math.log10(raw)))
+      const unit = raw / pow
+      if (unit <= 1) return pow
+      if (unit <= 2) return 2 * pow
+      if (unit <= 5) return 5 * pow
+      return 10 * pow
+    },
+
+    _label(v) {
+      const n = Math.round(v)
+      return String(Object.is(n, -0) ? 0 : n)
     }
   },
   data: {
     segments: [],
     dots: [],
+    bars: [],
+    gridLines: [],
     yLabels: [],
     xLabels: [],
     empty: true,

@@ -126,7 +126,7 @@ const transactions = [
 
 // 术语词典子集（10 条用于 demo，全量来自 cloudfunctions/seedTerms/seed/terms.json）
 const terms = [
-  { _id: 'term_1', termEn: "Texas Hold'em", termCn: '德州扑克', category: 'rule',     definition: '最流行的扑克变体：每位玩家发两张底牌，与公共牌组合出最佳五张牌型。', example: "今晚我们玩 No-Limit Texas Hold'em。" },
+  { _id: 'term_1', termEn: 'Texas Hold\'em', termCn: '德州扑克', category: 'rule',     definition: '最流行的扑克变体：每位玩家发两张底牌，与公共牌组合出最佳五张牌型。', example: '今晚我们玩 No-Limit Texas Hold\'em。' },
   { _id: 'term_2', termEn: 'Big Blind',      termCn: '大盲注',   category: 'rule',     definition: '庄家位左侧第二位的强制下注，是基础下注单位。',                   example: 'BB 100 意味着筹码量 100 个大盲。' },
   { _id: 'term_3', termEn: 'Button',         termCn: '庄家位',   category: 'position', definition: '标记本局名义庄家的圆形按钮，最后一个行动，位置最有利。',         example: 'On the button 是最赚钱的位置。' },
   { _id: 'term_4', termEn: 'UTG',            termCn: '枪口位',   category: 'position', definition: 'Under the Gun，大盲左侧第一位，前位中最早行动者。',             example: 'UTG 范围要紧，避免做弱牌。' },

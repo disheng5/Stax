@@ -1,5 +1,7 @@
 const app = getApp()
-const { fetchAllGames } = require('../../utils/game-data.js')
+const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/game-data.js')
+const { computeGameStats } = require('../../utils/stats.js')
+const avatarCache = require('../../utils/avatar.js')
 
 const DEFAULT_AVATAR = '/images/default-avatar.png'
 
@@ -20,8 +22,16 @@ Page({
   },
 
   async onShow() {
-    if (this._lastFetch && Date.now() - this._lastFetch < 30000 && !this._dirty) return
+    const ver = getCacheVersion()
+    if (
+      this._lastFetch &&
+      Date.now() - this._lastFetch < 30000 &&
+      !this._dirty &&
+      this._cacheVer === ver
+    )
+      return
     this._dirty = false
+    this._cacheVer = ver
     this.setData({ demoMode: !!app.globalData.demoMode })
     const cached = wx.getStorageSync('user_profile') || {}
     if (cached.nickname) this.setData({ nickname: cached.nickname })
@@ -39,6 +49,8 @@ Page({
       if (user?.nickname && !this.data.nickname) this.setData({ nickname: user.nickname })
       if (user?.avatar && this.data.avatarUrl === DEFAULT_AVATAR)
         this.setData({ avatarUrl: user.avatar })
+      const cached = getCachedGames(openid)
+      if (cached.length) this.setData({ stats: computeGameStats(cached, openid) })
       await this._computeRealStats(openid)
     } catch (err) {
       console.error(err)
@@ -48,24 +60,7 @@ Page({
   async _computeRealStats(openid) {
     try {
       const filtered = await fetchAllGames(openid)
-      let totalProfit = 0,
-        biggestWin = 0,
-        biggestLoss = 0,
-        wins = 0
-      filtered.forEach(g => {
-        const me = (g.players || []).find(p => p.openid === openid)
-        if (!me) return
-        const raw = me.finalProfit ?? me.profit ?? 0
-        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-        const score = Math.round(raw / ratio)
-        totalProfit += score
-        if (score > biggestWin) biggestWin = score
-        if (score < biggestLoss) biggestLoss = score
-        if (score > 0) wins++
-      })
-      const totalGames = filtered.length
-      const winRate = totalGames > 0 ? Math.round((wins * 1000) / totalGames) / 10 : 0
-      this.setData({ stats: { totalGames, totalProfit, biggestWin, biggestLoss, wins, winRate } })
+      this.setData({ stats: computeGameStats(filtered, openid) })
     } catch (err) {
       console.error(err)
     }
@@ -114,6 +109,9 @@ Page({
       wx.setStorageSync('user_profile', { nickname, avatarUrl })
       app.globalData.userInfo = { nickName: nickname, avatarUrl }
       app.globalData.userDoc = { ...(app.globalData.userDoc || {}), nickname, avatar: avatarUrl }
+      if (app.globalData.openid) {
+        avatarCache.putProfiles([{ openid: app.globalData.openid, nickname, avatar: avatarUrl }])
+      }
       this.setData({ editing: false, avatarUrl })
       this._lastFetch = 0
       wx.hideLoading()
@@ -132,19 +130,19 @@ Page({
     wx.navigateTo({ url: '/pages/history/history' })
   },
   onAbout() {
-    wx.navigateTo({ url: '/pages/about/about' })
+    wx.navigateTo({ url: '/packageLearn/pages/about/about' })
   },
   onLearnTerms() {
-    wx.navigateTo({ url: '/pages/learn-terms/learn-terms' })
+    wx.navigateTo({ url: '/packageLearn/pages/learn-terms/learn-terms' })
   },
   onLearnHandChart() {
-    wx.navigateTo({ url: '/pages/learn-hand-chart/learn-hand-chart' })
+    wx.navigateTo({ url: '/packageLearn/pages/learn-hand-chart/learn-hand-chart' })
   },
   onLearnOdds() {
-    wx.navigateTo({ url: '/pages/learn-odds/learn-odds' })
+    wx.navigateTo({ url: '/packageLearn/pages/learn-odds/learn-odds' })
   },
   onLearnRules() {
-    wx.navigateTo({ url: '/pages/learn-rules/learn-rules' })
+    wx.navigateTo({ url: '/packageLearn/pages/learn-rules/learn-rules' })
   },
   onClearCache() {
     wx.clearStorageSync()

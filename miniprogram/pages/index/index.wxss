@@ -123,8 +123,8 @@
 .status-tag.ended { background: var(--border); color: var(--text-sub); }
 
 .profit { font-size: 26rpx; font-weight: 700; }
-.profit.win  { color: var(--success); }
-.profit.lose { color: var(--danger); }
+.profit.win  { color: var(--gain); }
+.profit.lose { color: var(--loss); }
 .profit.even { color: var(--text-sub); }
 
 .empty-hint { text-align: center; padding: 48rpx 0; font-size: 24rpx; }

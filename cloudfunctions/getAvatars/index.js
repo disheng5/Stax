@@ -7,40 +7,27 @@ exports.main = async event => {
   if (!openids.length) return { ok: true, avatars: {}, nicknames: {} }
 
   try {
-    const unique = [...new Set(openids)].slice(0, 20)
-    const results = await Promise.all(
-      unique.map(openid =>
-        db
-          .collection('users')
-          .where({ _openid: openid })
-          .limit(1)
-          .get()
-          .then(r => ({
-            openid,
-            avatar: (r.data && r.data[0] && r.data[0].avatar) || '',
-            nickname: (r.data && r.data[0] && r.data[0].nickname) || ''
-          }))
-          .catch(() => ({ openid, avatar: '', nickname: '' }))
-      )
-    )
-
-    const needTempUrl = results
-      .filter(r => r.avatar && r.avatar.startsWith('cloud://'))
-      .map(r => r.avatar)
-
-    let tempUrlMap = {}
-    if (needTempUrl.length) {
-      const urlRes = await cloud.getTempFileURL({ fileList: [...new Set(needTempUrl)] })
-      ;(urlRes.fileList || []).forEach(f => {
-        if (f.tempFileURL) tempUrlMap[f.fileID] = f.tempFileURL
-      })
+    // 一次 _.in 批量查，替代每个 openid 单独查询
+    const _ = db.command
+    const unique = [...new Set(openids)].filter(Boolean)
+    const users = []
+    for (let i = 0; i < unique.length; i += 100) {
+      const batch = unique.slice(i, i + 100)
+      const res = await db
+        .collection('users')
+        .where({ _openid: _.in(batch) })
+        .limit(100)
+        .get()
+      users.push(...(res.data || []))
     }
 
+    // 返回原始 avatar（cloud:// 原样透传）：小程序端 <image> 原生渲染 cloud://
+    // 且自带缓存，跨页秒显不闪；不再换 getTempFileURL（临时链接会过期、且引发闪烁）
     const avatars = {}
     const nicknames = {}
-    results.forEach(r => {
-      if (r.avatar) avatars[r.openid] = tempUrlMap[r.avatar] || r.avatar
-      if (r.nickname) nicknames[r.openid] = r.nickname
+    users.forEach(u => {
+      if (u.avatar) avatars[u._openid] = u.avatar
+      if (u.nickname) nicknames[u._openid] = u.nickname
     })
 
     return { ok: true, avatars, nicknames }

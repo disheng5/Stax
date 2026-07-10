@@ -29,7 +29,7 @@ const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 
 ## 2. 创建数据库集合
 
-云开发控制台 → 左侧 **数据库** → **集合管理** → **新建集合**，依次创建 5 个集合：
+云开发控制台 → 左侧 **数据库** → **集合管理** → **新建集合**，依次创建 7 个集合：
 
 ```text
 users
@@ -37,6 +37,8 @@ games
 transactions
 terms
 handRanks
+circles
+seasons
 ```
 
 不要漏，名字必须完全一致，大小写也要一致。
@@ -100,6 +102,48 @@ handRanks
 
 说明：术语词典和起手牌表所有用户可读；初始化数据通过 `seedTerms` 云函数写入。
 
+### 3.6 circles
+
+```json
+{
+  "read": "auth.openid != null",
+  "write": false
+}
+```
+
+说明：圈子列表/详情前端直读；创建、加入、退出、解散都走云函数。
+
+### 3.7 seasons
+
+```json
+{
+  "read": "auth.openid != null",
+  "write": false
+}
+```
+
+说明：赛季排名与比赛摘要（`gameSummaries`）前端直读；计算与写入只走 `calcSeasonScore` / `settleSeason`。
+
+---
+
+## 3.5 创建数据库索引（性能必做）
+
+云数据库默认只有 `_id` 索引，以下高频查询必须建索引，否则数据量上来后全是集合扫描。
+控制台 → 数据库 → 选中集合 → **索引管理** → 新建：
+
+| 集合 | 索引字段 | 用途 |
+| --- | --- | --- |
+| games | `inviteCode` 升序 + `status` 升序 | 邀请码加入牌局 |
+| games | `status` 升序 + `players.openid` 升序 + `endedAt` 降序 | 首页/历史「我参与的局」 |
+| games | `status` 升序 + `endedAt` 升序 + `startedAt` 升序 | 赛季计分时间窗查询 |
+| transactions | `gameId` 升序 + `timestamp` 降序 | 牌局流水 |
+| users | `_openid` 升序 | 按 openid 查用户 |
+| circles | `status` 升序 + `memberOpenids` 升序 | 结算后触发赛季计分 |
+| circles | `inviteCode` 升序 + `status` 升序 | 邀请码加入圈子 |
+| seasons | `circleId` 升序 | 圈子赛季查询 |
+
+> `players.openid` / `memberOpenids` 是数组字段，云数据库（MongoDB）会自动建多键索引，直接按上表填写即可。
+
 ---
 
 ## 4. 部署云函数
@@ -108,31 +152,23 @@ handRanks
 
 右键目录 → **上传并部署：云端安装依赖**
 
-需要部署 8 个：
+全部 19 个都需要部署：
 
 ```text
-whoami
-createGame
-joinGame
-recordTransaction
-settleGame
-seedTerms
-aiReview
-termAi
+whoami          createGame      joinGame
+recordTransaction settleGame    seedTerms
+aiReview        termAi          getAvatars
+createCircle    joinCircle      leaveCircle
+dissolveCircle  calcSeasonScore settleSeason
+resetSeason     excludeGame     deleteGameRecord
+removeCircleMember
 ```
 
-建议顺序：
-
-1. `whoami`
-2. `createGame`
-3. `joinGame`
-4. `recordTransaction`
-5. `settleGame`
-6. `seedTerms`
-7. `aiReview`
-8. `termAi`
+建议顺序：先 `whoami`，再牌局链路（createGame → joinGame → recordTransaction → settleGame），再圈子链路（createCircle → joinCircle → calcSeasonScore → …），最后其余。
 
 每个部署完成后，控制台应该显示上传成功。
+
+> 代码更新后只需重新部署改动过的函数；改动记录见 git log 中各云函数目录的提交。
 
 ---
 

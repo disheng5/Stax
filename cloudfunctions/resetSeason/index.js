@@ -18,16 +18,9 @@ exports.main = async event => {
   const circle = got.data
   if (!circle.currentSeasonId) return { ok: false, error: 'NO_ACTIVE_SEASON' }
 
-  // 清空本季 rankings，触发重新计算
-  await db
-    .collection('seasons')
-    .doc(circle.currentSeasonId)
-    .update({
-      data: { rankings: [] }
-    })
+  const calc = await cloud.callFunction({ name: 'calcSeasonScore', data: { circleId } })
+  const result = calc.result || {}
+  if (!result.ok) return { ok: false, error: result.error || 'CALC_FAILED' }
 
-  // 重新触发积分计算
-  await cloud.callFunction({ name: 'calcSeasonScore', data: { circleId } })
-
-  return { ok: true }
+  return { ok: true, ...result }
 }

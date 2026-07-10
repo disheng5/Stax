@@ -10,6 +10,9 @@ page {
   --border: #E2E8F0;
   --danger: #c8102e;
   --success: #2B6CB0;
+  /* 盈亏语义色：盈利红、亏损绿（A股涨红跌绿约定），与状态色 success/danger 区分 */
+  --gain: #c8102e;
+  --loss: #2e9d5b;
   --radius-sm: 8rpx;
   --radius-md: 16rpx;
   --radius-lg: 24rpx;
@@ -52,9 +55,74 @@ page {
 .text-gold { color: var(--gold); }
 .text-danger { color: var(--danger); }
 .text-success { color: var(--success); }
+.text-gain { color: var(--gain); }
+.text-loss { color: var(--loss); }
 
 .ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 骨架屏（加载占位，全局可用） */
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: #e6ebf2;
+  border-radius: var(--radius-sm);
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: sk-shimmer 1.2s infinite;
+}
+@keyframes sk-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.sk-card {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.sk-row {
+  display: flex;
+  align-items: center;
+}
+.sk-row .sk-avatar {
+  margin-right: 20rpx;
+}
+.sk-flex {
+  flex: 1;
+}
+.sk-line {
+  height: 28rpx;
+  margin-bottom: 16rpx;
+}
+.sk-line:last-child {
+  margin-bottom: 0;
+}
+.sk-w-20 { width: 20%; }
+.sk-w-40 { width: 40%; }
+.sk-w-60 { width: 60%; }
+.sk-w-80 { width: 80%; }
+.sk-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
 }

@@ -8,7 +8,7 @@
     <view class="champion-row">
       <text class="champion-label">魁首</text>
       <text class="champion-name">{{item.championNickname}}</text>
-      <text class="champion-bb text-success">+{{item.championBB}} BB</text>
+      <text class="champion-bb text-gain">+{{item.championBB}} BB</text>
     </view>
   </view>
 </view>

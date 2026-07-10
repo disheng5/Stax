@@ -1,6 +1,6 @@
 <view class="container" wx:if="{{game}}">
   <view class="game-info">
-    <text class="info-text">{{game.name || 'StaxKit 牌局'}}</text>
+    <text class="info-text">{{game.name || 'StaxKit 记录'}}</text>
     <view class="share-btn" bindtap="onShare">{{game.status === 'ongoing' ? '邀请' : '分享'}}</view>
   </view>
   <view class="game-sub-info">
@@ -59,15 +59,15 @@
     <text class="bar-item" wx:if="{{!allCheckedOut}}">未结算: {{game.players.length - (game.checkedOutCount || 0)}}</text>
     <text class="bar-item text-success" wx:elif="{{settleDiff === 0}}">✓ 账平</text>
     <text class="bar-item text-danger" wx:else>ⓘ 账不平</text>
-    <text class="bar-item text-success">水上: {{aboveTotal > 0 ? '+' : ''}}{{aboveTotal}}</text>
-    <text class="bar-item text-danger">水下: {{belowTotal}}</text>
+    <text class="bar-item text-gain">水上: {{aboveTotal > 0 ? '+' : ''}}{{aboveTotal}}</text>
+    <text class="bar-item text-loss">水下: {{belowTotal}}</text>
   </view>
 
   <view class="settle-bar ended" wx:if="{{game.status === 'ended' && settleResult}}">
     <text class="bar-item text-success" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal === 0}}">✓ 账平</text>
     <text class="bar-item text-warning" wx:else>ⓘ 账不平</text>
-    <text class="bar-item text-success">水上: +{{settleResult.aboveTotal}}</text>
-    <text class="bar-item text-danger">水下: {{settleResult.belowTotal}}</text>
+    <text class="bar-item text-gain">水上: +{{settleResult.aboveTotal}}</text>
+    <text class="bar-item text-loss">水下: {{settleResult.belowTotal}}</text>
     <text class="bar-item text-warning" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal !== 0}}">账差: {{settleResult.aboveTotal + settleResult.belowTotal > 0 ? '+' : ''}}{{settleResult.aboveTotal + settleResult.belowTotal}}</text>
   </view>
 
@@ -88,7 +88,10 @@
           {{tx.hands}} 手 · 共 {{tx.accHands}} 手 · 总码量 {{tx.accAmount}}
         </view>
         <view class="tx-sub text-sub" wx:elif="{{tx.type === 'settlePartial' || tx.type === 'settle'}}">
-          结算筹码 {{tx.amount}}
+          结算积分 {{tx.amount}}
+        </view>
+        <view class="tx-sub text-sub" wx:elif="{{tx.type === 'eliminate' && tx.meta.removedBuyIn > 0}}">
+          移出本局 · 买入 {{tx.meta.removedBuyIn}} 已从总池扣除
         </view>
       </view>
       <text class="text-sub" wx:if="{{tx.revoked}}">已撤销</text>
@@ -101,8 +104,23 @@
   </view>
 </view>
 
-<empty-state wx:elif="{{!loading}}" title="牌局不存在或已结束" />
-<view wx:elif="{{loading}}" class="loading-hint text-sub">加载中…</view>
+<view wx:elif="{{loading}}" class="container">
+  <view class="sk sk-line sk-w-60" style="height: 40rpx; margin: 8rpx 0 32rpx;"></view>
+  <view class="sk-card sk-row" wx:for="{{[1, 2, 3, 4]}}" wx:key="*this">
+    <view class="sk sk-avatar"></view>
+    <view class="sk-flex">
+      <view class="sk sk-line sk-w-40"></view>
+      <view class="sk sk-line sk-w-80"></view>
+    </view>
+  </view>
+</view>
+<view wx:elif="{{loadError}}" class="container">
+  <view class="card" style="text-align: center; padding: 64rpx 32rpx;">
+    <view style="margin-bottom: 32rpx;">加载失败，请检查网络后重试</view>
+    <button class="btn btn--primary" bindtap="onRetryLoad">重新加载</button>
+  </view>
+</view>
+<empty-state wx:else title="房间不存在或已结束" />
 
 <view class="hands-mask" wx:if="{{handsPicker.show}}" bindtap="onHandsClose">
   <view class="hands-sheet" catchtap="onHandsStop">

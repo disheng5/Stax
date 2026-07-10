@@ -41,7 +41,8 @@ exports.main = async event => {
 
 // ===== 事实构建 =====
 function buildFacts(game, viewerOpenid) {
-  const players = (game.players || []).slice()
+  // 被淘汰/踢出的玩家不参与复盘统计
+  const players = (game.players || []).filter(p => !p.eliminatedAt)
   const me = players.find(p => p.openid === viewerOpenid)
   const winners = players
     .filter(p => (p.finalProfit ?? p.profit) > 0)
@@ -83,14 +84,14 @@ function templateReview(f) {
 
   const openers = f.durationMin
     ? [
-        `${f.durationMin} 分钟，${f.playerCount} 个人，桌上发生的事比《孙子兵法》还精彩。`,
-        `${f.durationMin} 分钟一场，${f.playerCount} 人围炉夜话，话题只有一个：「为什么是我」。`,
-        `打了 ${f.durationMin} 分钟，${f.playerCount} 个人轮流给彼此上课，学费已结清。`
-      ]
+      `${f.durationMin} 分钟，${f.playerCount} 个人，桌上发生的事比《孙子兵法》还精彩。`,
+      `${f.durationMin} 分钟一场，${f.playerCount} 人围炉夜话，话题只有一个：「为什么是我」。`,
+      `打了 ${f.durationMin} 分钟，${f.playerCount} 个人轮流给彼此上课，学费已结清。`
+    ]
     : [
-        `${f.playerCount} 个人速战速决，今晚地板和钱包都没怎么热起来。`,
-        `${f.playerCount} 人闪击战，一杯茶还没凉，账已经算完。`
-      ]
+      `${f.playerCount} 个人速战速决，今晚地板和钱包都没怎么热起来。`,
+      `${f.playerCount} 人闪击战，一杯茶还没凉，账已经算完。`
+    ]
   lines.push(pick(openers))
 
   if (f.bigWinner) {
@@ -118,7 +119,7 @@ function templateReview(f) {
   } else if (f.totalRebuys >= f.playerCount) {
     lines.push(`全场 ${f.totalRebuys} 次补码，看来"将能而君不御者胜"，谁也不肯先认怂。`)
   } else if (f.totalRebuys === 0) {
-    lines.push(`全场零补码，要么个个紧得像保险柜，要么牌实在不肯给力，下次大胆点。`)
+    lines.push('全场零补码，要么个个紧得像保险柜，要么牌实在不肯给力，下次大胆点。')
   }
 
   if (f.me) {
@@ -137,7 +138,7 @@ function templateReview(f) {
         ])
       )
     } else {
-      lines.push(`你今晚账面持平，不输就是赢，回家睡个好觉。`)
+      lines.push('你今晚账面持平，不输就是赢，回家睡个好觉。')
     }
   }
 
@@ -150,12 +151,12 @@ function templateReview(f) {
 }
 
 // ===== 混元接入 stub =====
-async function callHunyuan(facts) {
+async function callHunyuan() {
   // 待用户提供 SecretId/SecretKey；当前抛错，让外层 catch 走模板
   throw new Error('HUNYUAN_NOT_CONFIGURED')
 }
 
-async function callCloudbase(facts) {
+async function callCloudbase() {
   // 待用户开通云开发 AI 能力；当前抛错，让外层 catch 走模板
   throw new Error('CLOUDBASE_AI_NOT_CONFIGURED')
 }

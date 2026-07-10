@@ -12,7 +12,7 @@ const ALLOW = [
   { file: 'docs/DEPLOY.md', contexts: ['全代码搜索', 'grep -RIn'] },
   { file: 'docs/RELEASE_CHECKLIST.md', contexts: ['grep -RIn', '反向声明', '严禁用于赌博活动'] },
   { file: 'miniprogram/app.js', contexts: ['严禁用于任何形式的赌博活动'] },
-  { file: 'miniprogram/pages/about/about.wxml', contexts: ['严禁用于任何形式的赌博活动'] }
+  { file: 'miniprogram/packageLearn/pages/about/about.wxml', contexts: ['严禁用于任何形式的赌博活动'] }
 ]
 
 function walk(dir, acc = []) {

@@ -57,7 +57,7 @@ handRanks
 
 > 真正的"庄家可写、玩家可读"细粒度规则由云函数（`recordTransaction` / `settleGame`）在服务端校验 `hostOpenid === OPENID`，无需在 DB 规则里实现。
 
-### 3.3 部署 9 个云函数
+### 3.3 部署 10 个云函数
 
 对 `cloudfunctions/` 下每个目录右键 → **上传并部署：云端安装依赖**：
 
@@ -71,6 +71,7 @@ whoami
 aiReview
 termAi
 deleteGameRecord
+removeCircleMember
 ```
 
 ### 3.4 灌入种子数据

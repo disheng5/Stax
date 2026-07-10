@@ -3,7 +3,7 @@
 
   <block wx:if="{{!loading}}">
     <block wx:if="{{circles.length}}">
-      <view class="section-title">我的圈子</view>
+      <view class="section-title">我的积分榜</view>
       <view class="card circle-row" wx:for="{{circles}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenCircle">
         <view class="circle-top">
           <view class="circle-name">{{item.name}}</view>
@@ -12,19 +12,17 @@
         <view class="circle-meta">{{item.seasonInfo}}</view>
       </view>
       <view class="join-row">
-        <view class="join-btn" bindtap="onCreate">＋ 创建</view>
-        <view class="join-divider"></view>
-        <view class="join-btn" bindtap="onJoin">加入</view>
+        <view class="join-btn" bindtap="onCreate">＋ 创建积分榜</view>
       </view>
     </block>
 
     <block wx:else>
       <view class="empty-card card">
-        <view class="empty-title">还没有圈子</view>
+        <view class="empty-title">还没有积分榜</view>
         <view class="empty-sub text-sub">邀三五好友，建圈论英雄</view>
         <view class="empty-actions">
-          <button class="btn btn--primary" bindtap="onCreate">创建圈子</button>
-          <button class="btn btn--ghost" bindtap="onJoin">加入圈子</button>
+          <button class="btn btn--primary" bindtap="onCreate">创建积分榜</button>
+          <button class="btn btn--ghost" bindtap="onJoin">加入积分榜</button>
         </view>
       </view>
     </block>

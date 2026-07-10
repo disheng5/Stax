@@ -41,14 +41,34 @@ Component({
   },
   lifetimes: {
     attached() {
-      this._tick()
-      this._timer = setInterval(() => this._tick(), 1000)
+      this._startTimer()
     },
     detached() {
-      if (this._timer) clearInterval(this._timer)
+      this._stopTimer()
+    }
+  },
+  // 页面切后台时停表省电省 setData，回前台恢复；
+  // 剩余时间基于 levelStartedAt 绝对时间计算，恢复后不漂移
+  pageLifetimes: {
+    show() {
+      this._startTimer()
+    },
+    hide() {
+      this._stopTimer()
     }
   },
   methods: {
+    _startTimer() {
+      if (this._timer) return
+      this._tick()
+      this._timer = setInterval(() => this._tick(), 1000)
+    },
+    _stopTimer() {
+      if (this._timer) {
+        clearInterval(this._timer)
+        this._timer = null
+      }
+    },
     _tick() {
       const { levelStartedAt, blindUpMinutes, paused, pausedAt, pausedAccumMs } = this.data
       if (!levelStartedAt) {

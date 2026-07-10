@@ -1,23 +1,22 @@
 <view class="container">
   <view class="card">
-    <view class="label">局名</view>
+    <view class="label">记录名</view>
     <input class="text-input" value="{{name}}" bindinput="onNameInput" />
   </view>
 
   <view class="card">
-    <view class="label">每手码量</view>
+    <view class="label">每手积分</view>
     <input class="amount-input" type="digit" value="{{buyIn}}" bindinput="onBuyInInput" />
   </view>
 
   <view class="card">
-    <view class="label">大小盲</view>
     <view class="row-input">
       <view>
-        <view class="sub-label">小盲</view>
+        <view class="sub-label">SB</view>
         <input class="small-input" type="digit" value="{{smallBlind}}" bindinput="onSbInput" />
       </view>
       <view>
-        <view class="sub-label">大盲</view>
+        <view class="sub-label">BB</view>
         <input class="small-input" type="digit" value="{{bigBlind}}" bindinput="onBbInput" />
       </view>
     </view>
@@ -30,16 +29,16 @@
         <view class="ratio-tag">{{scoreRatio}} : 1<text class="arrow">›</text></view>
       </picker>
     </view>
-    <view class="ratio-hint text-sub">码量 {{scoreRatio}} = 积分 1，仅用于战绩换算，不涉及任何金钱</view>
+    <view class="ratio-hint text-sub">积分 {{scoreRatio}} = 计分 1，仅用于战绩换算，不涉及任何金钱</view>
   </view>
 
   <view class="card permission-card">
     <view>
       <view class="label">权限共享</view>
-      <view class="text-sub">允许玩家自己补码、自己结算下桌</view>
+      <view class="text-sub">允许成员自己买入、自己结算离场</view>
     </view>
     <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#2B6CB0" />
   </view>
 
-  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">开局</button>
+  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">创建</button>
 </view>

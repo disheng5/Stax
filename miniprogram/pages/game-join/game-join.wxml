@@ -13,8 +13,8 @@
   <view class="card" wx:else>
     <view class="label">邀请码</view>
     <input class="code-input" placeholder="输入 6 位邀请码" maxlength="6" value="{{code}}" bindinput="onCodeInput" />
-    <view class="text-sub lookup-state" wx:if="{{loadingGame}}">正在查找牌局…</view>
-    <view class="text-sub lookup-state" wx:elif="{{code.length === 6}}">未找到进行中的牌局</view>
+    <view class="text-sub lookup-state" wx:if="{{loadingGame}}">正在查找房间…</view>
+    <view class="text-sub lookup-state" wx:elif="{{code.length === 6}}">未找到进行中的房间</view>
   </view>
 
   <view class="primary-actions" wx:if="{{game}}">

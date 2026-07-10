@@ -3,7 +3,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-exports.main = async event => {
+exports.main = async () => {
   const now = new Date()
   const expired = await db
     .collection('seasons')

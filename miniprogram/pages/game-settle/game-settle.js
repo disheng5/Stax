@@ -1,6 +1,7 @@
 // pages/game-settle/game-settle.js — 下桌结算页
 const { settle } = require('../../utils/settle.js')
 const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
+const { invalidateGamesCache } = require('../../utils/game-data.js')
 const SUNZI = require('../../utils/sunzi.js')
 const app = getApp()
 
@@ -55,6 +56,8 @@ Page({
       const db = wx.cloud.database()
       const got = await db.collection('games').doc(this.data.gameId).get()
       const game = got.data
+      // 被淘汰/踢出的玩家不参与结算（新踢人已移除，此处兜底旧数据）
+      game.players = (game.players || []).filter(p => !p.eliminatedAt)
       const finalStacks = {}
       ;(game.players || []).forEach(p => {
         if (p.finalStack !== null && p.finalStack !== undefined)
@@ -182,7 +185,7 @@ Page({
         }
       })
       wx.hideLoading()
-      const { ok, error, ended, game, diff } = res.result || {}
+      const { ok, error, ended, game } = res.result || {}
       if (!ok) {
         const msg =
           {
@@ -190,7 +193,9 @@ Page({
             PROFIT_NOT_ZERO: '筹码总和不平，请检查',
             NOT_ALL_CHECKED_OUT: '还有玩家未下桌',
             NOT_HOST: '仅房主可最终结算',
-            NO_STACKS_SUBMITTED: '请先填写下桌筹码'
+            NO_STACKS_SUBMITTED: '请先填写下桌筹码',
+            ALREADY_ENDED: '牌局已结束',
+            CONFLICT_RETRY: '操作冲突，请重试'
           }[error] ||
           error ||
           '操作失败'
@@ -211,6 +216,7 @@ Page({
         this._recompute()
       }
       if (ended) {
+        invalidateGamesCache() // 首页/历史/我的 战绩立即反映本局
         this.setData({ submitted: true })
         wx.showToast({ title: '牌局已结束', icon: 'success' })
         setTimeout(() => this.onGenerateImage(false), 500)
@@ -240,7 +246,8 @@ Page({
           try {
             const canvas = res[0].node
             const ctx = canvas.getContext('2d')
-            const dpr = wx.getSystemInfoSync().pixelRatio || 2
+            const dpr =
+              (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()).pixelRatio || 2
             const W = 360
             const rowH = 44
             const headH = 150

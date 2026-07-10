@@ -11,6 +11,19 @@
 
 .chart-body { width: 100%; position: relative; overflow: visible; }
 
+.grid-line {
+  position: absolute;
+  left: 72rpx;
+  right: 8rpx;
+  height: 1rpx;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.bar {
+  position: absolute;
+  border-radius: 3rpx 3rpx 0 0;
+}
+
 .y-label {
   position: absolute;
   right: calc(100% - 68rpx);

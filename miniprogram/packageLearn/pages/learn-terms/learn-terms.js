@@ -1,5 +1,5 @@
 // pages/learn-terms/learn-terms.js — 术语词典
-const { TERM_CATEGORIES } = require('../../utils/constants.js')
+const { TERM_CATEGORIES } = require('../../../utils/constants.js')
 
 const CATEGORY_LABEL = {
   rule: '规则', action: '动作', position: '位置', hand: '牌型', concept: '概念'
@@ -58,6 +58,6 @@ Page({
   onOpen(e) {
     const term = this.data.filtered.find(t => t._id === e.currentTarget.dataset.id)
     if (term) wx.setStorageSync('term_cache_' + term._id, term)
-    wx.navigateTo({ url: '/pages/learn-term-detail/learn-term-detail?id=' + e.currentTarget.dataset.id })
+    wx.navigateTo({ url: '/packageLearn/pages/learn-term-detail/learn-term-detail?id=' + e.currentTarget.dataset.id })
   }
 })

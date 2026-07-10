@@ -68,9 +68,9 @@ function templateAi(term) {
   return prefix + (insights[cat] || term.definition)
 }
 
-async function callHunyuan(term) {
+async function callHunyuan() {
   throw new Error('HUNYUAN_NOT_CONFIGURED')
 }
-async function callCloudbase(term) {
+async function callCloudbase() {
   throw new Error('CLOUDBASE_AI_NOT_CONFIGURED')
 }

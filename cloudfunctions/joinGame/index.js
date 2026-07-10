@@ -2,7 +2,6 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const _ = db.command
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
@@ -51,15 +50,37 @@ exports.main = async event => {
     eliminatedAt: null
   }
 
-  await db
-    .collection('games')
-    .doc(game._id)
-    .update({
-      data: {
-        players: _.push([player]),
-        totalPot: _.inc(amount)
-      }
-    })
+  // 事务内查重 + 写入，避免同一用户双端并发加入产生重复玩家
+  let txn
+  try {
+    txn = await db.runTransaction(async transaction => {
+      const snap = await transaction
+        .collection('games')
+        .doc(game._id)
+        .get()
+        .catch(() => null)
+      if (!snap || !snap.data || snap.data.status !== 'ongoing')
+        return { ok: false, error: 'GAME_NOT_FOUND' }
+      const cur = snap.data
+      if ((cur.players || []).some(p => p.openid === OPENID))
+        return { ok: true, alreadyJoined: true }
+      await transaction
+        .collection('games')
+        .doc(game._id)
+        .update({
+          data: {
+            players: [...(cur.players || []), player],
+            totalPot: (Number(cur.totalPot) || 0) + amount
+          }
+        })
+      return { ok: true }
+    }, 3)
+  } catch (err) {
+    console.error('[joinGame txn]', err)
+    return { ok: false, error: 'CONFLICT_RETRY' }
+  }
+  if (!txn.ok) return txn
+  if (txn.alreadyJoined) return { ok: true, gameId: game._id, alreadyJoined: true }
 
   await db.collection('transactions').add({
     data: {

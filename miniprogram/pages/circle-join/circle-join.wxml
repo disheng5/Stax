@@ -4,5 +4,5 @@
     <input class="code-input" placeholder="输入 8 位邀请码" maxlength="8" value="{{code}}" bindinput="onCodeInput" />
   </view>
   <button class="btn btn--primary btn--block" bindtap="onJoin" disabled="{{submitting || code.length < 8}}">加入</button>
-  <view class="tip text-sub">加入后产生的牌局才计入本赛季</view>
+  <view class="tip text-sub">加入后产生的记录才计入本赛季</view>
 </view>

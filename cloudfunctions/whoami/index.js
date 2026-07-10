@@ -6,22 +6,57 @@ const db = cloud.database()
 async function syncProfileToGames(openid, nickname, avatar) {
   try {
     const _ = db.command
-    const res = await db
-      .collection('games')
-      .where({ status: 'ongoing', players: _.elemMatch({ openid }) })
-      .limit(20)
-      .get()
-    for (const game of res.data) {
-      const players = (game.players || []).map(p => {
-        if (p.openid !== openid) return p
-        return {
-          ...p,
-          nickname: nickname || p.nickname,
-          avatar: avatar || p.avatar
-        }
-      })
-      await db.collection('games').doc(game._id).update({ data: { players } })
+    const PAGE_SIZE = 100
+    const query = () =>
+      db.collection('games').where({ status: 'ongoing', players: _.elemMatch({ openid }) })
+    const games = []
+    const countRes = await query()
+      .count()
+      .catch(() => null)
+    if (countRes && typeof countRes.total === 'number') {
+      const total = countRes.total || 0
+      for (let skip = 0; skip < total; skip += PAGE_SIZE) {
+        const page = await query().skip(skip).limit(PAGE_SIZE).get()
+        games.push(...(page.data || []))
+      }
+    } else {
+      for (let skip = 0; ; skip += PAGE_SIZE) {
+        const page = await query().skip(skip).limit(PAGE_SIZE).get()
+        games.push(...(page.data || []))
+        if ((page.data || []).length < PAGE_SIZE) break
+      }
     }
+    // 只处理资料确实变化的牌局；事务内重读再写，避免覆盖并发的买入/结算
+    const stale = games.filter(game =>
+      (game.players || []).some(
+        p =>
+          p.openid === openid &&
+          ((nickname && p.nickname !== nickname) || (avatar && p.avatar !== avatar))
+      )
+    )
+    await Promise.all(
+      stale.map(game =>
+        db
+          .runTransaction(async transaction => {
+            const snap = await transaction
+              .collection('games')
+              .doc(game._id)
+              .get()
+              .catch(() => null)
+            if (!snap || !snap.data || snap.data.status !== 'ongoing') return
+            const players = (snap.data.players || []).map(p => {
+              if (p.openid !== openid) return p
+              return {
+                ...p,
+                nickname: nickname || p.nickname,
+                avatar: avatar || p.avatar
+              }
+            })
+            await transaction.collection('games').doc(game._id).update({ data: { players } })
+          }, 3)
+          .catch(err => console.error('[syncProfileToGames txn]', game._id, err))
+      )
+    )
   } catch (err) {
     console.error('[syncProfileToGames]', err)
   }

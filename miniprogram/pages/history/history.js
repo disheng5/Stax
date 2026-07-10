@@ -1,5 +1,11 @@
 const { formatDate, formatDuration, formatProfit } = require('../../utils/format.js')
-const { fetchAllGames, invalidateGamesCache } = require('../../utils/game-data.js')
+const {
+  fetchAllGames,
+  getCachedGames,
+  invalidateGamesCache,
+  getCacheVersion
+} = require('../../utils/game-data.js')
+const { computeGameStats, gameScore } = require('../../utils/stats.js')
 const app = getApp()
 
 Page({
@@ -12,11 +18,15 @@ Page({
     showChart: false,
     chartRange: 'r30',
     dim: 'players',
-    dimData: []
+    dimData: [],
+    aiExpanded: false,
+    aiSummary: []
   },
 
   async onShow() {
-    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
+    const ver = getCacheVersion()
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000 && this._cacheVer === ver) return
+    this._cacheVer = ver
     await this._fetch()
   },
 
@@ -25,52 +35,49 @@ Page({
     try {
       await app.globalData.openidReady
       const openid = app.globalData.openid
-      if (!openid) return
+      if (!openid) {
+        this.setData({ loading: false })
+        return
+      }
+      const cached = !force ? getCachedGames(openid) : []
+      if (cached.length) this._applyGames(openid, cached)
       const filtered = await fetchAllGames(openid, { force })
-      const games = filtered.map(g => {
-        const me = (g.players || []).find(p => p.openid === openid) || {}
-        const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
-        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-        const raw = me.finalProfit ?? me.profit ?? 0
-        const score = Math.round(raw / ratio)
-        return {
-          ...g,
-          myProfit: score,
-          myProfitFormatted: formatProfit(score),
-          scoreRatio: ratio,
-          dateStr: formatDate(g.endedAt || g.startedAt),
-          durationStr: formatDuration(dur)
-        }
-      })
-      this.setData({ games, loading: false })
+      this._applyGames(openid, filtered)
       this._lastFetch = Date.now()
-      this._computeStats(openid, filtered)
-      this._computeChart(openid, filtered)
-      this._computeDim(openid, filtered)
     } catch (err) {
       console.error(err)
       this.setData({ loading: false })
     }
   },
 
-  _computeStats(openid, games) {
-    let totalProfit = 0,
-      biggestWin = 0,
-      biggestLoss = 0,
-      wins = 0
-    games.forEach(g => {
-      const me = (g.players || []).find(p => p.openid === openid)
-      if (!me) return
+  _applyGames(openid, filtered) {
+    // 只保留列表渲染需要的字段，避免把完整 players 数组塞进 setData
+    const games = filtered.map(g => {
+      const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
       const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-      const score = Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
-      totalProfit += score
-      if (score > biggestWin) biggestWin = score
-      if (score < biggestLoss) biggestLoss = score
-      if (score > 0) wins++
+      const score = gameScore(g, openid) || 0
+      return {
+        _id: g._id,
+        name: g.name,
+        playerCount: (g.players || []).length,
+        myProfit: score,
+        myProfitFormatted: formatProfit(score),
+        scoreRatio: ratio,
+        dateStr: formatDate(g.endedAt || g.startedAt),
+        durationStr: formatDuration(dur)
+      }
     })
-    const totalGames = games.length
-    const winRate = totalGames > 0 ? Math.round((wins * 1000) / totalGames) / 10 : 0
-    this.setData({ stats: { totalGames, totalProfit, biggestWin, biggestLoss, wins, winRate } })
+    // 原始牌局（含完整 players）留在实例字段供维度分析用，不进 setData
+    this._rawGames = filtered
+    this.setData({ games, loading: false })
+    this._computeStats(openid, filtered)
+    this._computeChart(openid, filtered)
+    this._computeDim(openid)
+    this._computeAiSummary(filtered, openid)
+  },
+
+  _computeStats(openid, games) {
+    this.setData({ stats: computeGameStats(games, openid) })
   },
 
   _computeChart(openid, games) {
@@ -100,7 +107,7 @@ Page({
       const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
       const score = Math.round((me?.finalProfit ?? me?.profit ?? 0) / ratio)
       cum += score
-      return { x: formatDate(g.endedAt || g.startedAt).slice(5), y: cum }
+      return { x: formatDate(g.endedAt || g.startedAt).slice(5), y: cum, delta: score }
     })
     this.setData({ points })
     if (points.length > 0) this.setData({ showChart: true })
@@ -118,8 +125,9 @@ Page({
     this.setData({ showChart: !this.data.showChart })
   },
 
-  _computeDim(openid, games) {
-    const source = games || this.data.games.map(g => g)
+  _computeDim(openid) {
+    // 必须用原始数据：列表里的 games 已裁剪掉 players/endedAt 等字段
+    const source = this._rawGames || []
     const groups = {}
     source.forEach(g => {
       const me = (g.players || []).find(p => p.openid === openid)
@@ -156,10 +164,44 @@ Page({
     this.setData({ dimData })
   },
 
+  _computeAiSummary(games, openid) {
+    const scores = (games || [])
+      .slice()
+      .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
+      .map(g => gameScore(g, openid) || 0)
+    if (!scores.length) {
+      this.setData({ aiSummary: [] })
+      return
+    }
+    const last5 = scores.slice(-5)
+    const prev5 = scores.slice(-10, -5)
+    const sum = arr => arr.reduce((s, v) => s + v, 0)
+    const recent = sum(last5)
+    const prev = sum(prev5)
+    const best = Math.max(...scores)
+    const worst = Math.min(...scores)
+    const trend =
+      prev5.length && recent > prev
+        ? '近 5 场回升，进攻选择比上一段更有效。'
+        : prev5.length && recent < prev
+          ? '近 5 场承压，建议先收窄入池范围。'
+          : '样本正在累积，先保持稳定记录。'
+    this.setData({
+      aiSummary: [
+        trend,
+        `单场波动区间 ${formatProfit(worst)} 到 ${formatProfit(best)}，复盘时优先看极值局。`
+      ]
+    })
+  },
+
   onDimChange(e) {
     this.setData({ dim: e.currentTarget.dataset.k }, () => {
       this._computeDim(app.globalData.openid)
     })
+  },
+
+  onToggleAi() {
+    this.setData({ aiExpanded: !this.data.aiExpanded })
   },
 
   onOpenGame(e) {

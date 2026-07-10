@@ -1,7 +1,8 @@
 /* 顶部信息卡 */
-.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12rpx; }
+.header { padding: 36rpx 32rpx; }
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12rpx; gap: 28rpx; }
 .circle-name { font-size: 36rpx; font-weight: 700; flex: 1; min-width: 0; }
-.share-chip { font-size: 22rpx; color: var(--table-green); background: rgba(43,108,176,0.08); padding: 8rpx 20rpx; border-radius: 16rpx; border: none; line-height: 1.5; min-height: 0; flex-shrink: 0; }
+.share-chip { flex: 0 0 324rpx; font-size: 24rpx; color: var(--table-green); background: rgba(43,108,176,0.08); padding: 10rpx 20rpx; border-radius: 16rpx; border: none; line-height: 1.5; min-height: 0; }
 .share-chip::after { border: none; }
 .header-meta { display: flex; align-items: center; gap: 8rpx; font-size: 22rpx; }
 
@@ -9,7 +10,7 @@
 .season-block { }
 .season-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
 .season-header-left { display: flex; align-items: baseline; gap: 12rpx; }
-.season-name { font-size: 28rpx; font-weight: 600; }
+.season-name { font-size: 30rpx; font-weight: 700; }
 .season-remain { font-size: 22rpx; }
 .season-history { font-size: 22rpx; color: var(--table-green); }
 
@@ -19,18 +20,20 @@
 .games-label { font-size: 22rpx; }
 
 /* 排名榜 */
-.rank-item { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
+.rank-item { display: flex; align-items: center; gap: 18rpx; padding: 20rpx 0; border-bottom: 1rpx solid var(--border); }
 .rank-item:last-child { border: none; }
-.rank-badge { width: 44rpx; height: 44rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22rpx; font-weight: 700; color: #fff; flex-shrink: 0; }
-.rank-1 { background: #c8102e; }
-.rank-2 { background: #c9a961; }
-.rank-3 { background: #2B6CB0; }
+.rank-badge { width: 50rpx; height: 50rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24rpx; font-weight: 700; color: #fff; flex-shrink: 0; }
+.rank-1 { background: #F2C233; color: #7a5a00; box-shadow: 0 4rpx 12rpx rgba(201, 169, 97, 0.35); }
+.rank-2 { background: #CDD3DB; color: #56606C; box-shadow: 0 4rpx 12rpx rgba(86, 96, 108, 0.2); }
+.rank-3 { background: #C97835; color: #6d330d; box-shadow: 0 4rpx 12rpx rgba(201, 120, 53, 0.25); }
 .rank-n { background: var(--border); color: var(--text-sub); }
 .rank-info { flex: 1; min-width: 0; }
-.rank-name { font-size: 28rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank-title { font-size: 20rpx; color: #c8102e; font-weight: 600; margin-top: 2rpx; }
+.rank-name { font-size: 30rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-name-1 { color: #D8A319; font-weight: 700; }
+.rank-name-2 { color: #87909A; font-weight: 600; }
+.rank-name-3 { color: #C97835; font-weight: 700; }
 .rank-hint { font-size: 20rpx; margin-top: 2rpx; }
-.rank-score { font-size: 28rpx; font-weight: 700; flex-shrink: 0; }
+.rank-side { width: 72rpx; flex-shrink: 0; text-align: right; font-size: 24rpx; line-height: 1.55; }
 .rank-divider { text-align: center; padding: 14rpx 0; font-size: 22rpx; color: var(--text-sub); border-bottom: 1rpx solid var(--border); }
 .unranked { opacity: 0.6; }
 .empty-rank { padding: 24rpx 0; }
@@ -43,14 +46,30 @@
 .sg-meta { font-size: 22rpx; margin-top: 4rpx; }
 .sg-right { font-size: 22rpx; flex-shrink: 0; margin-left: 16rpx; }
 
-/* 成员 */
-.members-card { }
-.members-title { font-size: 22rpx; margin-bottom: 16rpx; }
-.member-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.member-tag { background: var(--border); border-radius: 24rpx; padding: 6rpx 18rpx; font-size: 24rpx; color: var(--text-sub); }
-
 /* 页脚操作 */
 .footer-actions { margin-top: 40rpx; padding: 0 4rpx 40rpx; text-align: center; }
 .owner-actions { display: flex; flex-direction: column; gap: 20rpx; align-items: center; }
 .footer-link { font-size: 24rpx; color: var(--text-sub); padding: 8rpx 0; }
 .footer-link.danger { color: var(--danger); }
+
+/* 排名头像 */
+.rank-avatar-wrap { position: relative; flex-shrink: 0; width: 60rpx; height: 60rpx; }
+.rank-avatar { width: 60rpx; height: 60rpx; border-radius: 50%; background: #eef1f5; display: block; }
+.rank-crown {
+  position: absolute;
+  top: -16rpx;
+  left: 50%;
+  width: 52rpx;
+  height: 28rpx;
+  transform: translateX(-50%);
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 28'%3E%3Cpath d='M3 23L10 8L19 18L26 3L33 18L42 8L49 23Z' fill='%23C9A961'/%3E%3Crect x='3' y='23' width='46' height='5' rx='2' fill='%23B8922E'/%3E%3Ccircle cx='10' cy='7' r='3' fill='%23E8C070'/%3E%3Ccircle cx='26' cy='2.5' r='3' fill='%23E8C070'/%3E%3Ccircle cx='42' cy='7' r='3' fill='%23E8C070'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* 赛季比赛 行内排除/恢复 chip */
+.season-game.excluded .sg-name { color: var(--text-sub); text-decoration: line-through; }
+.sg-chip { flex-shrink: 0; padding: 6rpx 20rpx; border-radius: 999rpx; font-size: 24rpx; border: 1rpx solid; }
+.sg-chip.exclude { color: var(--loss); border-color: var(--loss); background: rgba(46,157,91,0.08); }
+.sg-chip.restore { color: var(--text-sub); border-color: var(--border); background: transparent; }

@@ -129,7 +129,7 @@ const TIER_META = {
   strong: { label: '顶级', advice: '很强，正常加注打价值，稳稳拿下。' },
   playable: { label: '人上人', advice: '位置好就打，位置差就忍，灵活点。' },
   marginal: { label: 'NPC', advice: '平平无奇，随缘进场，别上头。' },
-  trash: { label: '拉完了', advice: '纯送钱，折了吧，留着筹码下把再战。' }
+  trash: { label: '拉完了', advice: '纯送钱，折了吧，留着积分下把再战。' }
 }
 
 function getTier(hand, position, playerCount) {

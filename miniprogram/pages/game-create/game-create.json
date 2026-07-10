@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "创建牌局",
+  "navigationBarTitleText": "创建房间",
   "usingComponents": {
     "chip-input": "/components/chip-input/chip-input"
   }

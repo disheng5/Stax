@@ -1,17 +1,19 @@
 const app = getApp()
 const { formatProfit } = require('../../utils/format.js')
-const { fetchAllGames } = require('../../utils/game-data.js')
+const { fetchAllGames, getCacheVersion } = require('../../utils/game-data.js')
 
 Page({
   data: {
     dim: 'players',
     dimData: [],
-    loading: true,
-    rawGames: []
+    loading: true
   },
 
   async onShow() {
-    if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
+    // 30s 内不重复拉取；但缓存版本变了（刚结算/删除）立即刷新
+    const ver = getCacheVersion()
+    if (this._lastFetch && Date.now() - this._lastFetch < 30000 && this._cacheVer === ver) return
+    this._cacheVer = ver
     await this._fetchAll()
   },
 
@@ -21,8 +23,8 @@ Page({
       await app.globalData.openidReady
       const openid = app.globalData.openid
       if (!openid) return
-      const filtered = await fetchAllGames(openid)
-      this.setData({ rawGames: filtered })
+      // 原始牌局留在实例字段，不把完整 players 数组塞进 setData
+      this._rawGames = await fetchAllGames(openid)
       this._computeDim(openid)
       this._lastFetch = Date.now()
     } catch (err) {
@@ -33,7 +35,7 @@ Page({
   },
 
   _computeDim(openid) {
-    const games = this.data.rawGames
+    const games = this._rawGames || []
     const groups = {}
     games.forEach(g => {
       const me = (g.players || []).find(p => p.openid === openid)
