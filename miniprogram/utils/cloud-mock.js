@@ -6,13 +6,55 @@
 
 const { createMockDb } = require('./db-mock.js')
 const { buildSeed, MY_OPENID } = require('./mock-data.js')
-const { aaEven, aaWinnerByRatio } = require('./aa.js')
+const { computeShares } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
 
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 const meaningfulNickname = value => {
   const nickname = typeof value === 'string' ? value.trim() : ''
-  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+  return !!nickname && nickname.length <= 24 && !GENERIC_NICKNAMES.has(nickname)
+}
+
+const normalizeOperationId = value => {
+  const id = typeof value === 'string' ? value.trim() : ''
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(id) ? id : ''
+}
+
+function operationUpdate(game, operationId) {
+  if (!operationId) return {}
+  const ids = (game.recentOperationIds || []).filter(id => id !== operationId)
+  ids.push(operationId)
+  return { recentOperationIds: ids.slice(-50) }
+}
+
+function normalizeExpenseMode(value) {
+  if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
+  if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
+  if (value === 'mvp') return 'mvp'
+  return 'all'
+}
+
+// 与线上一致：结束后 3 小时内允许修改结算积分/费用
+const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
+function withinEditWindow(game, now) {
+  if (!game.endedAt) return false
+  const endedAt = +new Date(game.endedAt)
+  return Number.isFinite(endedAt) && now - endedAt <= EDIT_WINDOW_MS
+}
+
+async function currentProfile(fallbackNickname = '', fallbackAvatar = '') {
+  const db = getDb()
+  const result = await db.collection('users').where({ _openid: MY_OPENID }).limit(100).get()
+  const users = result.data || []
+  const server = users.find(user => meaningfulNickname(user.nickname)) || users[0] || {}
+  return {
+    nickname: meaningfulNickname(server.nickname)
+      ? server.nickname.trim()
+      : meaningfulNickname(fallbackNickname)
+        ? fallbackNickname.trim()
+        : '',
+    avatar: server.avatar || fallbackAvatar || ''
+  }
 }
 
 let MOCK_DB = null
@@ -92,6 +134,8 @@ const handlers = {
   }) {
     if (!name) return { ok: false, error: 'INVALID_NAME' }
     const db = getDb()
+    const profile = await currentProfile(nickname, avatar)
+    if (!meaningfulNickname(profile.nickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
     const inviteCode = generateInviteCode()
     const now = new Date()
     const blindStructure = []
@@ -130,8 +174,8 @@ const handlers = {
         players: [
           {
             openid: MY_OPENID,
-            nickname,
-            avatar,
+            nickname: profile.nickname,
+            avatar: profile.avatar,
             buyInCount: 1,
             totalBuyIn: buyIn,
             currentStack: buyIn,
@@ -153,13 +197,20 @@ const handlers = {
         operatorOpenid: MY_OPENID,
         byHost: true,
         revoked: false,
-        timestamp: now
+        timestamp: now,
+        meta: { hands: 1 }
       }
     })
     return { ok: true, gameId: created._id, inviteCode }
   },
 
-  async joinGame({ inviteCode, nickname = '玩家', avatar = '' }) {
+  async joinGame({
+    inviteCode,
+    nickname = '玩家',
+    avatar = '',
+    mode = 'player',
+    hands = 1
+  }) {
     if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
     const db = getDb()
     const found = await db
@@ -169,16 +220,21 @@ const handlers = {
       .get()
     if (!found.data.length) return { ok: false, error: 'GAME_NOT_FOUND' }
     const game = found.data[0]
+    if (mode === 'viewer') return { ok: true, gameId: game._id, viewer: true }
     if (game.players.find(p => p.openid === MY_OPENID))
       return { ok: true, gameId: game._id, alreadyJoined: true }
+    const profile = await currentProfile(nickname, avatar)
+    if (!meaningfulNickname(profile.nickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
     const now = new Date()
+    const buyHands = Math.min(99, Math.max(1, Math.floor(Number(hands) || 1)))
+    const amount = Number(game.buyIn) * buyHands
     const player = {
       openid: MY_OPENID,
-      nickname,
-      avatar,
-      buyInCount: 1,
-      totalBuyIn: game.buyIn,
-      currentStack: game.buyIn,
+      nickname: profile.nickname,
+      avatar: profile.avatar,
+      buyInCount: buyHands,
+      totalBuyIn: amount,
+      currentStack: amount,
       finalStack: null,
       profit: 0,
       joinedAt: now,
@@ -190,7 +246,7 @@ const handlers = {
       .update({
         data: {
           players: [...game.players, player],
-          totalPot: game.totalPot + game.buyIn
+          totalPot: game.totalPot + amount
         }
       })
     await db.collection('transactions').add({
@@ -198,17 +254,26 @@ const handlers = {
         gameId: game._id,
         type: 'buyIn',
         playerOpenid: MY_OPENID,
-        amount: game.buyIn,
+        amount,
         operatorOpenid: MY_OPENID,
         byHost: false,
         revoked: false,
-        timestamp: now
+        timestamp: now,
+        meta: { hands: buyHands }
       }
     })
     return { ok: true, gameId: game._id }
   },
 
-  async recordTransaction({ gameId, type, playerOpenid, amount = 0, hands: handsInput, txId }) {
+  async recordTransaction({
+    gameId,
+    type,
+    playerOpenid,
+    amount = 0,
+    hands: handsInput,
+    txId,
+    operationId: rawOperationId
+  }) {
     if (!gameId || !type) return { ok: false, error: 'INVALID_PARAMS' }
     const db = getDb()
     const got = await db
@@ -218,6 +283,10 @@ const handlers = {
       .catch(() => null)
     if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
     const game = got.data
+    const operationId = normalizeOperationId(rawOperationId)
+    if (operationId && (game.recentOperationIds || []).includes(operationId)) {
+      return { ok: true, idempotent: true, operationId }
+    }
     if (game.status !== 'ongoing') return { ok: false, error: 'GAME_ENDED' }
     const isHost = game.hostOpenid === MY_OPENID
     const now = new Date()
@@ -247,7 +316,13 @@ const handlers = {
       await db
         .collection('games')
         .doc(gameId)
-        .update({ data: { players, totalPot: game.totalPot + amount } })
+        .update({
+          data: {
+            players,
+            totalPot: game.totalPot + amount,
+            ...operationUpdate(game, operationId)
+          }
+        })
       const tx = await db.collection('transactions').add({
         data: {
           gameId,
@@ -258,7 +333,8 @@ const handlers = {
           byHost: isHost,
           revoked: false,
           timestamp: now,
-          meta: { hands }
+          meta: { hands },
+          ...(operationId ? { operationId } : {})
         }
       })
       return { ok: true, txId: tx._id }
@@ -286,11 +362,24 @@ const handlers = {
       await db
         .collection('games')
         .doc(gameId)
-        .update({ data: { players, totalPot: game.totalPot - tx.amount } })
+        .update({
+          data: {
+            players,
+            totalPot: game.totalPot - tx.amount,
+            ...operationUpdate(game, operationId)
+          }
+        })
       await db
         .collection('transactions')
         .doc(txId)
-        .update({ data: { revoked: true, revokedAt: now, revokedBy: MY_OPENID } })
+        .update({
+          data: {
+            revoked: true,
+            revokedAt: now,
+            revokedBy: MY_OPENID,
+            ...(operationId ? { revokeOperationId: operationId } : {})
+          }
+        })
       return { ok: true }
     }
     if (type === 'eliminate') {
@@ -312,7 +401,8 @@ const handlers = {
             removedPlayers: [
               ...(game.removedPlayers || []),
               { ...removed, removedAt: now, removedBy: MY_OPENID }
-            ]
+            ],
+            ...operationUpdate(game, operationId)
           }
         })
       await db.collection('transactions').add({
@@ -325,7 +415,8 @@ const handlers = {
           byHost: true,
           revoked: false,
           timestamp: now,
-          meta: { nickname: removed.nickname || '', removedBuyIn }
+          meta: { nickname: removed.nickname || '', removedBuyIn },
+          ...(operationId ? { operationId } : {})
         }
       })
       return { ok: true }
@@ -339,6 +430,7 @@ const handlers = {
         update.pausedAccumMs = (game.pausedAccumMs || 0) + (now - new Date(game.pausedAt))
         update.pausedAt = null
       }
+      Object.assign(update, operationUpdate(game, operationId))
       await db.collection('games').doc(gameId).update({ data: update })
       return { ok: true }
     }
@@ -348,14 +440,49 @@ const handlers = {
       await db
         .collection('games')
         .doc(gameId)
-        .update({ data: { currentLevel: next, levelStartedAt: now, pausedAccumMs: 0 } })
+        .update({
+          data: {
+            currentLevel: next,
+            levelStartedAt: now,
+            pausedAccumMs: 0,
+            ...operationUpdate(game, operationId)
+          }
+        })
       return { ok: true }
     }
     return { ok: false, error: 'UNKNOWN_TYPE' }
   },
 
-  async settleGame({ gameId, finalStacks, extraCost = 0, expenseMode = 'all', mode = 'checkout' }) {
-    if (!gameId || !finalStacks) return { ok: false, error: 'INVALID_PARAMS' }
+  async settleGame(event = {}) {
+    const { gameId, finalStacks, mode = 'checkout' } = event
+    const hasExtraCost = event.extraCost !== undefined && event.extraCost !== null
+    const hasExpenseMode = !!(event.expenseMode || event.aaMode)
+    const extraCost = hasExtraCost ? Number(event.extraCost) : 0
+    const expenseMode = hasExpenseMode ? normalizeExpenseMode(event.expenseMode || event.aaMode) : 'all'
+    if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
+    if (!['checkout', 'finalize', 'expense'].includes(mode))
+      return { ok: false, error: 'INVALID_MODE' }
+    if (hasExtraCost && (!Number.isFinite(extraCost) || extraCost < 0))
+      return { ok: false, error: 'INVALID_EXTRA_COST' }
+    let submittedOpenids = []
+    const normalizedStacks = {}
+    if (mode !== 'expense') {
+      if (!finalStacks) return { ok: false, error: 'INVALID_PARAMS' }
+      submittedOpenids = Object.keys(finalStacks).filter(
+        openid =>
+          finalStacks[openid] !== '' &&
+          finalStacks[openid] !== null &&
+          finalStacks[openid] !== undefined
+      )
+      if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
+      for (const openid of submittedOpenids) {
+        const stack = Number(finalStacks[openid])
+        if (!Number.isFinite(stack) || stack < 0) return { ok: false, error: 'INVALID_STACK' }
+        normalizedStacks[openid] = stack
+      }
+    } else if (!hasExtraCost) {
+      return { ok: false, error: 'INVALID_EXTRA_COST' }
+    }
     const db = getDb()
     const got = await db
       .collection('games')
@@ -364,12 +491,43 @@ const handlers = {
       .catch(() => null)
     if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
     const game = got.data
-    if (game.status === 'ended') return { ok: false, error: 'ALREADY_ENDED' }
+    const isHost = game.hostOpenid === MY_OPENID
+    const isPlayer = (game.players || []).some(p => p.openid === MY_OPENID)
+    if (!isPlayer) return { ok: false, error: 'NOT_PLAYER' }
+    if (mode === 'finalize' && !isHost) return { ok: false, error: 'NOT_HOST' }
+    const playerOpenids = new Set((game.players || []).map(p => p.openid))
+    if (submittedOpenids.some(openid => !playerOpenids.has(openid))) {
+      return { ok: false, error: 'PLAYER_NOT_FOUND' }
+    }
+    // 与线上一致：参赛成员可代提任意玩家结算积分；关闭权限共享时仅房主
+    if (!isHost && game.playerOpsShared === false) {
+      return { ok: false, error: 'PLAYER_OPS_DISABLED' }
+    }
+    const operationId = normalizeOperationId(event.operationId)
+    if (operationId && (game.recentOperationIds || []).includes(operationId)) {
+      return {
+        ok: true,
+        idempotent: true,
+        operationId,
+        ended: game.status === 'ended',
+        diff: 0,
+        players: game.players || [],
+        game
+      }
+    }
     const now = new Date()
-    const submittedOpenids = Object.keys(finalStacks)
+    const wasEnded = game.status === 'ended'
+    if (wasEnded && !withinEditWindow(game, +now)) return { ok: false, error: 'ALREADY_ENDED' }
+    if (mode === 'finalize' && wasEnded) return { ok: false, error: 'ALREADY_ENDED' }
+
+    const effExtraCost = hasExtraCost ? extraCost : Number(game.extraCost) || 0
+    const effExpenseMode = hasExpenseMode
+      ? expenseMode
+      : normalizeExpenseMode(game.expenseMode || game.aaMode || 'all')
+
     let players = game.players.map(p => {
       if (!submittedOpenids.includes(p.openid)) return p
-      const finalStack = Number(finalStacks[p.openid] || 0)
+      const finalStack = normalizedStacks[p.openid]
       const profit = finalStack - p.totalBuyIn
       return {
         ...p,
@@ -383,47 +541,66 @@ const handlers = {
     const active = players.filter(p => !p.eliminatedAt)
     const allSettled =
       active.length > 0 && active.every(p => p.finalStack !== null && p.finalStack !== undefined)
-    let ended = false
-    let diff = 0
+    const diff = allSettled ? active.reduce((s, p) => s + p.profit, 0) : 0
     if (mode === 'finalize') {
       if (!allSettled) return { ok: false, error: 'NOT_ALL_CHECKED_OUT' }
-      diff = active.reduce((s, p) => s + p.profit, 0)
       if (diff !== 0) return { ok: false, error: 'PROFIT_NOT_ZERO', diff }
-      {
-        let shares = active.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
-        if (extraCost > 0 && expenseMode === 'all') shares = aaEven(active, extraCost)
-        else if (extraCost > 0 && expenseMode === 'winner')
-          shares = aaWinnerByRatio(active, extraCost)
-        const shareMap = {}
-        shares.forEach(s => {
-          shareMap[s.openid] = s.share || 0
-        })
-        players = players.map(p =>
-          p.eliminatedAt
-            ? p
-            : {
-              ...p,
-              share: shareMap[p.openid] || 0,
-              finalProfit: p.profit
-            }
-        )
-        ended = true
-      }
     }
+    const ended = wasEnded || mode === 'finalize' || (mode === 'checkout' && allSettled)
+    const justEnded = ended && !wasEnded
+    const edited = wasEnded && mode === 'checkout'
+    let shares = active.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+    if (ended) {
+      if (effExtraCost > 0) shares = computeShares(active, effExtraCost, effExpenseMode)
+      const shareMap = {}
+      shares.forEach(s => {
+        shareMap[s.openid] = s.share || 0
+      })
+      players = players.map(p =>
+        p.eliminatedAt
+          ? p
+          : {
+            ...p,
+            share: shareMap[p.openid] || 0,
+            finalProfit: p.profit
+          }
+      )
+    }
+    const settledAll = players.filter(
+      p => p.finalStack !== null && p.finalStack !== undefined
+    ).length
     const update = {
       players,
-      extraCost,
-      expenseMode,
-      aaMode: expenseMode,
-      checkedOutCount: active.filter(p => p.finalStack !== null && p.finalStack !== undefined)
-        .length
+      extraCost: effExtraCost,
+      expenseMode: effExpenseMode,
+      aaMode: effExpenseMode,
+      shareTotal: shares.reduce((s, x) => s + (x.share || 0), 0),
+      checkedOutCount: settledAll,
+      settledCount: settledAll,
+      ...operationUpdate(game, operationId)
     }
-    if (ended) {
+    if (justEnded) {
       update.status = 'ended'
       update.endedAt = now
     }
     await db.collection('games').doc(gameId).update({ data: update })
-    return { ok: true, ended, diff, players, game: { ...game, ...update, players } }
+    for (const openid of submittedOpenids) {
+      await db.collection('transactions').add({
+        data: {
+          gameId,
+          type: ended ? 'settle' : 'settlePartial',
+          playerOpenid: openid,
+          amount: normalizedStacks[openid],
+          operatorOpenid: MY_OPENID,
+          byHost: game.hostOpenid === MY_OPENID,
+          revoked: false,
+          timestamp: now,
+          meta: { mode, expenseMode: effExpenseMode, extraCost: effExtraCost, edited },
+          ...(operationId ? { operationId } : {})
+        }
+      })
+    }
+    return { ok: true, ended, justEnded, edited, diff, players, game: { ...game, ...update, players } }
   },
 
   async aiReview({ gameId }) {
@@ -457,7 +634,7 @@ const handlers = {
       totalPot,
       totalRebuys,
       extraCost: game.extraCost || 0,
-      expenseMode: game.expenseMode || game.aaMode || 'none',
+      expenseMode: normalizeExpenseMode(game.expenseMode || game.aaMode),
       me: me
         ? { nickname: me.nickname, profit: me.finalProfit ?? me.profit, buyInCount: me.buyInCount }
         : null,

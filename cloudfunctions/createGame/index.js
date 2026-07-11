@@ -6,7 +6,7 @@ const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设�
 
 function meaningfulNickname(value) {
   const nickname = typeof value === 'string' ? value.trim() : ''
-  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+  return !!nickname && nickname.length <= 24 && !GENERIC_NICKNAMES.has(nickname)
 }
 
 function profileTime(user) {
@@ -71,34 +71,51 @@ exports.main = async event => {
     bigBlind = 5,
     blindUpMinutes = 999,
     playerOpsShared = true,
-    scoreRatio = 1
+    scoreRatio = 1,
+    nickname = '',
+    avatar = ''
   } = event
 
-  if (!name || typeof name !== 'string') return { ok: false, error: 'INVALID_NAME' }
-  if (buyIn <= 0 || smallBlind <= 0 || bigBlind <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
+  const normalizedName = typeof name === 'string' ? name.trim() : ''
+  const normalizedBuyIn = Number(buyIn)
+  const normalizedSmallBlind = Number(smallBlind)
+  const normalizedBigBlind = Number(bigBlind)
+  if (!normalizedName) return { ok: false, error: 'INVALID_NAME' }
+  if (
+    !Number.isFinite(normalizedBuyIn) ||
+    !Number.isFinite(normalizedSmallBlind) ||
+    !Number.isFinite(normalizedBigBlind) ||
+    normalizedBuyIn <= 0 ||
+    normalizedSmallBlind <= 0 ||
+    normalizedBigBlind <= 0
+  ) {
+    return { ok: false, error: 'INVALID_AMOUNT' }
+  }
 
-  const inviteCode = await uniqueCode()
-  const now = new Date()
-  const blindStructure = buildBlindStructure(smallBlind, bigBlind)
-
-  let finalNickname = ''
-  let finalAvatar = ''
+  // users 是权威资料；历史线上用户尚未迁入 users 时，使用客户端已校验资料兜底。
+  // 兜底只补空值，不能让旧本地缓存覆盖玩家刚更新的云端资料。
+  let finalNickname = meaningfulNickname(nickname) ? nickname.trim() : ''
+  let finalAvatar = typeof avatar === 'string' ? avatar : ''
   let profileUpdatedAt = ''
   try {
     const user = await getLatestProfile(OPENID)
-    if (user.nickname) finalNickname = user.nickname
+    if (meaningfulNickname(user.nickname)) finalNickname = user.nickname
     if (user.avatar) finalAvatar = user.avatar
     profileUpdatedAt = user.updatedAt || ''
   } catch (_) {}
   if (!meaningfulNickname(finalNickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
 
+  const inviteCode = await uniqueCode()
+  const now = new Date()
+  const blindStructure = buildBlindStructure(normalizedSmallBlind, normalizedBigBlind)
+
   const doc = {
     hostOpenid: OPENID,
-    name,
+    name: normalizedName,
     status: 'ongoing',
-    buyIn,
-    smallBlind,
-    bigBlind,
+    buyIn: normalizedBuyIn,
+    smallBlind: normalizedSmallBlind,
+    bigBlind: normalizedBigBlind,
     blindUpMinutes,
     playerOpsShared: playerOpsShared !== false,
     scoreRatio: Number(scoreRatio) > 0 ? Number(scoreRatio) : 1,
@@ -118,28 +135,36 @@ exports.main = async event => {
         avatar: finalAvatar,
         profileUpdatedAt,
         buyInCount: 1,
-        totalBuyIn: buyIn,
-        currentStack: buyIn,
+        totalBuyIn: normalizedBuyIn,
+        currentStack: normalizedBuyIn,
         finalStack: null,
         profit: 0,
         joinedAt: now,
         eliminatedAt: null
       }
     ],
-    totalPot: buyIn
+    totalPot: normalizedBuyIn
   }
 
-  const res = await db.collection('games').add({ data: doc })
-  await db.collection('transactions').add({
-    data: {
-      gameId: res._id,
-      type: 'buyIn',
-      playerOpenid: OPENID,
-      amount: buyIn,
-      operatorOpenid: OPENID,
-      timestamp: now
-    }
-  })
-
-  return { ok: true, gameId: res._id, inviteCode }
+  try {
+    const created = await db.runTransaction(async transaction => {
+      const res = await transaction.collection('games').add({ data: doc })
+      await transaction.collection('transactions').add({
+        data: {
+          gameId: res._id,
+          type: 'buyIn',
+          playerOpenid: OPENID,
+          amount: normalizedBuyIn,
+          operatorOpenid: OPENID,
+          timestamp: now,
+          meta: { hands: 1 }
+        }
+      })
+      return { gameId: res._id }
+    }, 3)
+    return { ok: true, gameId: created.gameId, inviteCode }
+  } catch (err) {
+    console.error('[createGame txn]', err)
+    return { ok: false, error: 'CONFLICT_RETRY' }
+  }
 }

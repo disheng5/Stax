@@ -37,16 +37,31 @@ function step(name, fn) {
     assert.ok(r.result.user.stats)
   })
 
+  await step('历史用户无 users 资料时可用有效客户端昵称创建', async () => {
+    const raw = cloudMock.getDb()._raw
+    raw.users[0].nickname = '玩家'
+    const r = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: { name: '资料兼容测试', nickname: '历史昵称', buyIn: 100, smallBlind: 5, bigBlind: 5 }
+    })
+    assert.strictEqual(r.result.ok, true)
+    const game = raw.games.find(g => g._id === r.result.gameId)
+    assert.strictEqual(game.players[0].nickname, '历史昵称')
+    cloudMock.reset()
+  })
+
   let gameId
   await step('创建一局', async () => {
     const r = await wx.cloud.callFunction({ name: 'createGame', data: {
       name: 'Mock 创建测试局', buyIn: 100, smallBlind: 10, bigBlind: 20, blindUpMinutes: 20,
-      nickname: 'Demo 玩家'
+      nickname: '过期本地昵称'
     }})
     assert.strictEqual(r.result.ok, true)
     assert.ok(r.result.gameId)
     assert.strictEqual(r.result.inviteCode.length, 6)
     gameId = r.result.gameId
+    const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    assert.strictEqual(game.players[0].nickname, 'Demo 玩家', '云端资料应优先于本地快照')
   })
 
   await step('查询进行中牌局列表', async () => {
@@ -59,13 +74,62 @@ function step(name, fn) {
     assert.ok(r.data.length >= 2, '应有至少 2 局进行中（demo 局 + 新建局）')
   })
 
-  await step('参与人自助 rebuy 应被允许', async () => {
+  await step('参赛成员可代提他人结算；关闭权限共享后仅房主', async () => {
+    const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    game.hostOpenid = 'mock_host'
+    game.players.push({
+      openid: 'mock_other',
+      nickname: 'Other',
+      totalBuyIn: 100,
+      currentStack: 100,
+      finalStack: null,
+      profit: 0
+    })
+    // 朋友局：非房主参赛成员可代提他人结算积分
+    const other = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'checkout', finalStacks: { mock_other: 100 } }
+    })
+    assert.strictEqual(other.result.ok, true)
+    assert.strictEqual(other.result.ended, false, '仍有人未结算，不应收局')
+    // 非参赛者不可被代提
+    const stranger = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'checkout', finalStacks: { mock_stranger: 100 } }
+    })
+    assert.strictEqual(stranger.result.error, 'PLAYER_NOT_FOUND')
+    // 关闭权限共享后仅房主可操作
+    game.playerOpsShared = false
+    const disabled = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'checkout', finalStacks: { mock_me: 100 } }
+    })
+    assert.strictEqual(disabled.result.error, 'PLAYER_OPS_DISABLED')
+    game.hostOpenid = 'mock_me'
+    game.playerOpsShared = true
+    game.players = game.players.filter(p => p.openid !== 'mock_other')
+  })
+
+  await step('参与人自助 rebuy 应被允许且同操作号只入账一次', async () => {
     // 新建局只有 me，模拟不到第二人；改用 demo 局测，给 mock_bob 自助补码不可（mock 模式下我是 me）
     // 这里只测 me 给自己 rebuy
-    const r = await wx.cloud.callFunction({ name: 'recordTransaction', data: {
-      gameId, type: 'rebuy', playerOpenid: 'mock_me', amount: 50
-    }})
-    assert.strictEqual(r.result.ok, true)
+    const data = {
+      gameId,
+      type: 'rebuy',
+      playerOpenid: 'mock_me',
+      amount: 50,
+      operationId: 'rebuy_mock_0001'
+    }
+    const first = await wx.cloud.callFunction({ name: 'recordTransaction', data })
+    const replay = await wx.cloud.callFunction({ name: 'recordTransaction', data })
+    assert.strictEqual(first.result.ok, true)
+    assert.strictEqual(replay.result.idempotent, true)
+    const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    assert.strictEqual(game.players[0].totalBuyIn, 150)
+    assert.strictEqual(
+      cloudMock.getDb()._raw.transactions.filter(t => t.operationId === data.operationId).length,
+      1
+    )
   })
 
   await step('给非 host 给非自己 rebuy 应拒绝', async () => {
@@ -96,21 +160,71 @@ function step(name, fn) {
     assert.strictEqual(r.result.error, 'PROFIT_NOT_ZERO')
   })
 
-  await step('下桌记录（checkout 不校验差额）', async () => {
-    const r = await wx.cloud.callFunction({ name: 'settleGame', data: {
-      gameId, mode: 'checkout', finalStacks: { 'mock_me': 100 }
-    }})
-    assert.strictEqual(r.result.ok, true)
-    assert.strictEqual(r.result.ended, false)
+  await step('全员结算即自动收局（差额不为 0 也先收局）', async () => {
+    const data = {
+      gameId,
+      mode: 'checkout',
+      finalStacks: { mock_me: 100 },
+      operationId: 'checkout_mock_0001'
+    }
+    const first = await wx.cloud.callFunction({ name: 'settleGame', data })
+    const replay = await wx.cloud.callFunction({ name: 'settleGame', data })
+    assert.strictEqual(first.result.ok, true)
+    assert.strictEqual(first.result.ended, true, '唯一玩家结算完成应自动收局')
+    assert.strictEqual(first.result.diff, -50, '账不平仍可收局，3 小时内可修正')
+    assert.strictEqual(first.result.game.status, 'ended')
+    assert.strictEqual(replay.result.idempotent, true)
+    assert.strictEqual(
+      cloudMock.getDb()._raw.transactions.filter(t => t.operationId === data.operationId).length,
+      1
+    )
   })
 
-  await step('最终结算（Σ profit = 0 应成功并终局）', async () => {
-    // 新建局 me 买入 150（100 初始 + 50 rebuy），最终 150 → profit = 0
-    const r = await wx.cloud.callFunction({ name: 'settleGame', data: {
-      gameId, mode: 'finalize', finalStacks: { 'mock_me': 150 }
-    }})
+  await step('结束后 3 小时内可修改结算积分（差额修正）', async () => {
+    // 买入 150，改结算为 180 → profit +30，edited 标记生效
+    const r = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: {
+        gameId,
+        mode: 'checkout',
+        finalStacks: { mock_me: 180 },
+        operationId: 'edit_mock_0001'
+      }
+    })
     assert.strictEqual(r.result.ok, true)
-    assert.strictEqual(r.result.ended, true)
+    assert.strictEqual(r.result.edited, true)
+    assert.strictEqual(r.result.game.players[0].finalProfit, 30)
+    assert.strictEqual(r.result.game.status, 'ended')
+  })
+
+  await step('费用分摊：expense 模式（MVP 买单）与保留已存设置', async () => {
+    // 设置费用：MVP 买单 → 唯一赢家 me 承担全部
+    const r = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
+    })
+    assert.strictEqual(r.result.ok, true)
+    assert.strictEqual(r.result.game.expenseMode, 'mvp')
+    assert.strictEqual(r.result.game.players[0].share, 30)
+    // 之后的 checkout 不带费用参数，不应把费用清零
+    const edit = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'checkout', finalStacks: { mock_me: 150 } }
+    })
+    assert.strictEqual(edit.result.ok, true)
+    assert.strictEqual(edit.result.game.extraCost, 30, 'checkout 不得覆盖已存费用')
+    assert.strictEqual(edit.result.game.expenseMode, 'mvp')
+    // profit 归 0 后无赢家 → MVP 退化为全员均摊（单人局仍是他承担）
+    assert.strictEqual(edit.result.game.players[0].share, 30)
+  })
+
+  await step('结束后 finalize 应拒绝（自动收局已替代手动结束）', async () => {
+    const r = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'finalize', finalStacks: { mock_me: 150 } }
+    })
+    assert.strictEqual(r.result.ok, false)
+    assert.strictEqual(r.result.error, 'ALREADY_ENDED')
   })
 
   await step('AI 复盘（结算后）', async () => {

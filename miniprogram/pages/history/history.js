@@ -6,7 +6,7 @@ const {
   getCacheVersion,
   cacheGame
 } = require('../../utils/game-data.js')
-const { computeGameStats, gameScore } = require('../../utils/stats.js')
+const { computeGameStats, gameScore, sortDimensionRows } = require('../../utils/stats.js')
 const app = getApp()
 
 Page({
@@ -162,14 +162,15 @@ Page({
         if (profit > 0) groups[k].wins++
       })
     })
-    const dimData = Object.values(groups)
-      .map(g => ({
+    const dimData = sortDimensionRows(
+      Object.values(groups).map(g => ({
         ...g,
         avg: g.games ? Math.round(g.profit / g.games) : 0,
         winRate: g.games ? Math.round((g.wins * 1000) / g.games) / 10 : 0,
         profitStr: formatProfit(g.profit)
-      }))
-      .sort((a, b) => b.games - a.games)
+      })),
+      this.data.dim
+    )
     this.setData({ dimData })
   },
 

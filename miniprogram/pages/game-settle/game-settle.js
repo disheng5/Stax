@@ -1,9 +1,17 @@
 // pages/game-settle/game-settle.js — 下桌结算页
 const { settle } = require('../../utils/settle.js')
-const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
+const { computeShares } = require('../../utils/aa.js')
 const { invalidateGamesCache } = require('../../utils/game-data.js')
+const { createOperationId } = require('../../utils/operation.js')
 const SUNZI = require('../../utils/sunzi.js')
 const app = getApp()
+
+function normalizeExpenseMode(value) {
+  if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
+  if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
+  if (value === 'mvp') return 'mvp'
+  return 'all'
+}
 
 Page({
   data: {
@@ -71,7 +79,7 @@ Page({
         finalStacks,
         isHost: game.hostOpenid === this.data.myOpenid,
         extraCost: game.extraCost || 0,
-        expenseMode: game.expenseMode === 'winner' ? 'winner' : 'all'
+        expenseMode: normalizeExpenseMode(game.expenseMode || game.aaMode)
       })
       this._recompute()
     } catch (err) {
@@ -110,11 +118,7 @@ Page({
   },
 
   _buildShares(players) {
-    if (this.data.extraCost <= 0) {
-      return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
-    }
-    if (this.data.expenseMode === 'winner') return aaWinnerByRatio(players, this.data.extraCost)
-    return aaEven(players, this.data.extraCost)
+    return computeShares(players, this.data.extraCost, this.data.expenseMode)
   },
 
   _recompute() {
@@ -151,16 +155,14 @@ Page({
     })
   },
 
+  // 朋友局：参赛成员可代提任意玩家的结算积分（服务端二次校验）
   _submittedStacks() {
-    if (this.data.isHost) {
-      const out = {}
-      Object.keys(this.data.finalStacks).forEach(openid => {
-        const value = this.data.finalStacks[openid]
-        if (value !== '' && value !== null && value !== undefined) out[openid] = Number(value) || 0
-      })
-      return out
-    }
-    return { [this.data.myOpenid]: Number(this.data.finalStacks[this.data.myOpenid]) || 0 }
+    const out = {}
+    Object.keys(this.data.finalStacks).forEach(openid => {
+      const value = this.data.finalStacks[openid]
+      if (value !== '' && value !== null && value !== undefined) out[openid] = Number(value) || 0
+    })
+    return out
   },
 
   async onSubmit() {
@@ -168,20 +170,18 @@ Page({
       wx.showToast({ title: '请先填写下桌筹码', icon: 'none' })
       return
     }
-    const isFinalize = this.data.isHost && this.data.allSettled && this.data.diff === 0
-    const mode = isFinalize ? 'finalize' : 'checkout'
+    // 服务端在全员结算后自动收局，前端不再显式 finalize；
+    // 不回传费用参数，避免覆盖房间面板里已保存的费用设置
     this.setData({ submitting: true })
-    wx.showLoading({ title: isFinalize ? '结束牌局…' : '记录下桌筹码…' })
+    wx.showLoading({ title: '记录结算积分…' })
     try {
       const res = await wx.cloud.callFunction({
         name: 'settleGame',
         data: {
           gameId: this.data.gameId,
-          mode,
-          finalStacks: this._submittedStacks(),
-          extraCost: this.data.extraCost,
-          expenseMode: this.data.expenseMode,
-          shares: this.data.shares
+          mode: 'checkout',
+          operationId: createOperationId('checkout'),
+          finalStacks: this._submittedStacks()
         }
       })
       wx.hideLoading()
@@ -193,8 +193,12 @@ Page({
             PROFIT_NOT_ZERO: '筹码总和不平，请检查',
             NOT_ALL_CHECKED_OUT: '还有玩家未下桌',
             NOT_HOST: '仅房主可最终结算',
+            PLAYER_OPS_DISABLED: '本局仅房主可操作',
+            PLAYER_NOT_FOUND: '玩家已不在本局，请刷新后重试',
             NO_STACKS_SUBMITTED: '请先填写下桌筹码',
             ALREADY_ENDED: '牌局已结束',
+            INVALID_STACK: '请输入有效的非负积分',
+            INVALID_EXTRA_COST: '请输入有效的费用金额',
             CONFLICT_RETRY: '操作冲突，请重试'
           }[error] ||
           error ||

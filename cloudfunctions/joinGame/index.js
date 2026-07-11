@@ -6,7 +6,7 @@ const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设�
 
 function meaningfulNickname(value) {
   const nickname = typeof value === 'string' ? value.trim() : ''
-  return !!nickname && !GENERIC_NICKNAMES.has(nickname)
+  return !!nickname && nickname.length <= 24 && !GENERIC_NICKNAMES.has(nickname)
 }
 
 function profileTime(user) {
@@ -31,7 +31,7 @@ async function getLatestProfile(openid) {
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { inviteCode, mode = 'player', hands = 1 } = event
+  const { inviteCode, mode = 'player', hands = 1, nickname = '', avatar = '' } = event
 
   if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
 
@@ -48,20 +48,23 @@ exports.main = async event => {
   const exists = (game.players || []).find(p => p.openid === OPENID)
   if (exists) return { ok: true, gameId: game._id, alreadyJoined: true }
 
-  // 从 users 表获取最新昵称和头像，保证其他用户能看到
-  let finalNickname = ''
-  let finalAvatar = ''
+  // users 是权威资料；历史线上用户尚未迁入 users 时，使用客户端已校验资料兜底。
+  let finalNickname = meaningfulNickname(nickname) ? nickname.trim() : ''
+  let finalAvatar = typeof avatar === 'string' ? avatar : ''
   let profileUpdatedAt = ''
   try {
     const user = await getLatestProfile(OPENID)
-    if (user.nickname) finalNickname = user.nickname
+    if (meaningfulNickname(user.nickname)) finalNickname = user.nickname
     if (user.avatar) finalAvatar = user.avatar
     profileUpdatedAt = user.updatedAt || ''
   } catch (_) {}
   if (!meaningfulNickname(finalNickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
 
-  const buyHands = Math.max(1, Math.floor(Number(hands) || 1))
-  const amount = game.buyIn * buyHands
+  const buyHands = Math.min(99, Math.max(1, Math.floor(Number(hands) || 1)))
+  const gameBuyIn = Number(game.buyIn)
+  if (!Number.isFinite(gameBuyIn) || gameBuyIn <= 0)
+    return { ok: false, error: 'INVALID_AMOUNT' }
+  const amount = gameBuyIn * buyHands
   const now = new Date()
   const player = {
     openid: OPENID,
@@ -100,7 +103,18 @@ exports.main = async event => {
             totalPot: (Number(cur.totalPot) || 0) + amount
           }
         })
-      return { ok: true }
+      const tx = await transaction.collection('transactions').add({
+        data: {
+          gameId: game._id,
+          type: 'buyIn',
+          playerOpenid: OPENID,
+          amount,
+          operatorOpenid: OPENID,
+          timestamp: now,
+          meta: { hands: buyHands }
+        }
+      })
+      return { ok: true, txId: tx && tx._id }
     }, 3)
   } catch (err) {
     console.error('[joinGame txn]', err)
@@ -108,18 +122,6 @@ exports.main = async event => {
   }
   if (!txn.ok) return txn
   if (txn.alreadyJoined) return { ok: true, gameId: game._id, alreadyJoined: true }
-
-  await db.collection('transactions').add({
-    data: {
-      gameId: game._id,
-      type: 'buyIn',
-      playerOpenid: OPENID,
-      amount,
-      operatorOpenid: OPENID,
-      timestamp: now,
-      meta: { hands: buyHands }
-    }
-  })
 
   return { ok: true, gameId: game._id }
 }

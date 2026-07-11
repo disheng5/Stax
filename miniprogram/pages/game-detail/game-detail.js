@@ -1,7 +1,7 @@
 // pages/game-detail/game-detail.js — 牌局详情（核心页）
 const app = getApp()
 const { settle } = require('../../utils/settle.js')
-const { aaEven, aaWinnerByRatio } = require('../../utils/aa.js')
+const { computeShares } = require('../../utils/aa.js')
 const {
   invalidateGamesCache,
   cacheGame,
@@ -10,15 +10,66 @@ const {
 } = require('../../utils/game-data.js')
 const avatarCache = require('../../utils/avatar.js')
 const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
+const { createOperationId } = require('../../utils/operation.js')
 const SUNZI = require('../../utils/sunzi.js')
 
 const TX_TYPE_LABEL = {
-  buyIn: '初次买入',
-  rebuy: 'Rebuy',
-  addOn: 'Add-on',
-  eliminate: '踢出',
+  buyIn: '入场',
+  rebuy: '买入',
+  addOn: '买入',
+  eliminate: '移出',
   settle: '结算',
-  settlePartial: '下桌'
+  settlePartial: '结算'
+}
+
+const TX_TYPE_CLASS = {
+  buyIn: 'entry',
+  rebuy: 'buy',
+  addOn: 'buy',
+  eliminate: 'remove',
+  settle: 'settle',
+  settlePartial: 'settle'
+}
+
+function transactionDetail(tx, hands, accHands) {
+  if (tx.type === 'buyIn') return `入场${hands}手，共${accHands}手`
+  if (tx.type === 'rebuy' || tx.type === 'addOn') {
+    if (tx.revoked) return `买入${hands}手，未计入当前手数`
+    return `当前${Math.max(0, accHands - hands)}手，买入${hands}手，共${accHands}手`
+  }
+  if (tx.type === 'settle' || tx.type === 'settlePartial') {
+    return `剩余积分${Number(tx.amount) || 0}`
+  }
+  if (tx.type === 'eliminate') {
+    const removedBuyIn = Number(tx.meta?.removedBuyIn) || Math.abs(Number(tx.amount) || 0)
+    return removedBuyIn > 0 ? `移出房间，扣除${removedBuyIn}积分` : '移出房间'
+  }
+  return Number(tx.amount) ? `积分${Number(tx.amount)}` : ''
+}
+
+function normalizeExpenseMode(value) {
+  if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
+  if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
+  if (value === 'mvp') return 'mvp'
+  return 'all'
+}
+
+const EXPENSE_MODE_LABELS = {
+  all: '全员平均',
+  winner: '水上比例',
+  winnerEven: '水上平均',
+  mvp: 'MVP买单'
+}
+const EXPENSE_MODE_OPTIONS = ['all', 'winner', 'winnerEven', 'mvp']
+
+// 结束后 3 小时内仍可修改结算积分（与云函数一致）
+const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
+function canEditSettle(game) {
+  if (!game) return false
+  if (game.status === 'ongoing') return true
+  if (game.status !== 'ended' || !game.endedAt) return false
+  const endedAt = +new Date(game.endedAt)
+  return Number.isFinite(endedAt) && Date.now() - endedAt <= EDIT_WINDOW_MS
 }
 
 Page({
@@ -32,7 +83,6 @@ Page({
     notFound: false,
     loadError: false,
     recentTx: [],
-    txTypeLabel: TX_TYPE_LABEL,
     viewerMode: false,
     isPlayer: false,
     joining: false,
@@ -41,7 +91,10 @@ Page({
     settleDiff: 0,
     aboveTotal: 0,
     belowTotal: 0,
-    finalPanel: { show: false, extraCost: 0, expenseMode: 'all', submitting: false },
+    canEditSettle: false,
+    expensePanel: { show: false, extraCost: '', expenseMode: 'all', submitting: false },
+    expenseModeLabels: EXPENSE_MODE_LABELS,
+    expenseModeOptions: EXPENSE_MODE_OPTIONS,
     settleResult: null,
     settleWinnerOpenid: ''
   },
@@ -151,6 +204,7 @@ Page({
         p.finalStack,
         p.profit,
         p.finalProfit,
+        p.share,
         p.eliminatedAt
       ])
     })
@@ -205,10 +259,9 @@ Page({
       return
     }
     this._renderSignature = signature
-    if (this.data.game?.status === 'ongoing' && g.status === 'ended') {
-      invalidateGamesCache()
-    }
     const settleStatus = this._getSettleStatus(g)
+    // 终局与结束后的积分修正/费用变更都要让首页与历史即时刷新
+    if (g.status === 'ended' && this.data.game) invalidateGamesCache()
     const patch = {
       game: g,
       isHost,
@@ -217,15 +270,14 @@ Page({
       loading: false,
       notFound: false,
       loadError: false,
+      canEditSettle: canEditSettle(g),
       ...settleStatus
     }
     if (g.status === 'ended') Object.assign(patch, this._createSettleResult(g))
     if (myOpenid && myOpenid !== this.data.myOpenid) patch.myOpenid = myOpenid
     this.setData(patch)
     cacheGame(g)
-    this._resolveAvatars(players, {
-      force: !this._profileRefreshAt || Date.now() - this._profileRefreshAt > 60000
-    })
+    this._resolveAvatars(players)
     this._resolveDisplayAvatars(players)
     this._fetchRecentTx()
   },
@@ -445,8 +497,8 @@ Page({
         const isBuy =
           t.type === 'buyIn' || ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked)
         let h = 0
-        if (t.type === 'buyIn') h = 1
-        else if ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked) {
+        if (t.type === 'buyIn') h = Math.max(1, Number(t.meta?.hands) || 1)
+        else if (t.type === 'rebuy' || t.type === 'addOn') {
           h =
             Number(t.meta?.hands) ||
             (buyIn > 0 ? Math.max(1, Math.round((t.amount || 0) / buyIn)) : 1)
@@ -464,13 +516,18 @@ Page({
         const timeStr = d
           ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
           : ''
+        const hands = handsMap[t._id] || 0
+        const accHands = accHandsMap[t._id] || 0
         return {
           ...t,
           nickname: nameMap[t.playerOpenid] || t.meta?.nickname || '某玩家',
-          hands: handsMap[t._id] || 0,
-          accHands: accHandsMap[t._id] || 0,
+          hands,
+          accHands,
           accAmount: accAmountMap[t._id] || 0,
-          timeStr
+          timeStr,
+          typeLabel: TX_TYPE_LABEL[t.type] || '记录',
+          typeClass: TX_TYPE_CLASS[t.type] || 'settle',
+          detail: transactionDetail(t, hands, accHands)
         }
       })
       this.setData({ recentTx })
@@ -499,7 +556,6 @@ Page({
     let map = {}
     try {
       map = await avatarCache.resolve(need, { force: !!options.force })
-      this._profileRefreshAt = Date.now()
     } finally {
       this._profileRefreshing = false
     }
@@ -526,7 +582,21 @@ Page({
     if (changed) {
       const game = { ...this.data.game, players: updated }
       this._renderSignature = this._gameSignature(game)
-      this.setData({ 'game.players': updated })
+      const patch = { 'game.players': updated }
+      if (game.status === 'ended') Object.assign(patch, this._createSettleResult(game))
+      const latestNames = {}
+      updated.forEach(player => {
+        latestNames[player.openid] = player.nickname
+      })
+      let txNamesChanged = false
+      const recentTx = (this.data.recentTx || []).map(tx => {
+        const nickname = latestNames[tx.playerOpenid] || tx.nickname
+        if (nickname === tx.nickname) return tx
+        txNamesChanged = true
+        return { ...tx, nickname }
+      })
+      if (txNamesChanged) patch.recentTx = recentTx
+      this.setData(patch)
       cacheGame(game)
     }
     this._resolveDisplayAvatars(updated)
@@ -597,9 +667,10 @@ Page({
       wx.showLoading({ title: '处理中…' })
     }
     try {
+      const operationId = createOperationId(type)
       const res = await wx.cloud.callFunction({
         name: 'recordTransaction',
-        data: { gameId: this.data.gameId, type, playerOpenid, amount, ...extra }
+        data: { gameId: this.data.gameId, type, playerOpenid, amount, operationId, ...extra }
       })
       if (!optimistic) wx.hideLoading()
       if (!res.result || !res.result.ok) {
@@ -640,39 +711,53 @@ Page({
 
   onPlayerTap(e) {
     const { openid, player, isSelf } = e.detail
-    if (this.data.game?.status !== 'ongoing') return
+    const game = this.data.game
+    if (!game) return
     if (player.eliminatedAt) return
     if (this.data.viewerMode) return
     if (!this.data.isPlayer) return
+    // 结束后 3 小时内仍可修改结算积分；超时后锁定
+    if (!canEditSettle(game)) return
+    const ongoing = game.status === 'ongoing'
+    // 朋友局：参赛成员可代提他人结算；房间关闭「权限共享」时仅房主可操作
+    const canOperateOthers = this.data.isHost || game.playerOpsShared !== false
+    if (!isSelf && !canOperateOthers) return
 
+    const settled = player.finalStack !== null && player.finalStack !== undefined
     const items = []
     const actions = []
 
     if (isSelf) {
-      if (player.finalStack === null || player.finalStack === undefined) {
+      if (ongoing && !settled) {
         items.push('买入')
         actions.push('selfrebuy')
         items.push('结算')
         actions.push('settle')
-      } else {
+      } else if (ongoing) {
         items.push('改码')
         actions.push('settle')
         items.push('买入')
         actions.push('selfrebuy')
+      } else {
+        items.push('修改结算积分')
+        actions.push('settle')
       }
     } else {
-      if (player.finalStack === null || player.finalStack === undefined) {
-        items.push('帮他补码')
+      if (ongoing && !settled) {
+        items.push('帮他买入')
         actions.push('rebuy')
         items.push('帮他结算')
         actions.push('settle')
-      } else {
+      } else if (ongoing) {
         items.push('帮他改码')
         actions.push('settle')
-        items.push('帮他补码')
+        items.push('帮他买入')
         actions.push('rebuy')
+      } else {
+        items.push('修改他的结算积分')
+        actions.push('settle')
       }
-      if (this.data.isHost) {
+      if (ongoing && this.data.isHost) {
         items.push('踢人')
         actions.push('eliminate')
       }
@@ -722,13 +807,16 @@ Page({
             data: {
               gameId: this.data.gameId,
               mode: 'checkout',
+              operationId: createOperationId('checkout'),
               finalStacks: { [openid]: finalStack }
             }
           })
           if (!res.result?.ok) {
             const msg =
               {
-                ALREADY_ENDED: '牌局已结束',
+                ALREADY_ENDED: '结束已超 3 小时，积分已锁定',
+                INVALID_STACK: '请输入有效的非负积分',
+                PLAYER_OPS_DISABLED: '本局仅房主可操作',
                 CONFLICT_RETRY: '操作冲突，请重试'
               }[res.result?.error] ||
               res.result?.error ||
@@ -737,7 +825,10 @@ Page({
             this._fetchGameOnce()
             return
           }
-          wx.showToast({ title: '已记录', icon: 'success' })
+          wx.showToast({
+            title: res.result.justEnded ? '全员结算完成，已收局' : '已记录',
+            icon: 'success'
+          })
           this._fetchRecentTx()
         } catch (err) {
           console.error(err)
@@ -789,7 +880,12 @@ Page({
         try {
           const res = await wx.cloud.callFunction({
             name: 'recordTransaction',
-            data: { gameId: this.data.gameId, type: 'revoke', txId }
+            data: {
+              gameId: this.data.gameId,
+              type: 'revoke',
+              txId,
+              operationId: createOperationId('revoke')
+            }
           })
           wx.hideLoading()
           if (!res.result?.ok)
@@ -846,50 +942,63 @@ Page({
     this._record(type, openid, n * buyIn, { hands: n })
   },
 
-  onEndGame() {
+  // ===== 费用分摊（随时可设，仅记录，不影响盈亏积分） =====
+  onOpenExpense() {
+    if (this.data.viewerMode || !this.data.isPlayer) return
+    const game = this.data.game || {}
     this.setData({
-      finalPanel: { show: true, extraCost: 0, expenseMode: 'all', submitting: false }
+      expensePanel: {
+        show: true,
+        extraCost: Number(game.extraCost) > 0 ? String(game.extraCost) : '',
+        expenseMode: normalizeExpenseMode(game.expenseMode || game.aaMode || 'all'),
+        submitting: false
+      }
     })
   },
 
-  onFinalPanelClose() {
-    if (this.data.finalPanel.submitting) return
-    this.setData({ 'finalPanel.show': false })
+  onExpensePanelClose() {
+    if (this.data.expensePanel.submitting) return
+    this.setData({ 'expensePanel.show': false })
   },
 
-  onFinalPanelStop() {},
+  onExpensePanelStop() {},
 
   onExtraCostInput(e) {
-    this.setData({ 'finalPanel.extraCost': Number(e.detail.value) || 0 })
+    this.setData({ 'expensePanel.extraCost': e.detail.value })
   },
 
-  onExpenseModeChange(e) {
-    this.setData({ 'finalPanel.expenseMode': e.currentTarget.dataset.k })
+  onExpenseModePick(e) {
+    const idx = Number(e.detail.value) || 0
+    this.setData({ 'expensePanel.expenseMode': EXPENSE_MODE_OPTIONS[idx] || 'all' })
   },
 
-  async onFinalConfirm() {
-    if (this.data.finalPanel.submitting) return
-    this.setData({ 'finalPanel.submitting': true })
-    wx.showLoading({ title: '结束对局…' })
+  async onExpenseConfirm() {
+    if (this.data.expensePanel.submitting) return
+    const extraCost = Number(this.data.expensePanel.extraCost) || 0
+    if (extraCost < 0) {
+      wx.showToast({ title: '请输入有效的费用金额', icon: 'none' })
+      return
+    }
+    this.setData({ 'expensePanel.submitting': true })
+    wx.showLoading({ title: '保存中…' })
     try {
       const res = await wx.cloud.callFunction({
         name: 'settleGame',
         data: {
           gameId: this.data.gameId,
-          mode: 'finalize',
-          finalStacks: this._buildFinalStacks(),
-          extraCost: this.data.finalPanel.extraCost,
-          expenseMode: this.data.finalPanel.expenseMode
+          mode: 'expense',
+          operationId: createOperationId('expense'),
+          extraCost,
+          expenseMode: this.data.expensePanel.expenseMode
         }
       })
       wx.hideLoading()
       if (!res.result?.ok) {
         const msg =
           {
-            PROFIT_NOT_ZERO: '差额不为零，请检查筹码',
-            NOT_ALL_CHECKED_OUT: '还有玩家未结算',
-            NOT_HOST: '仅房主可结束对局',
-            ALREADY_ENDED: '牌局已结束',
+            ALREADY_ENDED: '结束已超 3 小时，费用已锁定',
+            PLAYER_OPS_DISABLED: '本局仅房主可操作',
+            INVALID_EXTRA_COST: '请输入有效的费用金额',
             CONFLICT_RETRY: '操作冲突，请重试'
           }[res.result?.error] ||
           res.result?.error ||
@@ -897,24 +1006,16 @@ Page({
         wx.showToast({ title: msg, icon: 'none' })
         return
       }
-      this.setData({ 'finalPanel.show': false })
-      invalidateGamesCache() // 首页/历史/我的 战绩立即反映本局
-      this._buildSettleResult(res.result.game || res.result.players)
+      this.setData({ 'expensePanel.show': false })
+      wx.showToast({ title: '已保存', icon: 'success' })
+      this._fetchGameOnce()
     } catch (err) {
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '网络异常', icon: 'none' })
     } finally {
-      this.setData({ 'finalPanel.submitting': false })
+      this.setData({ 'expensePanel.submitting': false })
     }
-  },
-
-  _buildFinalStacks() {
-    const stacks = {}
-    ;(this.data.game?.players || []).forEach(p => {
-      if (p.finalStack !== null && p.finalStack !== undefined) stacks[p.openid] = p.finalStack
-    })
-    return stacks
   },
 
   _createSettleResult(gameOrPlayers) {
@@ -922,27 +1023,44 @@ Page({
     const players = Array.isArray(gameOrPlayers)
       ? gameOrPlayers
       : gameOrPlayers?.players || this.data.game?.players || []
-    const extraCost = game?.extraCost ?? this.data.finalPanel?.extraCost ?? 0
-    const expenseMode = game?.expenseMode || this.data.finalPanel?.expenseMode || 'all'
+    const extraCost = Number(game?.extraCost ?? this.data.game?.extraCost) || 0
+    const expenseMode = normalizeExpenseMode(
+      game?.expenseMode || game?.aaMode || this.data.game?.expenseMode || 'all'
+    )
     const profitList = players
       .filter(p => !p.eliminatedAt)
-      .map(p => ({
-        openid: p.openid,
-        nickname: p.nickname,
-        avatar: p.avatar || '',
-        buyInCount: p.buyInCount || 1,
-        totalBuyIn: p.totalBuyIn || 0,
-        finalStack: p.finalStack || 0,
-        profit: p.finalStack !== null ? p.finalStack - p.totalBuyIn : 0
-      }))
+      .map(p => {
+        const hasFinalStack = p.finalStack !== null && p.finalStack !== undefined
+        const totalBuyIn = Number(p.totalBuyIn) || 0
+        const finalStack = hasFinalStack ? Number(p.finalStack) || 0 : 0
+        return {
+          openid: p.openid,
+          nickname: p.nickname || '玩家',
+          avatar: p.avatar || '',
+          buyInCount: p.buyInCount || 1,
+          totalBuyIn,
+          finalStack,
+          profit: hasFinalStack
+            ? finalStack - totalBuyIn
+            : Number(p.finalProfit ?? p.profit) || 0
+        }
+      })
     const transfers = settle(profitList.map(p => ({ nickname: p.nickname, profit: p.profit })))
     let shares = []
     if (extraCost > 0) {
-      shares =
-        expenseMode === 'winner'
-          ? aaWinnerByRatio(profitList, extraCost)
-          : aaEven(profitList, extraCost)
+      // 服务端已把费用单落在 players[].share（权威）；无则本地按方式计算兜底
+      const serverShares = players
+        .filter(p => !p.eliminatedAt && Number(p.share) > 0)
+        .map(p => ({ openid: p.openid, nickname: p.nickname || '玩家', share: Number(p.share) }))
+      shares = serverShares.length ? serverShares : computeShares(profitList, extraCost, expenseMode)
     }
+    const expenseRows = shares
+      .filter(item => Number(item.share) > 0)
+      .map(item => ({
+        openid: item.openid,
+        nickname: item.nickname || '玩家',
+        share: Number(item.share) || 0
+      }))
     const winner = profitList.slice().sort((a, b) => b.profit - a.profit)[0] || null
     const loser = profitList.slice().sort((a, b) => a.profit - b.profit)[0] || null
     const mostRebuys = profitList.slice().sort((a, b) => b.buyInCount - a.buyInCount)[0] || null
@@ -974,6 +1092,8 @@ Page({
         transfers,
         extraCost,
         expenseMode,
+        expenseModeLabel: EXPENSE_MODE_LABELS[expenseMode] || '全员平均',
+        expenseRows,
         shares,
         winner,
         loser,
@@ -1064,32 +1184,6 @@ Page({
           wx.showToast({ title: '网络异常', icon: 'none' })
         } finally {
           this.setData({ joining: false })
-        }
-      }
-    })
-  },
-
-  async onToggleExclude() {
-    const exclude = !this.data.game.excludeFromSeason
-    const action = exclude ? '排除' : '恢复'
-    wx.showModal({
-      title: `${action}本局`,
-      content: exclude ? '该局将不计入圈子赛季积分。' : '该局将重新计入圈子赛季积分。',
-      confirmText: action,
-      success: async r => {
-        if (!r.confirm) return
-        wx.showLoading({ title: '处理中…' })
-        try {
-          const res = await wx.cloud.callFunction({
-            name: 'excludeGame',
-            data: { gameId: this.data.gameId, exclude }
-          })
-          wx.hideLoading()
-          if (res.result?.ok) wx.showToast({ title: `已${action}` })
-          else wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
-        } catch (_) {
-          wx.hideLoading()
-          wx.showToast({ title: '网络异常', icon: 'none' })
         }
       }
     })

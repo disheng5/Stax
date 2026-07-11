@@ -124,7 +124,12 @@ Page({
       const { ok, gameId, error } = res.result || {}
       if (!ok) {
         wx.showToast({
-          title: error === 'PROFILE_REQUIRED' ? '请先完善真实昵称' : error || '创建失败',
+          title:
+            error === 'PROFILE_REQUIRED'
+              ? '请先完善真实昵称'
+              : error === 'CONFLICT_RETRY'
+                ? '创建冲突，请重试'
+                : error || '创建失败',
           icon: 'none'
         })
         return

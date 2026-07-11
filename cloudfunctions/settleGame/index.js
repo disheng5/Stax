@@ -4,6 +4,40 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
+const OPERATION_ID_LIMIT = 50
+
+function normalizeOperationId(value) {
+  const id = typeof value === 'string' ? value.trim() : ''
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(id) ? id : ''
+}
+
+function hasOperation(game, operationId) {
+  return !!operationId && (game.recentOperationIds || []).includes(operationId)
+}
+
+function operationUpdate(game, operationId) {
+  if (!operationId) return {}
+  const ids = (game.recentOperationIds || []).filter(id => id !== operationId)
+  ids.push(operationId)
+  return { recentOperationIds: ids.slice(-OPERATION_ID_LIMIT) }
+}
+
+// 结束后允许修改结算积分的时间窗（账不平可在此期间修正）
+const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
+
+function normalizeExpenseMode(value) {
+  if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
+  if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
+  if (value === 'mvp') return 'mvp'
+  if (['all', 'even'].includes(value)) return 'all'
+  return ''
+}
+
+function withinEditWindow(game, now) {
+  if (!game.endedAt) return false
+  const endedAt = +new Date(game.endedAt)
+  return Number.isFinite(endedAt) && now - endedAt <= EDIT_WINDOW_MS
+}
 
 function aaEven(players, totalCost) {
   if (!players.length || totalCost <= 0)
@@ -38,6 +72,78 @@ function aaWinnerByRatio(players, totalCost) {
     shares[idx].share += remain
   }
   return shares
+}
+
+// 水上平均：仅赢家均摊；无赢家退化为全员均摊
+function aaWinnerEven(players, totalCost) {
+  if (!players.length || totalCost <= 0)
+    return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+  const winners = players.filter(p => p.profit > 0)
+  if (!winners.length) return aaEven(players, totalCost)
+  const winnerShares = aaEven(winners, totalCost)
+  const map = {}
+  winnerShares.forEach(s => {
+    map[s.openid] = s.share
+  })
+  return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: map[p.openid] || 0 }))
+}
+
+// MVP 买单：赢最多的一人承担全部费用；无赢家退化为全员均摊
+function aaMvp(players, totalCost) {
+  if (!players.length || totalCost <= 0)
+    return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+  const winners = players.filter(p => p.profit > 0)
+  if (!winners.length) return aaEven(players, totalCost)
+  const mvp = winners.slice().sort((a, b) => b.profit - a.profit)[0]
+  return players.map(p => ({
+    openid: p.openid,
+    nickname: p.nickname,
+    share: p.openid === mvp.openid ? totalCost : 0
+  }))
+}
+
+function computeShares(players, totalCost, mode) {
+  if (!totalCost || totalCost <= 0)
+    return players.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+  if (mode === 'winner') return aaWinnerByRatio(players, totalCost)
+  if (mode === 'winnerEven') return aaWinnerEven(players, totalCost)
+  if (mode === 'mvp') return aaMvp(players, totalCost)
+  return aaEven(players, totalCost)
+}
+
+// 结束后修改结算积分时，按差额修正个人累计战绩（totalProfit/wins 精确；
+// biggestWin/biggestLoss 只增不减，属近似，前端统计均由 games 原始数据实时计算不受影响）
+async function applyStatsDelta(prevPlayers, nextPlayers, game) {
+  const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
+  const prevBy = {}
+  prevPlayers
+    .filter(p => !p.eliminatedAt)
+    .forEach(p => {
+      prevBy[p.openid] = Math.round((Number(p.finalProfit ?? p.profit) || 0) / ratio)
+    })
+  await Promise.all(
+    nextPlayers
+      .filter(p => !p.eliminatedAt)
+      .map(p => {
+        const newScore = Math.round((Number(p.finalProfit) || 0) / ratio)
+        const oldScore = prevBy[p.openid] || 0
+        const dProfit = newScore - oldScore
+        const dWins = (newScore > 0 ? 1 : 0) - (oldScore > 0 ? 1 : 0)
+        if (!dProfit && !dWins) return null
+        return db
+          .collection('users')
+          .where({ _openid: p.openid })
+          .update({
+            data: {
+              'stats.totalProfit': _.inc(dProfit),
+              'stats.wins': _.inc(dWins),
+              'stats.biggestWin': _.max(Math.max(0, newScore)),
+              'stats.biggestLoss': _.min(Math.min(0, newScore))
+            }
+          })
+          .catch(err => console.error('[applyStatsDelta]', p.openid, err))
+      })
+  )
 }
 
 // 结算后更新每个玩家的累计战绩：一次 _.in 批量查 + 并行原子更新
@@ -162,18 +268,44 @@ async function triggerSeasonCalc(players) {
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { gameId, finalStacks, extraCost = 0, expenseMode = 'all', mode = 'checkout' } = event || {}
+  const { gameId, finalStacks, mode = 'checkout' } = event || {}
+  // 区分「没传」与「传了 0/值」：checkout 不带费用参数时必须保留库中已存的费用设置
+  const hasExtraCost = event && event.extraCost !== undefined && event.extraCost !== null
+  const hasExpenseMode = !!(event && (event.expenseMode || event.aaMode))
+  const extraCost = hasExtraCost ? Number(event.extraCost) : 0
+  const expenseMode = hasExpenseMode
+    ? normalizeExpenseMode(event.expenseMode || event.aaMode)
+    : 'all'
+  const operationId = normalizeOperationId(event?.operationId)
 
-  if (!gameId || !finalStacks || typeof finalStacks !== 'object')
-    return { ok: false, error: 'INVALID_PARAMS' }
+  if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
+  if (!['checkout', 'finalize', 'expense'].includes(mode))
+    return { ok: false, error: 'INVALID_MODE' }
+  if (hasExpenseMode && !expenseMode) return { ok: false, error: 'INVALID_EXPENSE_MODE' }
+  if (hasExtraCost && (!Number.isFinite(extraCost) || extraCost < 0))
+    return { ok: false, error: 'INVALID_EXTRA_COST' }
 
-  const submittedOpenids = Object.keys(finalStacks).filter(
-    openid =>
-      finalStacks[openid] !== '' &&
-      finalStacks[openid] !== null &&
-      finalStacks[openid] !== undefined
-  )
-  if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
+  // expense 模式只设置费用，不需要 finalStacks
+  let submittedOpenids = []
+  const normalizedStacks = {}
+  if (mode !== 'expense') {
+    if (!finalStacks || typeof finalStacks !== 'object')
+      return { ok: false, error: 'INVALID_PARAMS' }
+    submittedOpenids = Object.keys(finalStacks).filter(
+      openid =>
+        finalStacks[openid] !== '' &&
+        finalStacks[openid] !== null &&
+        finalStacks[openid] !== undefined
+    )
+    if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
+    for (const openid of submittedOpenids) {
+      const stack = Number(finalStacks[openid])
+      if (!Number.isFinite(stack) || stack < 0) return { ok: false, error: 'INVALID_STACK' }
+      normalizedStacks[openid] = stack
+    }
+  } else if (!hasExtraCost) {
+    return { ok: false, error: 'INVALID_EXTRA_COST' }
+  }
 
   const now = new Date()
   let txn
@@ -186,16 +318,48 @@ exports.main = async event => {
         .catch(() => null)
       if (!snap || !snap.data) return { ok: false, error: 'GAME_NOT_FOUND' }
       const game = snap.data
-      if (game.status === 'ended') return { ok: false, error: 'ALREADY_ENDED' }
-
       const isHost = game.hostOpenid === OPENID
       const isPlayer = (game.players || []).some(p => p.openid === OPENID)
       if (!isPlayer) return { ok: false, error: 'NOT_PLAYER' }
       if (mode === 'finalize' && !isHost) return { ok: false, error: 'NOT_HOST' }
+      const playerOpenids = new Set((game.players || []).map(p => p.openid))
+      if (submittedOpenids.some(openid => !playerOpenids.has(openid))) {
+        return { ok: false, error: 'PLAYER_NOT_FOUND' }
+      }
+      // 朋友局：参赛成员可代提任意玩家的结算积分（目标已校验为本局玩家）；
+      // 房间关闭「权限共享」开关时仍仅房主可操作
+      if (!isHost && game.playerOpsShared === false) {
+        return { ok: false, error: 'PLAYER_OPS_DISABLED' }
+      }
+      if (hasOperation(game, operationId)) {
+        return {
+          ok: true,
+          idempotent: true,
+          operationId,
+          ended: game.status === 'ended',
+          diff: 0,
+          game,
+          players: game.players || []
+        }
+      }
 
-      let players = (game.players || []).map(p => {
+      const wasEnded = game.status === 'ended'
+      // 结束后的编辑（改结算积分/改费用）只允许在时间窗内
+      if (wasEnded && !withinEditWindow(game, +now)) {
+        return { ok: false, error: 'ALREADY_ENDED' }
+      }
+      if (mode === 'finalize' && wasEnded) return { ok: false, error: 'ALREADY_ENDED' }
+
+      // 生效的费用设置：显式传参优先，否则保留库中已存值
+      const effExtraCost = hasExtraCost ? extraCost : Number(game.extraCost) || 0
+      const effExpenseMode = hasExpenseMode
+        ? expenseMode
+        : normalizeExpenseMode(game.expenseMode || game.aaMode || 'all') || 'all'
+
+      const prevPlayers = game.players || []
+      let players = prevPlayers.map(p => {
         if (!submittedOpenids.includes(p.openid)) return p
-        const finalStack = Number(finalStacks[p.openid] || 0)
+        const finalStack = normalizedStacks[p.openid]
         const profit = finalStack - p.totalBuyIn
         return {
           ...p,
@@ -212,17 +376,24 @@ exports.main = async event => {
         active.length > 0 &&
         active.every(p => p.finalStack !== null && p.finalStack !== undefined)
       const diff = allSettled ? active.reduce((s, p) => s + p.profit, 0) : 0
-      let ended = false
-      let shares = active.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
 
       if (mode === 'finalize') {
         if (!allSettled) return { ok: false, error: 'NOT_ALL_CHECKED_OUT' }
         if (diff !== 0) return { ok: false, error: 'PROFIT_NOT_ZERO', diff }
+      }
 
-        if (extraCost > 0 && expenseMode === 'all') shares = aaEven(active, extraCost)
-        else if (extraCost > 0 && expenseMode === 'winner')
-          shares = aaWinnerByRatio(active, extraCost)
+      // 终局判定：
+      //  - finalize（旧客户端）：显式终局
+      //  - checkout：全员结算完即自动终局（不校验差额，账不平可在 3 小时内修正）
+      //  - 已结束局的再编辑：保持 ended，不改 endedAt
+      const ended = wasEnded || mode === 'finalize' || (mode === 'checkout' && allSettled)
+      const justEnded = ended && !wasEnded
+      const edited = wasEnded && mode === 'checkout'
 
+      let shares = active.map(p => ({ openid: p.openid, nickname: p.nickname, share: 0 }))
+      if (ended) {
+        // 终局或已终局：finalProfit 与费用单一并落定/刷新
+        if (effExtraCost > 0) shares = computeShares(active, effExtraCost, effExpenseMode)
         const shareMap = {}
         shares.forEach(s => {
           shareMap[s.openid] = Number(s.share) || 0
@@ -230,25 +401,25 @@ exports.main = async event => {
         players = players.map(p =>
           p.eliminatedAt ? p : { ...p, share: shareMap[p.openid] || 0, finalProfit: p.profit }
         )
-        ended = true
       }
 
       // 兼容字段：按【全体玩家】计已结算数（与改造前一致）。
-      // 旧线上前端用 settledCount / checkedOutCount 判断「全员已结算 → 出结束/费用分摊按钮」，
+      // 旧线上前端用 settledCount / checkedOutCount 判断「全员已结算」，
       // 二者必须双写且口径一致，否则字段冻结导致房间无法收局（曾致线上事故）。
       const settledAll = players.filter(
         p => p.finalStack !== null && p.finalStack !== undefined
       ).length
       const update = {
         players,
-        extraCost,
-        expenseMode,
-        aaMode: expenseMode,
+        extraCost: effExtraCost,
+        expenseMode: effExpenseMode,
+        aaMode: effExpenseMode,
         shareTotal: shares.reduce((s, x) => s + (x.share || 0), 0),
         checkedOutCount: settledAll,
-        settledCount: settledAll
+        settledCount: settledAll,
+        ...operationUpdate(game, operationId)
       }
-      if (ended) {
+      if (justEnded) {
         update.status = 'ended'
         update.endedAt = now
       }
@@ -261,31 +432,63 @@ exports.main = async event => {
             gameId,
             type: ended ? 'settle' : 'settlePartial',
             playerOpenid: openid,
-            amount: Number(finalStacks[openid] || 0),
+            amount: normalizedStacks[openid],
             operatorOpenid: OPENID,
             byHost: isHost,
             revoked: false,
             timestamp: now,
-            meta: { mode, expenseMode, extraCost }
+            meta: { mode, expenseMode: effExpenseMode, extraCost: effExtraCost, edited },
+            ...(operationId ? { operationId } : {})
           }
         })
       }
       // active 与结算数学同源返回，后续统计不再各自过滤（避免口径漂移）
       const activeFinal = players.filter(p => !p.eliminatedAt)
-      return { ok: true, ended, diff, game, players, activePlayers: activeFinal, update, isHost }
+      return {
+        ok: true,
+        ended,
+        justEnded,
+        edited,
+        diff,
+        game,
+        players,
+        prevPlayers,
+        activePlayers: activeFinal,
+        update,
+        isHost
+      }
     }, 3)
   } catch (err) {
     console.error('[settleGame txn]', err)
     return { ok: false, error: 'CONFLICT_RETRY' }
   }
   if (!txn.ok) return txn
+  if (txn.idempotent) {
+    return {
+      ok: true,
+      idempotent: true,
+      operationId,
+      ended: txn.ended,
+      diff: txn.diff,
+      players: txn.players,
+      game: txn.game,
+      extraCost: txn.game.extraCost || 0,
+      expenseMode: txn.game.expenseMode || 'all'
+    }
+  }
 
-  const { ended, diff, game, players, activePlayers, update } = txn
+  const { ended, justEnded, edited, diff, game, players, prevPlayers, activePlayers, update } = txn
 
-  if (ended) {
-    // 两者相互独立（users.stats 与 circles/seasons），并行执行缩短结算等待
+  if (justEnded) {
+    // 首次终局：全量记账 + 赛季重算（两者独立，并行缩短等待）
     await Promise.all([
       updateUserStats(activePlayers, game, now),
+      triggerSeasonCalc(activePlayers)
+    ])
+  } else if (edited) {
+    // 结束后的积分修正：按差额修正个人战绩 + 赛季重算
+    await Promise.all([
+      applyStatsDelta(prevPlayers, players, game),
       triggerSeasonCalc(activePlayers)
     ])
   }
@@ -293,10 +496,12 @@ exports.main = async event => {
   return {
     ok: true,
     ended,
+    justEnded,
+    edited,
     diff,
     players,
     game: { ...game, ...update, players },
-    extraCost,
-    expenseMode
+    extraCost: update.extraCost,
+    expenseMode: update.expenseMode
   }
 }

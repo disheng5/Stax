@@ -124,16 +124,19 @@
 }
 
 .tx-list {
-  padding: 12rpx 24rpx;
+  padding: 10rpx 24rpx;
 }
 
 .tx {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16rpx;
-  padding: 18rpx 0;
+  align-items: center;
+  gap: 10rpx;
+  min-height: 40rpx;
+  padding: 10rpx 0;
   border-bottom: 2rpx solid var(--border);
+  font-size: 24rpx;
+  line-height: 40rpx;
+  white-space: nowrap;
 }
 
 .tx:last-child {
@@ -145,46 +148,100 @@
   text-decoration: line-through;
 }
 
-.tx-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.tx-line {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 26rpx;
-  flex-wrap: wrap;
-}
-
 .tx-type {
   color: var(--text-sub);
+  flex-shrink: 0;
+}
+
+.tx-type--entry { color: var(--table-green); }
+.tx-type--buy { color: #d48806; }
+.tx-type--remove { color: var(--loss); }
+.tx-type--settle { color: var(--text-sub); }
+
+.tx-time {
+  width: 72rpx;
+  color: var(--text-sub);
+  font-size: 22rpx;
+  flex-shrink: 0;
 }
 
 .tx-name {
-  font-weight: 500;
-  max-width: 240rpx;
+  max-width: 180rpx;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.tx-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 22rpx;
+  text-overflow: ellipsis;
+}
+
+.tx-revoked {
+  flex-shrink: 0;
+  color: var(--text-sub);
+  font-size: 22rpx;
+}
+
+.expense-block {
+  padding: 4rpx 0 2rpx;
+}
+
+.expense-head,
+.expense-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.expense-head {
+  min-height: 48rpx;
+  margin-bottom: 4rpx;
+}
+
+.expense-title {
+  flex-shrink: 0;
+  font-size: 27rpx;
+  font-weight: 700;
+}
+
+.expense-summary {
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 21rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-row {
+  min-height: 48rpx;
+  font-size: 24rpx;
+  line-height: 48rpx;
+}
+
+.expense-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tx-by {
-  font-size: 22rpx;
-}
-
-.tx-time {
-  margin-left: auto;
-  font-size: 22rpx;
-  color: var(--text-sub);
+.expense-share {
   flex-shrink: 0;
+  color: #b78b2f;
+  font-weight: 600;
 }
 
-.tx-sub {
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  line-height: 1.5;
+.expense-divider {
+  height: 2rpx;
+  margin-top: 8rpx;
+  background: var(--border);
 }
 
 .btn-tiny {
@@ -277,7 +334,6 @@
 .hands-btn.cancel { background: rgba(0,0,0,0.05); color: var(--text-sub); }
 .hands-btn.confirm { background: var(--table-green); color: #fff; }
 
-.exclude-card { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 28rpx; margin-top: 16rpx; }
 .exclude-btn { font-size: 24rpx; color: var(--table-green); }
 
 .quick-actions {
@@ -415,3 +471,13 @@
   font-size: 22rpx;
   margin-top: 8rpx;
 }
+
+/* 顶栏双操作按钮 */
+.info-actions { display: flex; gap: 16rpx; flex-shrink: 0; }
+
+/* 结束后可编辑提示 */
+.edit-window-hint { text-align: center; margin: 12rpx 0 4rpx; font-size: 22rpx; }
+
+/* 费用分摊面板 */
+.final-picker { flex: 1; text-align: right; }
+.picker-value { color: var(--text); font-size: 30rpx; }

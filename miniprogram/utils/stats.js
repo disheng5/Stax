@@ -27,4 +27,30 @@ function computeGameStats(games, openid) {
   return { totalGames, totalProfit, biggestWin, biggestLoss, wins, winRate }
 }
 
-module.exports = { gameScore, computeGameStats }
+const WEEKDAY_ORDER = {
+  周一: 1,
+  周二: 2,
+  周三: 3,
+  周四: 4,
+  周五: 5,
+  周六: 6,
+  周日: 7
+}
+
+function sortDimensionRows(rows, dimension) {
+  return (rows || []).slice().sort((a, b) => {
+    if (dimension === 'players' || dimension === 'rebuys') {
+      const numberDiff = (parseInt(a.key, 10) || 0) - (parseInt(b.key, 10) || 0)
+      if (numberDiff) return numberDiff
+    } else if (dimension === 'weekday') {
+      const dayDiff = (WEEKDAY_ORDER[a.key] || 99) - (WEEKDAY_ORDER[b.key] || 99)
+      if (dayDiff) return dayDiff
+    } else if (dimension === 'opponents') {
+      const sampleDiff = (Number(b.games) || 0) - (Number(a.games) || 0)
+      if (sampleDiff) return sampleDiff
+    }
+    return String(a.key || '').localeCompare(String(b.key || ''), 'zh-CN', { numeric: true })
+  })
+}
+
+module.exports = { gameScore, computeGameStats, sortDimensionRows }

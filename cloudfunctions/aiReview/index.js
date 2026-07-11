@@ -9,6 +9,10 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
+function normalizeExpenseMode(value) {
+  return ['winner', 'winnerRatio', 'winnerByRatio'].includes(value) ? 'winner' : 'all'
+}
+
 const PROVIDER = process.env.STAX_AI_PROVIDER || 'template'
 
 exports.main = async event => {
@@ -63,7 +67,7 @@ function buildFacts(game, viewerOpenid) {
     totalPot,
     totalRebuys,
     extraCost: game.extraCost || 0,
-    expenseMode: game.expenseMode || game.aaMode || 'none',
+    expenseMode: normalizeExpenseMode(game.expenseMode || game.aaMode),
     me: me
       ? { nickname: me.nickname, profit: me.finalProfit ?? me.profit, buyInCount: me.buyInCount }
       : null,

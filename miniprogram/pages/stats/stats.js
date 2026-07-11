@@ -1,6 +1,7 @@
 const app = getApp()
 const { formatProfit } = require('../../utils/format.js')
 const { fetchAllGames, getCacheVersion } = require('../../utils/game-data.js')
+const { sortDimensionRows } = require('../../utils/stats.js')
 
 Page({
   data: {
@@ -60,19 +61,21 @@ Page({
         if (profit > 0) groups[k].wins++
       })
     })
-    const dimData = Object.values(groups)
-      .map(g => ({
+    const dimData = sortDimensionRows(
+      Object.values(groups).map(g => ({
         ...g,
         avg: g.games ? Math.round(g.profit / g.games) : 0,
         winRate: g.games ? Math.round((g.wins * 1000) / g.games) / 10 : 0,
         profitFormatted: formatProfit(g.profit)
-      }))
-      .sort((a, b) => b.games - a.games)
+      })),
+      this.data.dim
+    )
     this.setData({ dimData })
   },
 
   onDimChange(e) {
-    this.setData({ dim: e.currentTarget.dataset.k })
-    this._computeDim(app.globalData.openid)
+    this.setData({ dim: e.currentTarget.dataset.k }, () => {
+      this._computeDim(app.globalData.openid)
+    })
   }
 })

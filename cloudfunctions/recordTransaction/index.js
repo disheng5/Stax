@@ -10,10 +10,31 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const OPERATION_ID_LIMIT = 50
+
+function normalizeOperationId(value) {
+  const id = typeof value === 'string' ? value.trim() : ''
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(id) ? id : ''
+}
+
+function hasOperation(game, operationId) {
+  return !!operationId && (game.recentOperationIds || []).includes(operationId)
+}
+
+function operationUpdate(game, operationId) {
+  if (!operationId) return {}
+  const ids = (game.recentOperationIds || []).filter(id => id !== operationId)
+  ids.push(operationId)
+  return { recentOperationIds: ids.slice(-OPERATION_ID_LIMIT) }
+}
+
+function operationMeta(operationId) {
+  return operationId ? { operationId } : {}
+}
 
 // 在事务中读取 game 文档并执行 fn；fn 返回业务结果。
 // 事务冲突由 runTransaction 自动重试（3 次），仍失败则返回 CONFLICT_RETRY。
-async function withGameTxn(gameId, fn) {
+async function withGameTxn(gameId, operationId, actorOpenid, fn) {
   try {
     return await db.runTransaction(async transaction => {
       const snap = await transaction
@@ -23,6 +44,11 @@ async function withGameTxn(gameId, fn) {
         .catch(() => null)
       if (!snap || !snap.data) return { ok: false, error: 'GAME_NOT_FOUND' }
       const game = snap.data
+      const isParticipant =
+        game.hostOpenid === actorOpenid ||
+        (game.players || []).some(player => player.openid === actorOpenid)
+      if (!isParticipant) return { ok: false, error: 'NOT_PLAYER' }
+      if (hasOperation(game, operationId)) return { ok: true, idempotent: true, operationId }
       if (game.status !== 'ongoing') return { ok: false, error: 'GAME_ENDED' }
       return await fn(transaction, game)
     }, 3)
@@ -34,7 +60,16 @@ async function withGameTxn(gameId, fn) {
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
-  const { gameId, type, playerOpenid, amount = 0, hands: handsInput, txId } = event
+  const {
+    gameId,
+    type,
+    playerOpenid,
+    amount: rawAmount = 0,
+    hands: handsInput,
+    txId
+  } = event
+  const amount = Number(rawAmount)
+  const operationId = normalizeOperationId(event.operationId)
 
   if (!gameId || !type) return { ok: false, error: 'INVALID_PARAMS' }
   const now = new Date()
@@ -42,10 +77,10 @@ exports.main = async event => {
   switch (type) {
   case 'rebuy':
   case 'addOn': {
-    if (amount <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
+    if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
     const targetOpenid = playerOpenid || OPENID
     let hands = 1
-    const res = await withGameTxn(gameId, async (transaction, game) => {
+    const res = await withGameTxn(gameId, operationId, OPENID, async (transaction, game) => {
       const isHost = game.hostOpenid === OPENID
       const isPlayer = (game.players || []).some(p => p.openid === OPENID)
       if (!isHost && !isPlayer) return { ok: false, error: 'NOT_PLAYER' }
@@ -55,12 +90,14 @@ exports.main = async event => {
       const idx = players.findIndex(p => p.openid === targetOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
       const buyIn = Number(game.buyIn) || 0
-      hands =
-          Number(handsInput) > 0
-            ? Math.floor(Number(handsInput))
-            : buyIn > 0
-              ? Math.max(1, Math.round(amount / buyIn))
-              : 1
+      hands = Math.min(
+        99,
+        Number(handsInput) > 0
+          ? Math.floor(Number(handsInput))
+          : buyIn > 0
+            ? Math.max(1, Math.round(amount / buyIn))
+            : 1
+      )
       players[idx] = {
         ...players[idx],
         buyInCount: players[idx].buyInCount + hands,
@@ -72,7 +109,11 @@ exports.main = async event => {
         .collection('games')
         .doc(gameId)
         .update({
-          data: { players, totalPot: (Number(game.totalPot) || 0) + amount }
+          data: {
+            players,
+            totalPot: (Number(game.totalPot) || 0) + amount,
+            ...operationUpdate(game, operationId)
+          }
         })
       const tx = await transaction.collection('transactions').add({
         data: {
@@ -84,7 +125,8 @@ exports.main = async event => {
           byHost: isHost,
           revoked: false,
           timestamp: now,
-          meta: { hands }
+          meta: { hands },
+          ...operationMeta(operationId)
         }
       })
       return { ok: true, isHost, txId: tx && tx._id }
@@ -94,7 +136,7 @@ exports.main = async event => {
 
   case 'revoke': {
     if (!txId) return { ok: false, error: 'TX_REQUIRED' }
-    return await withGameTxn(gameId, async (transaction, game) => {
+    return await withGameTxn(gameId, operationId, OPENID, async (transaction, game) => {
       if (game.hostOpenid !== OPENID) return { ok: false, error: 'NOT_HOST' }
       const txSnap = await transaction
         .collection('transactions')
@@ -124,13 +166,22 @@ exports.main = async event => {
         .collection('games')
         .doc(gameId)
         .update({
-          data: { players, totalPot: Math.max(0, (Number(game.totalPot) || 0) - tx.amount) }
+          data: {
+            players,
+            totalPot: Math.max(0, (Number(game.totalPot) || 0) - tx.amount),
+            ...operationUpdate(game, operationId)
+          }
         })
       await transaction
         .collection('transactions')
         .doc(txId)
         .update({
-          data: { revoked: true, revokedAt: now, revokedBy: OPENID }
+          data: {
+            revoked: true,
+            revokedAt: now,
+            revokedBy: OPENID,
+            ...(operationId ? { revokeOperationId: operationId } : {})
+          }
         })
       return { ok: true }
     })
@@ -141,7 +192,7 @@ exports.main = async event => {
     // 后续结算差额 / AA / 转账 / 战绩 / 赛季积分天然不再包含该玩家。
     // 快照存入 removedPlayers 供流水显示昵称与审计。
     let removed = null
-    const res = await withGameTxn(gameId, async (transaction, game) => {
+    const res = await withGameTxn(gameId, operationId, OPENID, async (transaction, game) => {
       if (game.hostOpenid !== OPENID) return { ok: false, error: 'NOT_HOST' }
       if (playerOpenid === game.hostOpenid) return { ok: false, error: 'CANT_ELIMINATE_HOST' }
       const players = game.players.slice()
@@ -160,7 +211,8 @@ exports.main = async event => {
             removedPlayers: [
               ...(game.removedPlayers || []),
               { ...removed, removedAt: now, removedBy: OPENID }
-            ]
+            ],
+            ...operationUpdate(game, operationId)
           }
         })
       const tx = await transaction.collection('transactions').add({
@@ -176,7 +228,8 @@ exports.main = async event => {
           meta: {
             nickname: removed.nickname || '',
             removedBuyIn
-          }
+          },
+          ...operationMeta(operationId)
         }
       })
       return { ok: true, txId: tx && tx._id }
@@ -185,7 +238,7 @@ exports.main = async event => {
   }
 
   case 'pauseToggle': {
-    return await withGameTxn(gameId, async (transaction, game) => {
+    return await withGameTxn(gameId, operationId, OPENID, async (transaction, game) => {
       if (game.hostOpenid !== OPENID) return { ok: false, error: 'NOT_HOST' }
       const paused = !game.paused
       const update = { paused }
@@ -195,20 +248,26 @@ exports.main = async event => {
         update.pausedAccumMs = (game.pausedAccumMs || 0) + (now - new Date(game.pausedAt))
         update.pausedAt = null
       }
+      Object.assign(update, operationUpdate(game, operationId))
       await transaction.collection('games').doc(gameId).update({ data: update })
       return { ok: true, paused }
     })
   }
 
   case 'levelUp': {
-    return await withGameTxn(gameId, async (transaction, game) => {
+    return await withGameTxn(gameId, operationId, OPENID, async (transaction, game) => {
       if (game.hostOpenid !== OPENID) return { ok: false, error: 'NOT_HOST' }
       const next = Math.min((game.currentLevel || 0) + 1, game.blindStructure.length - 1)
       await transaction
         .collection('games')
         .doc(gameId)
         .update({
-          data: { currentLevel: next, levelStartedAt: now, pausedAccumMs: 0 }
+          data: {
+            currentLevel: next,
+            levelStartedAt: now,
+            pausedAccumMs: 0,
+            ...operationUpdate(game, operationId)
+          }
         })
       return { ok: true, level: next }
     })

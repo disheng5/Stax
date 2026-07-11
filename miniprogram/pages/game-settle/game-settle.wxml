@@ -11,8 +11,8 @@
   <view class="card progress-card">
     <view class="title">下桌结算</view>
     <view class="text-sub" wx:if="{{!isHost}}">填写手头积分，提交后所有人可见差额。</view>
-    <view class="text-sub" wx:elif="{{!allSettled}}">等所有人填完积分，确认水平后处理费用结束对局。</view>
-    <view class="text-sub" wx:else>所有人已下桌，确认水平后可结束对局。</view>
+    <view class="text-sub" wx:elif="{{!allSettled}}">所有人填完积分后自动收局；差额可在结束后 3 小时内修改。</view>
+    <view class="text-sub" wx:else>所有人已提交，收局后 3 小时内仍可修改。</view>
   </view>
 
   <view class="card {{submitted ? 'muted-card' : ''}}">
@@ -22,7 +22,7 @@
         <view class="name">{{item.nickname}}</view>
         <view class="text-sub">买了 {{item.buyInCount}} 手 · 总积分 {{item.totalBuyIn}}</view>
       </view>
-      <input class="num" type="digit" data-openid="{{item.openid}}" value="{{finalStacks[item.openid]}}" bindinput="onStackInput" disabled="{{!isHost && item.openid !== myOpenid}}" placeholder="待填" />
+      <input class="num" type="digit" data-openid="{{item.openid}}" value="{{finalStacks[item.openid]}}" bindinput="onStackInput" disabled="{{false}}" placeholder="待填" />
       <view wx:if="{{item.hasFinal}}" class="profit {{item.profit > 0 ? 'text-gain' : item.profit < 0 ? 'text-loss' : 'text-sub'}}">{{item.profit > 0 ? '+' : ''}}{{item.profit}}</view>
       <view wx:else class="profit text-sub">待下桌</view>
     </view>
@@ -33,7 +33,7 @@
       <text wx:if="{{diff === 0 && allSettled}}" class="text-success"> 水平</text>
     </view>
     <view class="text-sub" wx:if="{{!allSettled}}">等所有玩家填写后自动检查</view>
-    <view class="text-sub" wx:elif="{{diff !== 0}}">差额须为 0 才能结束对局</view>
+    <view class="text-sub" wx:elif="{{diff !== 0}}">差额不为 0，可先收局、3 小时内修正</view>
   </view>
 
   <view class="card {{submitted ? 'muted-card' : ''}}" wx:if="{{isHost}}">
@@ -70,7 +70,7 @@
 
   <view class="actions" wx:if="{{!submitted}}">
     <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">
-      {{isHost && allSettled && diff === 0 ? '结束对局' : '提交积分'}}
+      提交积分
     </button>
   </view>
 
