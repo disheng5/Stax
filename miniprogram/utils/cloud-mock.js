@@ -734,14 +734,12 @@ const handlers = {
       p => p.finalStack !== null && p.finalStack !== undefined
     ).length
     const writesTransactions = submittedOpenids.length > 0
-    const prevExtraCost = Number(game.extraCost) || 0
-    const expenseChanged = hasExtraCost && effExtraCost !== prevExtraCost
-    const emitsTransactions = writesTransactions || (mode === 'expense' && expenseChanged)
+    const emitsTransactions = writesTransactions
     const prevPlayers = game.players || []
     const seqBase = Math.max(0, Number(game.txSeq) || 0)
     let seqCursor = seqBase
     const operatorNickname = mockNickname(game, MY_OPENID)
-    const txCount = submittedOpenids.length + (mode === 'expense' && expenseChanged ? 1 : 0)
+    const txCount = submittedOpenids.length
     const update = {
       players,
       extraCost: effExtraCost,
@@ -785,27 +783,7 @@ const handlers = {
         }
       })
     }
-    if (mode === 'expense' && expenseChanged) {
-      seqCursor++
-      await db.collection('transactions').add({
-        data: {
-          gameId,
-          type: 'expense',
-          playerOpenid: MY_OPENID,
-          amount: effExtraCost,
-          operatorOpenid: MY_OPENID,
-          operatorNicknameSnapshot: operatorNickname,
-          byHost: game.hostOpenid === MY_OPENID,
-          revoked: false,
-          timestamp: now,
-          operationSequence: seqCursor,
-          beforeValue: prevExtraCost,
-          afterValue: effExtraCost,
-          meta: { expenseMode: effExpenseMode },
-          ...(operationId ? { operationId } : {})
-        }
-      })
-    }
+    // 费用分摊只在费用块呈现，不在流水另记一条（与线上一致）。
     return {
       ok: true,
       ended,
@@ -1219,6 +1197,8 @@ const handlers = {
       .filter(g => {
         if (g.status !== 'ended') return false
         if (!(g.players || []).some(p => p.openid === MY_OPENID)) return false
+        // 已删除（对本人隐藏）的记录不出现在任何列表里
+        if ((g.hiddenForOpenids || []).includes(MY_OPENID)) return false
         if (start && end) {
           const t = new Date(g.endedAt)
           if (!(t >= start && t < end)) return false

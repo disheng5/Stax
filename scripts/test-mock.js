@@ -362,9 +362,11 @@ function step(name, fn) {
   await step('费用分摊：expense 模式（MVP 买单）与保留已存设置', async () => {
     // 设置费用：MVP 买单 → 唯一赢家 me 承担全部
     const beforeGame = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
-    const beforeRevision = beforeGame.txRevision
     const beforeStateRevision = beforeGame.stateRevision
     const beforeSeq = beforeGame.txSeq || 0
+    const beforeTxCount = cloudMock
+      .getDb()
+      ._raw.transactions.filter(t => t.gameId === gameId).length
     const r = await wx.cloud.callFunction({
       name: 'settleGame',
       data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
@@ -372,24 +374,19 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true)
     assert.strictEqual(r.result.game.expenseMode, 'mvp')
     assert.strictEqual(r.result.game.players[0].share, 30)
-    assert.strictEqual(
-      r.result.game.txRevision,
-      beforeRevision + 1,
-      '费用修改应留一条可审计流水并推进流水版本'
-    )
-    assert.strictEqual(r.result.game.txSeq, beforeSeq + 1, '费用修改应占用一个流水顺序号')
+    // 纯费用变更不再生成流水，也不占用流水顺序号，仅推进 stateRevision
+    assert.strictEqual(r.result.game.txSeq, beforeSeq, '纯费用变更不应占用流水顺序号')
     assert.strictEqual(
       r.result.game.stateRevision,
       beforeStateRevision + 1,
       '费用修改应推进房间状态版本，确保多端按顺序校准'
     )
+    const afterTxCount = cloudMock.getDb()._raw.transactions.filter(t => t.gameId === gameId).length
+    assert.strictEqual(afterTxCount, beforeTxCount, '费用变更不得新增任何流水')
     const expenseTx = cloudMock
       .getDb()
       ._raw.transactions.filter(t => t.gameId === gameId && t.type === 'expense')
-    assert.strictEqual(expenseTx.length, 1, '费用修改应生成一条 expense 流水')
-    assert.strictEqual(expenseTx[0].beforeValue, 0)
-    assert.strictEqual(expenseTx[0].afterValue, 30)
-    assert.ok(expenseTx[0].operatorOpenid, '费用流水应记录操作人')
+    assert.strictEqual(expenseTx.length, 0, '费用修改不应生成 expense 流水')
     // 之后的 checkout 不带费用参数，不应把费用清零
     const edit = await wx.cloud.callFunction({
       name: 'settleGame',

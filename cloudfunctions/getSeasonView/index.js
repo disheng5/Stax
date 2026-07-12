@@ -61,7 +61,9 @@ async function fetchMyGames(viewerOpenid, season) {
     { status: 'ended' },
     { players: _.elemMatch({ openid: viewerOpenid }) },
     { endedAt: _.gte(start) },
-    { endedAt: _.lt(end) }
+    { endedAt: _.lt(end) },
+    // 已删除（对本人隐藏）的记录不出现在任何列表里
+    { hiddenForOpenids: _.nin([viewerOpenid]) }
   ]
   const res = await db
     .collection('games')

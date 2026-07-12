@@ -98,12 +98,9 @@
           wx:for="{{tx.detailParts}}"
           wx:for-item="part"
           wx:key="key"
-          class="{{part.emphasis ? 'tx-detail-number' : ''}}"
+          class="tx-part {{part.weight === 'strong' ? 'tx-strong' : ''}} {{part.weight === 'delta' ? 'tx-delta' : ''}} {{part.dim ? 'tx-dim' : ''}} {{part.operator ? 'tx-operator' : ''}}"
         >{{part.text}}</text>
       </text>
-      <text class="tx-operator" wx:if="{{tx.operatorSuffix}}">{{tx.operatorSuffix}}</text>
-      <text class="tx-before-after" wx:if="{{tx.beforeAfter}}">{{tx.beforeAfter}}</text>
-      <text class="tx-revoked" wx:if="{{tx.revoked}}">已撤销</text>
     </view>
   </view>
 

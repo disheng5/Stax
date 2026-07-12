@@ -473,13 +473,12 @@ exports.main = async event => {
         p => p.finalStack !== null && p.finalStack !== undefined
       ).length
       const writesTransactions = submittedOpenids.length > 0
-      const prevExtraCost = Number(game.extraCost) || 0
-      const expenseChanged = hasExtraCost && effExtraCost !== prevExtraCost
-      const emitsTransactions = writesTransactions || (mode === 'expense' && expenseChanged)
+      // 费用变更不再生成流水，仅结算会写流水；纯费用变更只推进 stateRevision。
+      const emitsTransactions = writesTransactions
       const seqBase = Math.max(0, Number(game.txSeq) || 0)
       let seqCursor = seqBase
       const operatorNickname = (game.players || []).find(p => p.openid === OPENID)?.nickname || ''
-      const txCount = submittedOpenids.length + (mode === 'expense' && expenseChanged ? 1 : 0)
+      const txCount = submittedOpenids.length
       const update = {
         players,
         extraCost: effExtraCost,
@@ -530,28 +529,7 @@ exports.main = async event => {
           }
         })
       }
-      // 仅修改费用（不含结算）时也留一条可审计流水，展示前后值与操作人。
-      if (mode === 'expense' && expenseChanged) {
-        seqCursor++
-        await transaction.collection('transactions').add({
-          data: {
-            gameId,
-            type: 'expense',
-            playerOpenid: OPENID,
-            amount: effExtraCost,
-            operatorOpenid: OPENID,
-            operatorNicknameSnapshot: operatorNickname,
-            byHost: isHost,
-            revoked: false,
-            timestamp: now,
-            operationSequence: seqCursor,
-            beforeValue: prevExtraCost,
-            afterValue: effExtraCost,
-            meta: { expenseMode: effExpenseMode },
-            ...(operationId ? { operationId } : {})
-          }
-        })
-      }
+      // 费用分摊只在"费用分摊信息块"呈现，不在流水里另记一条，避免与费用块重复。
       // active 与结算数学同源返回，后续统计不再各自过滤（避免口径漂移）
       const activeFinal = players.filter(p => !p.eliminatedAt)
       return {

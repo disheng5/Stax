@@ -16,20 +16,13 @@ const {
   transactionDetailParts,
   transactionDetailText,
   transactionHandState,
+  transactionTypeLabel,
+  operatorSuffixPart,
   sortTransactions,
   mergeTransactions
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
-
-const TX_TYPE_LABEL = {
-  buyIn: '入场',
-  rebuy: '买入',
-  addOn: '买入',
-  eliminate: '移出',
-  settle: '结算',
-  settlePartial: '结算'
-}
 
 const TX_TYPE_CLASS = {
   buyIn: 'entry',
@@ -580,29 +573,20 @@ Page({
         : ''
       const hands = handState[tx._id]?.hands || 0
       const accHands = handState[tx._id]?.accHands || 0
-      const operatorSuffix =
-        tx.operatorOpenid && tx.operatorOpenid !== tx.playerOpenid
-          ? `由 ${tx.operatorNicknameSnapshot || nameMap[tx.operatorOpenid] || ''}`
-          : ''
-      const beforeAfter =
-        tx.beforeValue !== null &&
-        tx.beforeValue !== undefined &&
-        tx.afterValue !== null &&
-        tx.afterValue !== undefined
-          ? `${tx.beforeValue} → ${tx.afterValue}`
-          : ''
+      // 操作人后缀合并进明细，本人操作不显示；展示优先用最新资料
+      const parts = transactionDetailParts(tx, hands, accHands)
+      const opPart = operatorSuffixPart(tx, openid => nameMap[openid])
+      const detailParts = opPart ? [...parts, opPart] : parts
       return {
         ...tx,
         nickname: nameMap[tx.playerOpenid] || tx.meta?.nickname || '某玩家',
         hands,
         accHands,
         timeStr,
-        typeLabel: TX_TYPE_LABEL[tx.type] || '记录',
+        typeLabel: transactionTypeLabel(tx),
         typeClass: TX_TYPE_CLASS[tx.type] || 'settle',
         detail: transactionDetailText(tx, hands, accHands),
-        detailParts: transactionDetailParts(tx, hands, accHands),
-        operatorSuffix,
-        beforeAfter
+        detailParts
       }
     })
     this.setData({ recentTx })

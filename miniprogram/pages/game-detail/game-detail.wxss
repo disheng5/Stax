@@ -145,14 +145,13 @@
 
 .tx {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12rpx;
   min-height: 48rpx;
-  padding: 4rpx 0;
+  padding: 8rpx 0;
   border-bottom: 1rpx solid var(--border);
   font-size: 24rpx;
-  line-height: 34rpx;
-  white-space: nowrap;
+  line-height: 32rpx;
 }
 
 .tx:last-child {
@@ -197,37 +196,36 @@
   overflow: hidden;
   color: var(--text-sub);
   font-size: 22rpx;
-  text-overflow: ellipsis;
+  /* 常规一行；空间不足时允许代记人换到第二行，关键数字不截断 */
+  white-space: normal;
+  word-break: break-word;
 }
 
-.tx-detail-number {
-  display: inline-block;
-  margin: 0 3rpx;
+/* 明细各段字重（Section 二）：最终值 700 / 变化量 600 / 变化前·箭头·单位 正常+次要色 */
+.tx-part {
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-strong {
   color: var(--text);
   font-size: 24rpx;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
-.tx-revoked {
-  flex-shrink: 0;
+.tx-delta {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tx-dim {
   color: var(--text-sub);
-  font-size: 22rpx;
+  font-weight: 400;
 }
 
 .tx-operator {
-  flex-shrink: 0;
   color: var(--text-sub);
-  font-size: 22rpx;
-  margin-left: 8rpx;
-}
-
-.tx-before-after {
-  flex-shrink: 0;
-  color: var(--text-sub);
-  font-size: 22rpx;
-  font-variant-numeric: tabular-nums;
-  margin-left: 8rpx;
+  font-weight: 400;
+  margin-left: 6rpx;
 }
 
 .expense-block {
