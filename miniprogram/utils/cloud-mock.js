@@ -9,6 +9,8 @@ const { buildSeed, MY_OPENID } = require('./mock-data.js')
 const { computeShares } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
 const { recoverLegacyNickname } = require('./game-name.js')
+const { buildSeasonView } = require('./season-view.js')
+const { computeAnalytics, buildTrendNote } = require('./analytics.js')
 
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 const meaningfulNickname = value => {
@@ -1195,6 +1197,115 @@ const handlers = {
       excluded: !!exclude,
       legacy
     }
+  },
+
+  async getSeasonView(event = {}) {
+    const { circleId } = event || {}
+    if (!circleId) return { ok: false, error: 'INVALID_PARAMS' }
+    const raw = getDb()._raw
+    const circle = (raw.circles || []).find(c => c._id === circleId)
+    if (!circle) return { ok: false, error: 'CIRCLE_NOT_FOUND' }
+    const memberOpenids = circle.memberOpenids || []
+    if (!memberOpenids.includes(MY_OPENID)) return { ok: false, error: 'NOT_MEMBER' }
+    const seasonId = event.seasonId || circle.currentSeasonId
+    const season = seasonId ? (raw.seasons || []).find(s => s._id === seasonId) || null : null
+    const memberProfiles = memberOpenids.map(openid => {
+      const u = (raw.users || []).find(x => x._openid === openid) || {}
+      return {
+        openid,
+        nickname: u.nickname || '',
+        avatar: u.avatar || '',
+        profileUpdatedAt: u.updatedAt || u.profileUpdatedAt || u.createdAt || ''
+      }
+    })
+    const excluded = new Set(season?.excludedGameIds || [])
+    const start = season ? new Date(season.startAt) : null
+    const end = season ? new Date(season.endAt) : null
+    const myGames = (raw.games || [])
+      .filter(g => {
+        if (g.status !== 'ended') return false
+        if (!(g.players || []).some(p => p.openid === MY_OPENID)) return false
+        if (start && end) {
+          const t = new Date(g.endedAt)
+          if (!(t >= start && t < end)) return false
+        }
+        return true
+      })
+      .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt))
+      .map(g => {
+        const active = (g.players || []).filter(p => !p.eliminatedAt)
+        const me = active.find(p => p.openid === MY_OPENID)
+        return {
+          _id: g._id,
+          name: g.name || '',
+          playerCount: active.length,
+          startedAt: g.startedAt,
+          endedAt: g.endedAt,
+          myProfit: me ? Number(me.finalProfit ?? me.profit) || 0 : 0,
+          counted: !excluded.has(g._id) && !g.excludeFromSeason
+        }
+      })
+    return buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: MY_OPENID })
+  },
+
+  async getMyAnalytics() {
+    const raw = getDb()._raw
+    const games = (raw.games || []).filter(
+      g =>
+        g.status === 'ended' &&
+        (g.players || []).some(p => p.openid === MY_OPENID) &&
+        !(g.hiddenForOpenids || []).includes(MY_OPENID)
+    )
+    const analytics = computeAnalytics(games, MY_OPENID)
+    const scores = games
+      .slice()
+      .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
+      .map(g => {
+        const me = (g.players || []).find(p => p.openid === MY_OPENID)
+        if (!me) return null
+        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
+        return Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
+      })
+      .filter(s => s !== null)
+    const recent = scores.slice(-5)
+    const prev = scores.slice(-10, -5)
+    const recentSum = recent.reduce((s, v) => s + v, 0)
+    const prevSum = prev.reduce((s, v) => s + v, 0)
+    const best = scores.length ? Math.max(...scores) : 0
+    const worst = scores.length ? Math.min(...scores) : 0
+    const direction = recentSum > prevSum ? 'up' : recentSum < prevSum ? 'down' : 'flat'
+    const signals = { sampleCount: scores.length, recentSum, prevSum, best, worst, direction }
+    return {
+      ok: true,
+      stats: analytics.stats,
+      dimensions: analytics.dimensions,
+      trend: { recentSum, prevSum, best, worst, direction },
+      note: buildTrendNote(signals),
+      meta: analytics.meta
+    }
+  },
+
+  async getGameView(event = {}) {
+    const { gameId, inviteCode } = event || {}
+    if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
+    const raw = getDb()._raw
+    const game = (raw.games || []).find(g => g._id === gameId)
+    if (!game) return { ok: false, error: 'GAME_NOT_FOUND' }
+    const isPlayer =
+      game.hostOpenid === MY_OPENID || (game.players || []).some(p => p.openid === MY_OPENID)
+    const codeMatches =
+      !!inviteCode && !!game.inviteCode && String(inviteCode).toUpperCase() === game.inviteCode
+    const ended = game.status === 'ended'
+    if (isPlayer) return { ok: true, role: 'player', game: { ...game }, canJoin: false }
+    if (codeMatches) {
+      return {
+        ok: true,
+        role: ended ? 'viewerEnded' : 'viewer',
+        game: { ...game },
+        canJoin: !ended
+      }
+    }
+    return { ok: false, error: 'NOT_AUTHORIZED' }
   },
 
   async removeCircleMember({ circleId, targetOpenid }) {

@@ -1,0 +1,9 @@
+{
+  "name": "getMyAnalytics",
+  "version": "1.0.0",
+  "description": "个人统计 + 维度 + 趋势札记（只读聚合）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.0"
+  }
+}

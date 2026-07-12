@@ -1,0 +1,9 @@
+{
+  "name": "getGameView",
+  "version": "1.0.0",
+  "description": "记录详情按身份裁剪（只读，新分享直达）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.0"
+  }
+}

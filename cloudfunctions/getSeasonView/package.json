@@ -1,0 +1,9 @@
+{
+  "name": "getSeasonView",
+  "version": "1.0.0",
+  "description": "赛季隐私视图（只读聚合，服务端裁剪）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~3.0.0"
+  }
+}

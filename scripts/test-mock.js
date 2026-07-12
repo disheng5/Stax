@@ -576,6 +576,78 @@ function step(name, fn) {
     assert.ok(!circle.memberOpenids.includes('mock_bob'))
     assert.ok(!season.rankings.some(r => r.openid === 'mock_bob'))
     assert.ok(season.rankings.every(r => r.openid !== 'mock_bob'))
+
+    // 只读隐私视图：getSeasonView 只露头像/昵称/名次，本人数据仅本人
+    const view = await wx.cloud.callFunction({ name: 'getSeasonView', data: { circleId } })
+    assert.strictEqual(view.result.ok, true)
+    assert.strictEqual(view.result.isMember, true)
+    assert.strictEqual(view.result.isOwner, true, '创建者应为 owner')
+    view.result.honors.forEach(h => {
+      assert.ok(h.rank >= 1 && h.rank <= 3, '荣誉仅前三')
+      assert.strictEqual(h.profitBB, undefined, '荣誉不得外泄他人盈亏')
+      assert.strictEqual(h.games, undefined, '荣誉不得外泄他人场次')
+    })
+    view.result.members.forEach(m => {
+      assert.ok('nickname' in m && 'avatar' in m, '成员应有昵称/头像')
+      assert.strictEqual(m.profitBB, undefined, '成员不得外泄盈亏')
+      assert.strictEqual(m.winRate, undefined, '成员不得外泄胜率')
+    })
+    assert.ok(
+      view.result.me === null || typeof view.result.me.winRate === 'number',
+      '本人数据仅本人可见'
+    )
+    assert.ok(Array.isArray(view.result.ownerReview), 'owner 应得到复盘视图')
+    view.result.ownerReview.forEach(r => {
+      assert.strictEqual(r.name, undefined, 'owner 复盘不得含名称')
+      assert.strictEqual(r.players, undefined, 'owner 复盘不得含玩家')
+      assert.ok('shortId' in r && 'compliant' in r, 'owner 复盘只含短号/合规等审计字段')
+    })
+
+    // 非成员不得从新入口获取记录
+    const raw2 = cloudMock.getDb()._raw
+    const savedMembers = circle.memberOpenids.slice()
+    circle.memberOpenids = savedMembers.filter(o => o !== 'mock_me')
+    const denied = await wx.cloud.callFunction({ name: 'getSeasonView', data: { circleId } })
+    assert.strictEqual(denied.result.ok, false)
+    assert.strictEqual(denied.result.error, 'NOT_MEMBER', '非成员应被拒绝')
+    circle.memberOpenids = savedMembers
+
+    // getMyAnalytics：本人聚合可重算，对手维度不含盈亏
+    const analytics = await wx.cloud.callFunction({ name: 'getMyAnalytics', data: {} })
+    assert.strictEqual(analytics.result.ok, true)
+    assert.ok(typeof analytics.result.stats.winRate === 'number')
+    assert.ok(analytics.result.trend && 'direction' in analytics.result.trend)
+    ;(analytics.result.dimensions.opponents || []).forEach(o => {
+      assert.strictEqual(o.profit, undefined, '对手维度不得含盈亏')
+    })
+
+    // getGameView：参与者可见，非授权者拒绝
+    const gv = await wx.cloud.callFunction({
+      name: 'getGameView',
+      data: { gameId: 'rank_game_1' }
+    })
+    assert.strictEqual(gv.result.ok, true)
+    assert.strictEqual(gv.result.role, 'player')
+    raw2.games.push({
+      _id: 'game_not_mine',
+      status: 'ongoing',
+      inviteCode: 'ZZ9988',
+      hostOpenid: 'mock_bob',
+      players: [{ openid: 'mock_bob', nickname: 'Bob' }]
+    })
+    const gvDenied = await wx.cloud.callFunction({
+      name: 'getGameView',
+      data: { gameId: 'game_not_mine' }
+    })
+    assert.strictEqual(gvDenied.result.ok, false)
+    assert.strictEqual(gvDenied.result.error, 'NOT_AUTHORIZED')
+    const gvViewer = await wx.cloud.callFunction({
+      name: 'getGameView',
+      data: { gameId: 'game_not_mine', inviteCode: 'zz9988' }
+    })
+    assert.strictEqual(gvViewer.result.ok, true)
+    assert.strictEqual(gvViewer.result.role, 'viewer')
+    assert.strictEqual(gvViewer.result.canJoin, true, '进行中局受分享人可加入')
   })
 
   await step('数据库 watch 能收到推送', async () => {
