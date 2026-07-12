@@ -52,6 +52,7 @@ Page({
       if (cached.length) this._applyGames(openid, cached)
       const filtered = await fetchAllGames(openid, { force })
       this._applyGames(openid, filtered)
+      this._fetchAnalytics()
       this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)
@@ -76,13 +77,45 @@ Page({
         durationStr: formatDuration(dur)
       }
     })
-    // 原始牌局（含完整 players）留在实例字段供维度分析用，不进 setData
     this._rawGames = filtered
     this.setData({ games, loading: false })
-    this._computeStats(openid, filtered)
     this._computeChart(openid, filtered)
-    this._computeDim(openid)
-    this._computeAiSummary(filtered, openid)
+    // 统计、维度、趋势札记优先由 getMyAnalytics 提供（服务端聚合），仅做本地兜底
+    if (!this._analyticsApplied) {
+      this._computeStats(openid, filtered)
+      this._computeDim(openid)
+      this._computeAiSummary(filtered, openid)
+    }
+  },
+
+  // 服务端聚合：stats/dimensions/trend/note 由 getMyAnalytics 一次性返回
+  async _fetchAnalytics() {
+    try {
+      const res = await wx.cloud.callFunction({ name: 'getMyAnalytics', data: {} })
+      const r = res && res.result
+      if (!r || !r.ok) return
+      this._analyticsApplied = true
+      this._analyticsDims = r.dimensions || {}
+      this.setData({ stats: r.stats })
+      this._applyAnalyticsDim()
+      if (r.note && r.note.enough) {
+        this.setData({
+          aiSummary: [r.note.observation, r.note.perspective, r.note.action].filter(Boolean)
+        })
+      }
+    } catch (_) {}
+  },
+
+  _applyAnalyticsDim() {
+    const rows = (this._analyticsDims && this._analyticsDims[this.data.dim]) || []
+    this.setData({
+      dimData: rows.map(g => ({
+        ...g,
+        avg: g.games ? Math.round((g.profit || 0) / g.games) : 0,
+        winRate: g.games ? Math.round(((g.wins || 0) * 1000) / g.games) / 10 : 0,
+        profitStr: formatProfit(g.profit || 0)
+      }))
+    })
   },
 
   _computeStats(openid, games) {
@@ -192,21 +225,22 @@ Page({
     const worst = Math.min(...scores)
     const trend =
       prev5.length && recent > prev
-        ? '近 5 场回升，进攻选择比上一段更有效。'
+        ? '近段节奏比前一段更顺，关注决策质量是否可持续。'
         : prev5.length && recent < prev
-          ? '近 5 场承压，建议先收窄入池范围。'
+          ? '近段有所回落，单局波动是正常表现，不足以定义长期水平。'
           : '样本正在累积，先保持稳定记录。'
     this.setData({
-      aiSummary: [
-        trend,
-        `单场波动区间 ${formatProfit(worst)} 到 ${formatProfit(best)}，复盘时优先看极值局。`
-      ]
+      aiSummary: [trend, `单场波动区间 ${formatProfit(worst)} 到 ${formatProfit(best)}。`]
     })
   },
 
   onDimChange(e) {
     this.setData({ dim: e.currentTarget.dataset.k }, () => {
-      this._computeDim(app.globalData.openid)
+      if (this._analyticsApplied) {
+        this._applyAnalyticsDim()
+      } else {
+        this._computeDim(app.globalData.openid)
+      }
     })
   },
 

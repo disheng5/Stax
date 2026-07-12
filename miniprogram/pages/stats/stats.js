@@ -24,15 +24,43 @@ Page({
       await app.globalData.openidReady
       const openid = app.globalData.openid
       if (!openid) return
-      // 原始牌局留在实例字段，不把完整 players 数组塞进 setData
-      this._rawGames = await fetchAllGames(openid)
-      this._computeDim(openid)
+      // 优先服务端聚合（不下发无关玩家数组）；失败则本地兜底
+      const applied = await this._fetchAnalytics()
+      if (!applied) {
+        this._rawGames = await fetchAllGames(openid)
+        this._computeDim(openid)
+      }
       this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  async _fetchAnalytics() {
+    try {
+      const res = await wx.cloud.callFunction({ name: 'getMyAnalytics', data: {} })
+      const r = res && res.result
+      if (!r || !r.ok) return false
+      this._analyticsDims = r.dimensions || {}
+      this._applyAnalyticsDim()
+      return true
+    } catch (_) {
+      return false
+    }
+  },
+
+  _applyAnalyticsDim() {
+    const rows = (this._analyticsDims && this._analyticsDims[this.data.dim]) || []
+    this.setData({
+      dimData: rows.map(g => ({
+        ...g,
+        avg: g.games ? Math.round((g.profit || 0) / g.games) : 0,
+        winRate: g.games ? Math.round(((g.wins || 0) * 1000) / g.games) / 10 : 0,
+        profitFormatted: formatProfit(g.profit || 0)
+      }))
+    })
   },
 
   _computeDim(openid) {
@@ -75,7 +103,11 @@ Page({
 
   onDimChange(e) {
     this.setData({ dim: e.currentTarget.dataset.k }, () => {
-      this._computeDim(app.globalData.openid)
+      if (this._analyticsDims) {
+        this._applyAnalyticsDim()
+      } else {
+        this._computeDim(app.globalData.openid)
+      }
     })
   }
 })
