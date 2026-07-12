@@ -862,42 +862,36 @@ const handlers = {
     if (durationMin)
       lines.push(
         pick([
-          `${durationMin} 分钟，${facts.playerCount} 个人，桌上发生的事比《孙子兵法》还精彩。`,
-          `${durationMin} 分钟一场，${facts.playerCount} 人围炉夜话，话题只有一个：「为什么是我」。`
+          `${durationMin} 分钟，${facts.playerCount} 个人，一起把一个晚上认真地过完了。`,
+          `${durationMin} 分钟一局，${facts.playerCount} 人同桌，牌是媒介，人才是主角。`
         ])
       )
-    else lines.push(`${facts.playerCount} 人闪击战，一杯茶还没凉，账已经算完。`)
+    else lines.push(`${facts.playerCount} 人小聚，节奏不快，重在同桌。`)
     if (facts.bigWinner) {
       const w = facts.bigWinner
       const wPct = totalPot ? Math.round((w.profit / totalPot) * 100) : 0
       lines.push(
         pick([
-          `今晚 MVP：${w.nickname}，独吞 ${w.profit}（约 ${wPct}% 总池），孙子说"善战者，致人而不致于人"，说的就是他。`,
-          `${w.nickname} +${w.profit}，赢得不像兵法，倒像玄学，下次记得带上他。`
+          `今晚状态最好的是 ${w.nickname}（约占总池 ${wPct}%）。顺手的时候，节奏往往比运气更值得留意。`,
+          `${w.nickname} 今晚发挥出色。结果在短期里很响，决策质量通常更安静。`
         ])
       )
     }
-    if (facts.bigLoser)
-      lines.push(
-        pick([
-          `${facts.bigLoser.nickname} ${facts.bigLoser.profit}，输得最稳的人往往是下次最稳的赢家。`,
-          `心态奖颁给 ${facts.bigLoser.nickname}：${facts.bigLoser.profit}，下次记住"小敌之坚，大敌之擒也"，别硬刚。`
-        ])
-      )
-    if (totalRebuys >= facts.playerCount * 2)
-      lines.push(`全场补了 ${totalRebuys} 次码，人均两轮起步，今晚的 ATM 不是机器，是你们。`)
-    else if (totalRebuys >= facts.playerCount)
-      lines.push(`全场 ${totalRebuys} 次补码，谁也不肯先认怂。`)
-    else if (totalRebuys === 0) lines.push('全场零补码，要么紧得像保险柜，要么牌不肯给力。')
+    if (totalRebuys >= facts.playerCount)
+      lines.push(`全场补了 ${totalRebuys} 次码，牌局节奏偏活跃，大家都愿意再试试手感。`)
+    else if (totalRebuys === 0) lines.push('全场零补码，整体偏稳健——稳定本身也是一种风格。')
     if (me) {
       const v = me.finalProfit ?? me.profit
-      if (v > 0) lines.push(`你今晚 +${v}，宵夜随便点，"兵贵胜，不贵久"，及时收手最帅。`)
-      else if (v < 0) lines.push(`你今晚 ${v}，没事，"多算胜，少算不胜"，下次先算完再下注。`)
-      else lines.push('你今晚账面持平，不输就是赢，回家睡个好觉。')
+      if (v > 0) lines.push(`你今晚 +${v}，是不错的一晚。可以留意哪一手的放弃事后觉得最正确。`)
+      else if (v < 0)
+        lines.push(
+          `你今晚 ${v}。单局结果的波动是正常表现，不足以定义长期水平；下一次只观察一个可控变量就好。`
+        )
+      else lines.push('你今晚账面持平，重在同桌的这段时间。')
     }
     if (facts.extraCost > 0) {
-      const label = facts.expenseMode === 'winner' ? '水上 AA' : '全员 AA'
-      lines.push(`其他费用 ${facts.extraCost} 按「${label}」记账，不进盈亏，结账请坦坦荡荡。`)
+      const label = facts.expenseMode === 'winner' ? '水上比例' : '全员均摊'
+      lines.push(`其他费用 ${facts.extraCost} 按「${label}」记账，不计入盈亏。`)
     }
     return { ok: true, facts, review: lines.join(' ').slice(0, 320), provider: 'template' }
   },

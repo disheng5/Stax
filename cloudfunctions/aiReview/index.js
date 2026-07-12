@@ -8,6 +8,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const { hasForbiddenWording } = require('./wording.js')
 
 function normalizeExpenseMode(value) {
   return ['winner', 'winnerRatio', 'winnerByRatio'].includes(value) ? 'winner' : 'all'
@@ -82,76 +83,71 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-// ===== 规则模板（更风趣牙贱口，<= 280 字） =====
+// ===== 规则模板（中性、人文，不羞辱、不公开他人低谷，<= 320 字） =====
+// 措辞规范同 getMyAnalytics.note：可陈述中性群体事实（时长/人数/MVP/补码总量），
+// 本人数据只谈本人；不出现「最大输家/独吞/学费/ATM/别硬刚」等施压或贬损表达。
 function templateReview(f) {
   const lines = []
 
   const openers = f.durationMin
     ? [
-      `${f.durationMin} 分钟，${f.playerCount} 个人，桌上发生的事比《孙子兵法》还精彩。`,
-      `${f.durationMin} 分钟一场，${f.playerCount} 人围炉夜话，话题只有一个：「为什么是我」。`,
-      `打了 ${f.durationMin} 分钟，${f.playerCount} 个人轮流给彼此上课，学费已结清。`
+      `${f.durationMin} 分钟，${f.playerCount} 个人，一起把一个晚上认真地过完了。`,
+      `${f.durationMin} 分钟一局，${f.playerCount} 人同桌，牌是媒介，人才是主角。`,
+      `打了 ${f.durationMin} 分钟，${f.playerCount} 个人各自做了很多次选择。`
     ]
     : [
-      `${f.playerCount} 个人速战速决，今晚地板和钱包都没怎么热起来。`,
-      `${f.playerCount} 人闪击战，一杯茶还没凉，账已经算完。`
+      `${f.playerCount} 个人一局速战，轻松的一晚。`,
+      `${f.playerCount} 人小聚，节奏不快，重在同桌。`
     ]
   lines.push(pick(openers))
 
   if (f.bigWinner) {
     const w = f.bigWinner
     const wPct = f.totalPot ? Math.round((w.profit / f.totalPot) * 100) : 0
-    const winnerLines = [
-      `今晚 MVP：${w.nickname}，独吞 ${w.profit}（约 ${wPct}% 总池），孙子说"善战者，致人而不致于人"，说的就是他。`,
-      `${w.nickname} +${w.profit}，赢得不像兵法，倒像玄学，下次记得带上他。`,
-      `${w.nickname} 笑收 ${w.profit}，建议宵夜由他买，毕竟"取用于国，因粮于敌"。`
-    ]
-    lines.push(pick(winnerLines))
+    lines.push(
+      pick([
+        `今晚状态最好的是 ${w.nickname}（约占总池 ${wPct}%）。顺手的时候，节奏往往比运气更值得留意。`,
+        `${w.nickname} 今晚发挥出色。结果在短期里很响，决策质量通常更安静。`
+      ])
+    )
   }
 
-  if (f.bigLoser) {
-    const loserLines = [
-      `${f.bigLoser.nickname} ${f.bigLoser.profit}，输得最稳的人往往是下次最稳的赢家。`,
-      `心态奖颁给 ${f.bigLoser.nickname}：${f.bigLoser.profit}，下次记住"小敌之坚，大敌之擒也"，别硬刚。`,
-      `${f.bigLoser.nickname} 今晚 ${f.bigLoser.profit}，复盘三件事就够：位置、对手、自己别上头。`
-    ]
-    lines.push(pick(loserLines))
-  }
-
-  if (f.totalRebuys >= f.playerCount * 2) {
-    lines.push(`全场补了 ${f.totalRebuys} 次码，人均两轮起步，今晚的 ATM 不是机器，是你们。`)
-  } else if (f.totalRebuys >= f.playerCount) {
-    lines.push(`全场 ${f.totalRebuys} 次补码，看来"将能而君不御者胜"，谁也不肯先认怂。`)
+  if (f.totalRebuys >= f.playerCount) {
+    lines.push(`全场补了 ${f.totalRebuys} 次码，牌局节奏偏活跃，大家都愿意再试试手感。`)
   } else if (f.totalRebuys === 0) {
-    lines.push('全场零补码，要么个个紧得像保险柜，要么牌实在不肯给力，下次大胆点。')
+    lines.push('全场零补码，整体偏稳健——稳定本身也是一种风格。')
   }
 
   if (f.me) {
     if (f.me.profit > 0) {
       lines.push(
         pick([
-          `你今晚 +${f.me.profit}，宵夜随便点，毕竟"兵贵胜，不贵久"，及时收手最帅。`,
-          `你 +${f.me.profit}，赢家发言权拉满，记得收着点。`
+          `你今晚 +${f.me.profit}，是不错的一晚。可以留意一下，哪一手的放弃事后觉得最正确。`,
+          `你 +${f.me.profit}。顺境里最值钱的，是记住自己做对了哪个决定。`
         ])
       )
     } else if (f.me.profit < 0) {
       lines.push(
         pick([
-          `你今晚 ${f.me.profit}，回家路上想想哪几手 marginal 跟得太松，位置 / 人数 / 风格三件事缺一不可。`,
-          `你 ${f.me.profit}，没事，"多算胜，少算不胜"，下次先算完再下注。`
+          `你今晚 ${f.me.profit}。单局结果的波动是样本量不足的正常表现，不足以定义长期水平；下一次可以只观察一个可控变量，比如边缘起手是否停留得更久。`,
+          `你 ${f.me.profit}。关注可控的变量，比关注结果更有效率——位置、人数、节奏，任选其一慢慢看。`
         ])
       )
     } else {
-      lines.push('你今晚账面持平，不输就是赢，回家睡个好觉。')
+      lines.push('你今晚账面持平，重在同桌的这段时间。')
     }
   }
 
   if (f.extraCost > 0) {
-    const label = f.expenseMode === 'winner' ? '水上 AA' : '全员 AA'
-    lines.push(`其他费用 ${f.extraCost} 按「${label}」记账，不进盈亏，结账请坦坦荡荡。`)
+    const label = f.expenseMode === 'winner' ? '水上比例' : '全员均摊'
+    lines.push(`其他费用 ${f.extraCost} 按「${label}」记账，不计入盈亏。`)
   }
 
-  return lines.join(' ').slice(0, 320)
+  // 守卫：万一未来编辑引入禁用措辞，剔除该行而非直接下发。
+  return lines
+    .filter(line => !hasForbiddenWording(line))
+    .join(' ')
+    .slice(0, 320)
 }
 
 // ===== 混元接入 stub =====
