@@ -4,7 +4,7 @@
   <block wx:if="{{!loading}}">
     <scroll-view scroll-x class="dim-tabs">
       <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
-      <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">补码次数</view>
+      <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">买入次数</view>
       <view class="dim-tab {{dim === 'weekday' ? 'active' : ''}}"   data-k="weekday"   bindtap="onDimChange">星期</view>
       <view class="dim-tab {{dim === 'opponents' ? 'active' : ''}}" data-k="opponents" bindtap="onDimChange">对手</view>
     </scroll-view>

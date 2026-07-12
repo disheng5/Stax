@@ -1,4 +1,4 @@
-// pages/learn-hand-chart/learn-hand-chart.js — 起手牌表（13×13）支持位置+人数动态
+// pages/learn-hand-chart/learn-hand-chart.js — 起手参考（13×13）支持位置+人数动态
 const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
 
 const HAND_SCORES = {}
@@ -128,7 +128,7 @@ const TIER_META = {
   premium: { label: '夯', advice: '无脑冲，加注别手软，对面看了都想跑。' },
   strong: { label: '顶级', advice: '很强，正常加注打价值，稳稳拿下。' },
   playable: { label: '人上人', advice: '位置好就打，位置差就忍，灵活点。' },
-  marginal: { label: 'NPC', advice: '平平无奇，随缘进场，别上头。' },
+  marginal: { label: '边缘', advice: '牌力一般，位置好再考虑进场，保持耐心。' },
   trash: { label: '拉完了', advice: '纯送钱，折了吧，留着积分下把再战。' }
 }
 

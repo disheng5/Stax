@@ -54,12 +54,12 @@ Page({
 
   onShareAppMessage() {
     const f = this.data.facts || {}
-    let title = 'StaxKit AI 点评我的战绩，看看准不准'
+    let title = 'StaxKit AI 复盘，看看这一晚的节奏'
     if (f.bigWinner) {
-      title = `今晚 MVP 是 ${f.bigWinner.nickname}，独吞 ${f.bigWinner.profit} —— StaxKit AI 复盘`
+      title = `今晚状态最好的是 ${f.bigWinner.nickname} —— StaxKit AI 复盘`
     } else if (f.me && f.me.profit !== undefined) {
       const v = f.me.profit
-      title = v > 0 ? `我今晚 +${v}，AI 怎么夸我的？` : `我今晚 ${v}，AI 都看不下去了`
+      title = v >= 0 ? `我今晚 +${v}，来看 AI 的复盘` : '我今晚的复盘，AI 怎么说'
     }
     return { title, path: '/pages/index/index' }
   }

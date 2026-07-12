@@ -1,7 +1,7 @@
 <view class="container">
   <view wx:if="{{loading}}" class="loading-state">
     <view class="brain">🧠</view>
-    <view class="text-sub">AI 正在啄磨你今晚的牌路…</view>
+    <view class="text-sub">AI 正在梳理这一晚的节奏…</view>
   </view>
 
   <block wx:elif="{{review}}">
@@ -19,9 +19,8 @@
       <view class="fact-row"><text class="text-sub">玩家数</text><text>{{facts.playerCount}} 人</text></view>
       <view class="fact-row"><text class="text-sub">时长</text><text>{{facts.durationMin}} 分钟</text></view>
       <view class="fact-row"><text class="text-sub">总池</text><text class="text-gold">{{facts.totalPot}}</text></view>
-      <view class="fact-row"><text class="text-sub">补码次数</text><text>{{facts.totalRebuys}}</text></view>
-      <view class="fact-row" wx:if="{{facts.bigWinner}}"><text class="text-sub">最大赢家</text><text class="text-gain">{{facts.bigWinner.nickname}} +{{facts.bigWinner.profit}}</text></view>
-      <view class="fact-row" wx:if="{{facts.bigLoser}}"><text class="text-sub">最大输家</text><text class="text-loss">{{facts.bigLoser.nickname}} {{facts.bigLoser.profit}}</text></view>
+      <view class="fact-row"><text class="text-sub">买入次数</text><text>{{facts.totalRebuys}}</text></view>
+      <view class="fact-row" wx:if="{{facts.bigWinner}}"><text class="text-sub">状态最好</text><text class="text-gain">{{facts.bigWinner.nickname}}</text></view>
     </view>
 
     <view class="actions">

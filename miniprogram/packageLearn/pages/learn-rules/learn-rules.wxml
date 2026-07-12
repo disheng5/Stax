@@ -3,5 +3,5 @@
     <view class="title">{{item.title}}</view>
     <view class="line text-sub" wx:for="{{item.body}}" wx:for-item="line" wx:key="*this">{{line}}</view>
   </view>
-  <view class="footnote text-sub">本指南面向新手，详细打法可结合术语词典 / 起手牌表持续学习。</view>
+  <view class="footnote text-sub">本指南面向新手，详细打法可结合术语词典 / 起手参考持续学习。</view>
 </view>

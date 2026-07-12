@@ -5,7 +5,7 @@
 
   <view wx:if="{{firstTime}}" class="first-time-banner">
     <view class="first-time-title">欢迎使用 StaxKit</view>
-    <view class="first-time-desc">设置头像和昵称，让牌友认识你</view>
+    <view class="first-time-desc">设置头像和昵称，让好友认识你</view>
   </view>
 
   <view class="card user">
@@ -30,12 +30,12 @@
     <text>战绩 & 分析</text><text class="text-sub">›</text>
   </view>
 
-  <view class="section-title">学习</view>
+  <view class="section-title">常用工具</view>
   <view class="card row" bindtap="onLearnTerms">
     <text>术语词典</text><text class="text-sub">›</text>
   </view>
   <view class="card row" bindtap="onLearnHandChart">
-    <text>起手牌表</text><text class="text-sub">›</text>
+    <text>起手参考</text><text class="text-sub">›</text>
   </view>
   <view class="card row" bindtap="onLearnOdds">
     <text>概率计算器</text><text class="text-sub">›</text>
@@ -45,9 +45,6 @@
   </view>
 
   <view class="section-title">设置</view>
-  <view class="card row" bindtap="onClearCache">
-    <text>清除缓存</text><text class="text-sub">›</text>
-  </view>
   <view wx:if="{{demoMode}}" class="card row" bindtap="onResetDemo">
     <text class="text-gold">🧪 重置 Demo 数据</text><text class="text-sub">›</text>
   </view>

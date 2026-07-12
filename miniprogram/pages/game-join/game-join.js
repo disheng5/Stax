@@ -91,7 +91,7 @@ Page({
     if (!isMeaningfulNickname(profile.nickname) && mode === 'player') {
       wx.showModal({
         title: '先完善资料',
-        content: '设置昵称和头像后，牌友才能认出你',
+        content: '设置昵称和头像后，好友才能认出你',
         confirmText: '去设置',
         success: r => {
           if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })

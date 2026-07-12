@@ -801,7 +801,7 @@ Page({
   _doSettle(openid, player) {
     const hasExisting = player.finalStack !== null && player.finalStack !== undefined
     wx.showModal({
-      title: hasExisting ? '修改结算筹码' : '结算筹码',
+      title: hasExisting ? '修改结算积分' : '结算积分',
       editable: true,
       placeholderText: String(hasExisting ? player.finalStack : player.currentStack || 0),
       success: async r => {
@@ -1181,7 +1181,7 @@ Page({
     if (!isMeaningfulNickname(profile.nickname)) {
       wx.showModal({
         title: '先完善资料',
-        content: '设置昵称和头像后，牌友才能认出你',
+        content: '设置昵称和头像后，好友才能认出你',
         confirmText: '去设置',
         success: r => {
           if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })
