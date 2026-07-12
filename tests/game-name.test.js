@@ -9,8 +9,10 @@ assert.strictEqual(
   '周末 朋友局',
   '仅规整空白，不追加任何标识'
 )
-assert.strictEqual(clientPolicy.buildDefaultGameName('小明', 0), '小明的娱乐手账')
-assert.strictEqual(clientPolicy.buildDefaultGameName('小明', 1), '小明的好运记录')
+// 默认名带日期后缀
+const jan15 = new Date('2025-01-15T20:00:00')
+assert.strictEqual(clientPolicy.buildDefaultGameName('小明', 0, jan15), '小明的娱乐手账（01-15）')
+assert.strictEqual(clientPolicy.buildDefaultGameName('小明', 1, jan15), '小明的好运记录（01-15）')
 assert.ok(Array.from(clientPolicy.buildDefaultGameName('非常长的昵称'.repeat(10), 1)).length <= 40)
 assert.ok(
   clientPolicy.DEFAULT_NAME_IDEAS.every(
@@ -29,7 +31,9 @@ assert.ok(
   assert.strictEqual(cloudPolicy.recoverLegacyNickname(name), nickname)
 })
 assert.strictEqual(clientPolicy.recoverLegacyNickname('小明的娱乐手账'), '小明')
+assert.strictEqual(clientPolicy.recoverLegacyNickname('小明的娱乐手账（07-12）'), '小明')
 assert.strictEqual(cloudPolicy.recoverLegacyNickname('小明的好运记录'), '小明')
+assert.strictEqual(cloudPolicy.recoverLegacyNickname('小明的好运记录（01-15）'), '小明')
 
 ;['周末朋友局', '自定义的神秘故事'].forEach(name => {
   assert.strictEqual(clientPolicy.recoverLegacyNickname(name), '', `不应猜测自定义名称：${name}`)

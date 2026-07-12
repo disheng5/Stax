@@ -4,7 +4,7 @@ const RISKY_NAME_PATTERN =
 const LEGACY_AUTO_NAME_PATTERN =
   /^(.{1,24})的(?:深夜|周末|欢乐|激烈|经典|传奇|硬核|友谊|神秘|必胜)(?:江湖局|聚会|约局|夜局|桌局|鏖战|对局|切磋|局)(?:\s*[（(]\d{2}-\d{2}[）)])?$/
 const CURRENT_AUTO_NAME_PATTERN =
-  /^(.{1,24})的(?:娱乐手账|好运记录|欢乐小记|今日趣记|趣味手账|轻松记录|开心存档|快乐一刻)$/
+  /^(.{1,24})的(?:娱乐手账|好运记录|欢乐小记|今日趣记|趣味手账|轻松记录|开心存档|快乐一刻)(?:\s*[（(]\d{2}-\d{2}[）)])?$/
 
 function compact(value) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''

@@ -14,7 +14,7 @@ const DEFAULT_NAME_IDEAS = [
   '快乐一刻'
 ]
 const CURRENT_AUTO_NAME_PATTERN =
-  /^(.{1,24})的(?:娱乐手账|好运记录|欢乐小记|今日趣记|趣味手账|轻松记录|开心存档|快乐一刻)$/
+  /^(.{1,24})的(?:娱乐手账|好运记录|欢乐小记|今日趣记|趣味手账|轻松记录|开心存档|快乐一刻)(?:\s*[（(]\d{2}-\d{2}[）)])?$/
 
 function compact(value) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
@@ -39,12 +39,20 @@ function recoverLegacyNickname(value) {
   return match ? compact(match[1]) : ''
 }
 
-function buildDefaultGameName(nickname, variantIndex) {
+// 当天日期（MM-DD），供默认记录名带上，便于列表区分。
+function todayDateTag(date) {
+  const d = date instanceof Date ? date : new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function buildDefaultGameName(nickname, variantIndex, date) {
   const host = compact(nickname) || '朋友'
   const pickedIndex = Number.isInteger(variantIndex)
     ? Math.abs(variantIndex) % DEFAULT_NAME_IDEAS.length
     : Math.floor(Math.random() * DEFAULT_NAME_IDEAS.length)
-  const fixed = `的${DEFAULT_NAME_IDEAS[pickedIndex]}`
+  const suffix = `（${todayDateTag(date)}）`
+  const fixed = `的${DEFAULT_NAME_IDEAS[pickedIndex]}${suffix}`
   return `${truncate(host, MAX_GAME_NAME_LENGTH - Array.from(fixed).length)}${fixed}`
 }
 
@@ -54,5 +62,6 @@ module.exports = {
   hasRiskyGameName,
   normalizeGameName,
   recoverLegacyNickname,
+  todayDateTag,
   buildDefaultGameName
 }
