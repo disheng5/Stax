@@ -41,6 +41,16 @@
   line-height: 1.5;
 }
 
+.pending-note {
+  margin-bottom: 20rpx;
+  padding: 12rpx 24rpx;
+  border-radius: var(--radius-sm);
+  background: rgba(43, 108, 176, 0.08);
+  color: var(--text-sub);
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
 .viewer-note {
   padding: 26rpx;
   margin-bottom: 24rpx;

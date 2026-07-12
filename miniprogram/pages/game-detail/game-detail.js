@@ -20,6 +20,7 @@ const {
   mergeTransactions
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
+const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
 
 const TX_TYPE_LABEL = {
   buyIn: '入场',
@@ -89,7 +90,8 @@ Page({
     expenseModeLabels: EXPENSE_MODE_LABELS,
     expenseModeOptions: EXPENSE_MODE_OPTIONS,
     settleResult: null,
-    settleWinnerOpenid: ''
+    settleWinnerOpenid: '',
+    pendingCount: 0
   },
 
   async onLoad(options) {
@@ -119,17 +121,82 @@ Page({
       this._startWatch()
     }
     this._recomputeIdentity()
+    this._flushPending()
   },
 
   onUnload() {
     clearTimeout(this._watchRetryTimer)
     this._stopPolling()
+    if (this._netListener) {
+      try {
+        wx.offNetworkStatusChange(this._netListener)
+      } catch (_) {}
+      this._netListener = null
+    }
     if (this.watcher) {
       try {
         this.watcher.close()
       } catch (_) {}
       this.watcher = null
     }
+  },
+
+  // 弱网待提交队列：按 operationId 去重，网络恢复/回前台重放。
+  _pendingQueue() {
+    if (!this._queue) {
+      const key = `stax_pending_${this.data.gameId}`
+      this._queue = createPendingQueue({
+        load: () => {
+          try {
+            return wx.getStorageSync(key) || []
+          } catch (_) {
+            return []
+          }
+        },
+        save: items => {
+          try {
+            wx.setStorageSync(key, items)
+          } catch (_) {}
+        }
+      })
+    }
+    if (!this._netListener) {
+      this._netListener = res => {
+        if (res && res.isConnected) this._flushPending()
+      }
+      try {
+        wx.onNetworkStatusChange(this._netListener)
+      } catch (_) {}
+    }
+    return this._queue
+  },
+
+  async _flushPending() {
+    if (!this.data.gameId || this._flushing) return
+    const queue = this._pendingQueue()
+    if (!queue.list().length) return
+    this._flushing = true
+    try {
+      const result = await queue.flush(async op => {
+        const res = await wx.cloud.callFunction({
+          name: 'recordTransaction',
+          data: { gameId: this.data.gameId, ...op }
+        })
+        return res.result
+      })
+      if (result.sent > 0) {
+        // 静默续传成功后拉一次权威数据校正
+        this._fetchGameOnce()
+      }
+      this._syncPendingBadge()
+    } finally {
+      this._flushing = false
+    }
+  },
+
+  _syncPendingBadge() {
+    const count = this._queue ? this._queue.list().length : 0
+    if (this.data.pendingCount !== count) this.setData({ pendingCount: count })
   },
 
   // openid 晚于牌局数据到位时，重算我在本局的身份
@@ -681,19 +748,28 @@ Page({
     } else {
       wx.showLoading({ title: '处理中…' })
     }
+    // 请求 >400ms 才提示"待确认"，避免正常延迟也打扰
+    const operationId = createOperationId(type)
+    const opData = { type, playerOpenid, amount, operationId, ...extra }
+    let pendingTimer = null
+    if (optimistic) {
+      pendingTimer = setTimeout(() => {
+        this._syncPendingBadge()
+      }, 400)
+    }
     try {
-      const operationId = createOperationId(type)
       const res = await wx.cloud.callFunction({
         name: 'recordTransaction',
-        data: { gameId: this.data.gameId, type, playerOpenid, amount, operationId, ...extra }
+        data: { gameId: this.data.gameId, ...opData }
       })
+      clearTimeout(pendingTimer)
       if (!optimistic) wx.hideLoading()
       if (!res.result || !res.result.ok) {
         const err = res.result && res.result.error
         const msg =
           {
             NOT_HOST: '仅庄家可操作',
-            CAN_ONLY_BUY_FOR_SELF: '只能给自己补码',
+            CAN_ONLY_BUY_FOR_SELF: '只能给自己买入',
             GAME_ENDED: '牌局已结束',
             CONFLICT_RETRY: '操作冲突，请重试'
           }[err] ||
@@ -703,15 +779,22 @@ Page({
         if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
         if (optimistic) this._fetchGameOnce()
       } else {
+        // 成功静默（不弹成功 Toast）
         if (res.result.game) this._applyGame(res.result.game)
         else this._fetchRecentTx()
       }
     } catch (err) {
+      clearTimeout(pendingTimer)
       if (!optimistic) wx.hideLoading()
       console.error(err)
-      wx.showToast({ title: '网络异常', icon: 'none' })
-      if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
-      if (optimistic) this._fetchGameOnce()
+      // 弱网：可重放的买入操作入队静默续传，保留乐观态，不回滚不报错
+      if (optimistic && isReplayable(type)) {
+        this._pendingQueue().enqueue(opData)
+        this._syncPendingBadge()
+      } else {
+        wx.showToast({ title: '网络异常', icon: 'none' })
+        if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
+      }
     } finally {
       this._recording = false
     }

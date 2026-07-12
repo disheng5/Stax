@@ -12,6 +12,8 @@
 
   <view class="notice" wx:if="{{game.players.length <= 1 && game.status === 'ongoing'}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
 
+  <view class="pending-note" wx:if="{{pendingCount > 0}}">{{pendingCount}} 笔操作待网络恢复后同步</view>
+
   <view class="viewer-note card" wx:if="{{viewerMode && !isPlayer && game.status === 'ongoing'}}">
     <view class="viewer-title">朋友邀你加入</view>
     <view class="text-sub">点击下方按钮直接上桌</view>
