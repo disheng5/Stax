@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 
 const BLACKLIST = ['赌博', '赢钱', '赌资', '虚拟筹码买卖']
-// 出现在反向声明的允许位置（白名单）
+// 出现在反向声明或合规负向测试的允许位置（白名单）
 // 命中规则：文件路径完全匹配 + 当前行包含 context 之一
 const ALLOW = [
   { file: 'README.md', contexts: ['严禁用于任何形式的赌博活动'] },
@@ -12,7 +12,8 @@ const ALLOW = [
   { file: 'docs/DEPLOY.md', contexts: ['全代码搜索', 'grep -RIn'] },
   { file: 'docs/RELEASE_CHECKLIST.md', contexts: ['grep -RIn', '反向声明', '严禁用于赌博活动'] },
   { file: 'miniprogram/app.js', contexts: ['严禁用于任何形式的赌博活动'] },
-  { file: 'miniprogram/packageLearn/pages/about/about.wxml', contexts: ['严禁用于任何形式的赌博活动'] }
+  { file: 'miniprogram/packageLearn/pages/about/about.wxml', contexts: ['严禁用于任何形式的赌博活动'] },
+  { file: 'tests/game-name.test.js', contexts: ['今晚赢钱'] }
 ]
 
 function walk(dir, acc = []) {

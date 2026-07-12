@@ -64,15 +64,19 @@ function cacheGame(game) {
   _scheduleSnapshotSave()
 }
 
-function getCachedGame(gameId, maxAge = SNAPSHOT_TTL) {
+function getCachedGameEntry(gameId, maxAge = SNAPSHOT_TTL) {
   if (!gameId) return null
   if (_cache) {
     const inHistory = _cache.find(game => game._id === gameId)
-    if (inHistory) return inHistory
+    if (inHistory) return { game: inHistory, age: Math.max(0, Date.now() - _cacheTime) }
   }
   const item = _loadSnapshots()[gameId]
   if (!item || !item.game || Date.now() - (item.ts || 0) > maxAge) return null
-  return item.game
+  return { game: item.game, age: Math.max(0, Date.now() - (item.ts || 0)) }
+}
+
+function getCachedGame(gameId, maxAge = SNAPSHOT_TTL) {
+  return getCachedGameEntry(gameId, maxAge)?.game || null
 }
 
 function removeCachedGame(gameId) {
@@ -145,6 +149,11 @@ function _invalidate() {
 
 function getCacheVersion() {
   return _version
+}
+
+// 进行中牌局新增/加入只需让列表页重新拉取，无需清空已结束战绩缓存。
+function markGamesChanged() {
+  _version++
 }
 
 function clearGamesCache() {
@@ -227,10 +236,12 @@ module.exports = {
   fetchAllGames,
   getCachedGames,
   invalidateGamesCache: _invalidate,
+  markGamesChanged,
   getCacheVersion,
   clearGamesCache,
   cacheGame,
   getCachedGame,
+  getCachedGameEntry,
   removeCachedGame,
   getCachedAvatarFileIDs
 }

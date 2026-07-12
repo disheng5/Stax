@@ -1,71 +1,88 @@
 .invite-hero {
+  padding: 44rpx 32rpx 38rpx;
   text-align: center;
-  padding: 44rpx 32rpx 36rpx;
 }
 
 .eyebrow {
-  color: var(--text-sub);
-  font-size: 24rpx;
+  color: var(--table-green);
+  font-size: 23rpx;
+  font-weight: 600;
 }
 
 .game-name {
-  margin-top: 12rpx;
-  font-size: 38rpx;
-  font-weight: 700;
   overflow: hidden;
+  margin-top: 12rpx;
+  font-size: 34rpx;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .game-meta {
   display: flex;
-  justify-content: center;
   flex-wrap: wrap;
-  gap: 14rpx 22rpx;
-  margin-top: 16rpx;
+  justify-content: center;
+  gap: 10rpx 22rpx;
+  margin-top: 18rpx;
   color: var(--text-sub);
-  font-size: 24rpx;
-}
-
-.invite-code {
-  display: inline-block;
-  margin-top: 26rpx;
-  padding: 14rpx 26rpx;
-  border-radius: 999rpx;
-  background: rgba(43, 108, 176, 0.08);
-  color: var(--table-green);
-  font-family: 'Courier New', monospace;
-  font-size: 30rpx;
-  font-weight: 700;
-  letter-spacing: 6rpx;
-}
-
-.label {
-  margin-bottom: 12rpx;
-  color: var(--text-sub);
-  font-size: 26rpx;
-}
-
-.code-input {
-  height: 110rpx;
-  border: 2rpx solid var(--border);
-  border-radius: var(--radius-md);
-  background: #fff;
-  font-family: 'Courier New', monospace;
-  font-size: 52rpx;
-  letter-spacing: 14rpx;
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.lookup-state {
-  margin-top: 14rpx;
-  text-align: center;
-  font-size: 24rpx;
+  font-size: 23rpx;
 }
 
 .primary-actions {
   display: flex;
   flex-direction: column;
   gap: 18rpx;
+}
+
+.invite-state {
+  margin-top: 18vh;
+  padding: 56rpx 40rpx;
+  text-align: center;
+}
+
+.state-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  margin: 0 auto 22rpx;
+  border-radius: var(--radius-sm);
+  background: var(--table-green);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.state-mark--muted {
+  background: #dce3ec;
+  color: var(--text-sub);
+}
+
+.state-title {
+  font-size: 31rpx;
+  font-weight: 700;
+}
+
+.state-note {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+}
+
+.state-loading {
+  width: 34rpx;
+  height: 34rpx;
+  margin: 30rpx auto 0;
+  border: 4rpx solid rgba(43, 108, 176, 0.18);
+  border-top-color: var(--table-green);
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+.back-button {
+  margin-top: 34rpx;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
 }

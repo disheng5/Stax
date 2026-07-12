@@ -2,7 +2,8 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
-const ALGO_VERSION = 4
+const ALGO_VERSION = 5
+const EXCLUSION_SCOPE_VERSION = 1
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 
 function meaningfulNickname(value) {
@@ -71,6 +72,9 @@ async function ensureSeason(circle) {
       endAt,
       status: 'ongoing',
       rankings: [],
+      excludedGameIds: [],
+      exclusionScopeVersion: EXCLUSION_SCOPE_VERSION,
+      exclusionRevision: 0,
       championOpenid: null,
       settledAt: null
     }
@@ -89,7 +93,10 @@ async function ensureSeason(circle) {
     startAt,
     endAt,
     status: 'ongoing',
-    rankings: []
+    rankings: [],
+    excludedGameIds: [],
+    exclusionScopeVersion: EXCLUSION_SCOPE_VERSION,
+    exclusionRevision: 0
   }
 }
 
@@ -102,9 +109,7 @@ function endedGamesQuery(queryStart, seasonEnd, memberBatch) {
   if (memberBatch && memberBatch.length) {
     conditions.push({ players: _.elemMatch({ openid: _.in(memberBatch) }) })
   }
-  return db
-    .collection('games')
-    .where(_.and(conditions))
+  return db.collection('games').where(_.and(conditions))
 }
 
 async function fetchEndedGamesForBatch(queryStart, seasonEnd, memberBatch) {
@@ -152,7 +157,9 @@ async function fetchEndedGames(queryStart, seasonEnd, members) {
   try {
     const pages = []
     for (let i = 0; i < members.length; i += 10) {
-      pages.push(...(await fetchEndedGamesForBatch(queryStart, seasonEnd, members.slice(i, i + 10))))
+      pages.push(
+        ...(await fetchEndedGamesForBatch(queryStart, seasonEnd, members.slice(i, i + 10)))
+      )
     }
     return [...new Map(pages.map(game => [game._id, game])).values()].sort(
       (a, b) => new Date(a.endedAt) - new Date(b.endedAt)
@@ -233,7 +240,7 @@ async function calcForCircle(circleId) {
   const MIN_DURATION_MS = 20 * 60 * 1000
   // 被淘汰/踢出的玩家不计入任何统计（新踢人已直接移除，eliminatedAt 过滤兜底旧数据）
   const activePlayers = g => (g.players || []).filter(p => !p.eliminatedAt)
-  // 达到人数/时长门槛且含本圈成员的候选局（不看 excludeFromSeason），供列表展示与排除/恢复
+  // 达到人数/时长门槛且含本榜成员的候选局，供列表展示与排除/恢复。
   const candidateGames = allGames.filter(g => {
     if (activePlayers(g).length < MIN_PLAYERS) return false
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
@@ -241,8 +248,14 @@ async function calcForCircle(circleId) {
     if (!activePlayers(g).some(p => members.includes(p.openid))) return false
     return true
   })
-  // 真正计入排名的局：候选局中未被排除的
-  const qualifiedGames = candidateGames.filter(g => !g.excludeFromSeason)
+  // 排除状态属于当前积分榜赛季；首次升级时把旧牌局级标记迁入本季，之后只读赛季字段。
+  const excludedGameIds = new Set(season.excludedGameIds || [])
+  const needsLegacyMigration = season.exclusionScopeVersion !== EXCLUSION_SCOPE_VERSION
+  if (needsLegacyMigration) {
+    candidateGames.filter(g => g.excludeFromSeason).forEach(g => excludedGameIds.add(g._id))
+  }
+  const exclusionRevision = Math.max(0, Number(season.exclusionRevision) || 0)
+  const qualifiedGames = candidateGames.filter(g => !excludedGameIds.has(g._id))
 
   const memberSet = {}
   members.forEach(openid => {
@@ -289,10 +302,16 @@ async function calcForCircle(circleId) {
       if (!memberSet[player.openid]) return
       const previous = profileMap[player.openid] || {}
       profileMap[player.openid] = {
-        nickname: meaningfulNickname(player.nickname) ? player.nickname.trim() : previous.nickname || '',
+        nickname: meaningfulNickname(player.nickname)
+          ? player.nickname.trim()
+          : previous.nickname || '',
         avatar: player.avatar || previous.avatar || '',
         updatedAt:
-          player.profileUpdatedAt || game.profileUpdatedAt || game.endedAt || previous.updatedAt || ''
+          player.profileUpdatedAt ||
+          game.profileUpdatedAt ||
+          game.endedAt ||
+          previous.updatedAt ||
+          ''
       }
     })
   })
@@ -368,27 +387,74 @@ async function calcForCircle(circleId) {
       playerCount: activePlayers(g).length,
       startedAt: g.startedAt,
       endedAt: g.endedAt,
-      excluded: !!g.excludeFromSeason
+      excluded: excludedGameIds.has(g._id)
     }))
 
-  await db
-    .collection('seasons')
-    .doc(season._id)
-    .update({
-      data: {
-        rankings: [...rankings, ...unranked],
-        gameSummaries,
-        calculatedAt: new Date(),
-        calculationMeta: {
-          algorithmVersion: ALGO_VERSION,
-          queryStart,
-          queryEnd: seasonEnd,
-          fetchedCount: allGames.length,
-          qualifiedCount: qualifiedGames.length,
-          memberCount: members.length
+  let updateResult
+  if (needsLegacyMigration) {
+    try {
+      updateResult = await db.runTransaction(async transaction => {
+        const latestGot = await transaction
+          .collection('seasons')
+          .doc(season._id)
+          .get()
+          .catch(() => null)
+        if (!latestGot?.data || latestGot.data.status !== 'ongoing') return { stale: true }
+        const latest = latestGot.data
+        if (latest.exclusionScopeVersion === EXCLUSION_SCOPE_VERSION) return { stale: true }
+        const latestRevision = Math.max(0, Number(latest.exclusionRevision) || 0)
+        if (latestRevision !== exclusionRevision) return { stale: true }
+        await transaction
+          .collection('seasons')
+          .doc(season._id)
+          .update({
+            data: {
+              rankings: [...rankings, ...unranked],
+              gameSummaries,
+              excludedGameIds: [...excludedGameIds],
+              exclusionScopeVersion: EXCLUSION_SCOPE_VERSION,
+              exclusionRevision,
+              calculatedAt: new Date(),
+              calculationMeta: {
+                algorithmVersion: ALGO_VERSION,
+                queryStart,
+                queryEnd: seasonEnd,
+                fetchedCount: allGames.length,
+                qualifiedCount: qualifiedGames.length,
+                memberCount: members.length
+              }
+            }
+          })
+        return { stale: false }
+      }, 3)
+    } catch (err) {
+      console.error('[calcSeasonScore migration txn]', err)
+      return { ok: false, error: 'CONFLICT_RETRY' }
+    }
+  } else {
+    updateResult = await db
+      .collection('seasons')
+      .where({ _id: season._id, exclusionRevision })
+      .update({
+        data: {
+          rankings: [...rankings, ...unranked],
+          gameSummaries,
+          calculatedAt: new Date(),
+          calculationMeta: {
+            algorithmVersion: ALGO_VERSION,
+            queryStart,
+            queryEnd: seasonEnd,
+            fetchedCount: allGames.length,
+            qualifiedCount: qualifiedGames.length,
+            memberCount: members.length
+          }
         }
-      }
-    })
+      })
+  }
+  const stale = needsLegacyMigration
+    ? updateResult?.stale
+    : Number(updateResult?.stats?.updated || 0) === 0
+  if (stale) return await calcForCircle(circleId)
 
   return {
     ok: true,

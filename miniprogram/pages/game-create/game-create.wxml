@@ -1,44 +1,85 @@
-<view class="container">
-  <view class="card">
-    <view class="label">记录名</view>
-    <input class="text-input" value="{{name}}" bindinput="onNameInput" />
+<view class="container create-page">
+  <view class="purpose-strip">
+    <view class="purpose-mark">分</view>
+    <view class="purpose-copy">
+      <view class="purpose-title">朋友局娱乐积分记录</view>
+      <view class="purpose-note">只记录游戏积分，不涉及金钱或兑付</view>
+    </view>
   </view>
 
-  <view class="card">
-    <view class="label">每手积分</view>
-    <input class="amount-input" type="digit" value="{{buyIn}}" bindinput="onBuyInInput" />
-  </view>
+  <view class="form-panel">
+    <view class="field">
+      <view class="field-label">记录名称</view>
+      <input
+        class="text-input"
+        value="{{name}}"
+        maxlength="{{maxNameLength}}"
+        bindinput="onNameInput"
+        bindblur="onNameBlur"
+      />
+    </view>
 
-  <view class="card">
-    <view class="row-input">
-      <view>
-        <view class="sub-label">SB</view>
+    <view class="field">
+      <view class="field-head">
+        <view class="field-label">常用积分配置</view>
+        <view class="field-caption">每份积分 · 小盲/大盲</view>
+      </view>
+      <view class="preset-control">
+        <view
+          wx:for="{{scorePresets}}"
+          wx:key="label"
+          class="preset-item {{presetIndex === index ? 'preset-item--active' : ''}}"
+          data-index="{{index}}"
+          bindtap="onPresetTap"
+        >{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field-label">每份积分</view>
+      <input class="amount-input" type="digit" value="{{buyIn}}" bindinput="onBuyInInput" />
+    </view>
+
+    <view class="blind-grid">
+      <view class="field field--compact">
+        <view class="field-label">小盲 SB</view>
         <input class="small-input" type="digit" value="{{smallBlind}}" bindinput="onSbInput" />
       </view>
-      <view>
-        <view class="sub-label">BB</view>
+      <view class="field field--compact">
+        <view class="field-label">大盲 BB</view>
         <input class="small-input" type="digit" value="{{bigBlind}}" bindinput="onBbInput" />
       </view>
     </view>
-  </view>
 
-  <view class="card ratio-card">
-    <view class="ratio-head">
-      <view class="label">积分换算比例</view>
-      <picker class="ratio-picker" mode="selector" range="{{ratioOptions}}" value="{{ratioIndex}}" bindchange="onRatioChange">
-        <view class="ratio-tag">{{scoreRatio}} : 1<text class="arrow">›</text></view>
-      </picker>
+    <view class="advanced-toggle" bindtap="onAdvancedToggle">
+      <text>更多设置</text>
+      <view class="advanced-action">
+        <text>{{showAdvanced ? '收起' : '展开'}}</text>
+        <text class="advanced-arrow {{showAdvanced ? 'advanced-arrow--open' : ''}}">›</text>
+      </view>
     </view>
-    <view class="ratio-hint text-sub">积分 {{scoreRatio}} = 计分 1，仅用于战绩换算，不涉及任何金钱</view>
-  </view>
 
-  <view class="card permission-card">
-    <view>
-      <view class="label">权限共享</view>
-      <view class="text-sub">允许成员自己买入、自己结算离场</view>
+    <view class="advanced-body" wx:if="{{showAdvanced}}">
+      <view class="setting-row">
+        <view class="setting-copy">
+          <view class="setting-title">战绩换算</view>
+          <view class="setting-note">积分 {{scoreRatio}} 计为战绩 1</view>
+        </view>
+        <picker mode="selector" range="{{ratioOptions}}" value="{{ratioIndex}}" bindchange="onRatioChange">
+          <view class="ratio-value">{{scoreRatio}} : 1 <text>›</text></view>
+        </picker>
+      </view>
+      <view class="setting-row setting-row--last">
+        <view class="setting-copy">
+          <view class="setting-title">成员自助记录</view>
+          <view class="setting-note">允许成员买入和结算积分</view>
+        </view>
+        <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#2B6CB0" />
+      </view>
     </view>
-    <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#2B6CB0" />
   </view>
 
-  <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">创建</button>
+  <button class="btn btn--primary btn--block create-button" bindtap="onSubmit" disabled="{{submitting}}">
+    {{submitting ? '正在创建…' : '创建积分记录'}}
+  </button>
 </view>

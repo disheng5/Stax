@@ -19,10 +19,9 @@
     <block wx:else>
       <view class="empty-card card">
         <view class="empty-title">还没有积分榜</view>
-        <view class="empty-sub text-sub">邀三五好友，建圈论英雄</view>
+        <view class="empty-sub text-sub">创建后分享邀请，好友点击即可加入</view>
         <view class="empty-actions">
           <button class="btn btn--primary" bindtap="onCreate">创建积分榜</button>
-          <button class="btn btn--ghost" bindtap="onJoin">加入积分榜</button>
         </view>
       </view>
     </block>

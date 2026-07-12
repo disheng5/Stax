@@ -1,4 +1,58 @@
-.label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 12rpx; }
-.code-input { font-size: 36rpx; letter-spacing: 8rpx; padding: 16rpx 0; border-bottom: 2rpx solid var(--border); text-align: center; }
-.btn { margin-top: 32rpx; }
-.tip { text-align: center; margin-top: 20rpx; font-size: 22rpx; }
+.invite-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 20vh;
+}
+
+.invite-card {
+  width: 100%;
+  padding: 56rpx 44rpx;
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.invite-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76rpx;
+  height: 76rpx;
+  margin: 0 auto 24rpx;
+  border-radius: var(--radius-sm);
+  background: var(--table-green);
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.invite-title {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.invite-note {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+}
+
+.invite-loading {
+  width: 36rpx;
+  height: 36rpx;
+  margin: 32rpx auto 0;
+  border: 4rpx solid rgba(43, 108, 176, 0.18);
+  border-top-color: var(--table-green);
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+.btn {
+  margin-top: 36rpx;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}

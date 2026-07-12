@@ -1,28 +1,30 @@
-<view class="container">
+<view class="container invite-page">
   <view class="invite-hero card" wx:if="{{game}}">
-    <view class="eyebrow">朋友邀请你加入</view>
+    <view class="eyebrow">朋友局娱乐积分记录</view>
     <view class="game-name">{{game.name}}</view>
     <view class="game-meta">
       <text>{{game.players.length}} 人</text>
-      <text>买入 {{game.buyIn}}</text>
-      <text>{{game.smallBlind}}/{{game.bigBlind}}</text>
+      <text>每份积分 {{game.buyIn}}</text>
+      <text>盲注 {{game.smallBlind}}/{{game.bigBlind}}</text>
     </view>
-    <view class="invite-code">{{game.inviteCode}}</view>
   </view>
 
-  <view class="card" wx:else>
-    <view class="label">邀请码</view>
-    <input class="code-input" placeholder="输入 6 位邀请码" maxlength="6" value="{{code}}" bindinput="onCodeInput" />
-    <view class="text-sub lookup-state" wx:if="{{loadingGame}}">正在查找房间…</view>
-    <view class="text-sub lookup-state" wx:elif="{{code.length === 6}}">未找到进行中的房间</view>
+  <view class="invite-state card" wx:elif="{{loadingGame}}">
+    <view class="state-mark">分</view>
+    <view class="state-title">正在打开好友邀请</view>
+    <view class="state-note text-sub">正在同步最新积分记录…</view>
+    <view class="state-loading"></view>
+  </view>
+
+  <view class="invite-state card" wx:else>
+    <view class="state-mark state-mark--muted">分</view>
+    <view class="state-title">邀请暂不可用</view>
+    <view class="state-note text-sub">请从好友分享的积分记录邀请进入</view>
+    <button class="btn btn--ghost btn--block back-button" bindtap="onBack">返回首页</button>
   </view>
 
   <view class="primary-actions" wx:if="{{game}}">
-    <button class="btn btn--primary btn--block" bindtap="onJoinAsPlayer" disabled="{{submitting}}">上桌</button>
-    <button class="btn btn--ghost btn--block" bindtap="onJoinAsViewer" disabled="{{submitting}}">先围观</button>
-  </view>
-
-  <view wx:else>
-    <button class="btn btn--primary btn--block" bindtap="onSubmit" disabled="{{submitting}}">加入</button>
+    <button class="btn btn--primary btn--block" bindtap="onJoinAsPlayer" disabled="{{submitting}}">参与积分记录</button>
+    <button class="btn btn--ghost btn--block" bindtap="onJoinAsViewer" disabled="{{submitting}}">先查看</button>
   </view>
 </view>

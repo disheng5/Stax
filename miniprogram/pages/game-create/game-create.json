@@ -1,6 +1,4 @@
 {
-  "navigationBarTitleText": "创建房间",
-  "usingComponents": {
-    "chip-input": "/components/chip-input/chip-input"
-  }
+  "navigationBarTitleText": "创建积分记录",
+  "usingComponents": {}
 }

@@ -22,7 +22,7 @@
    - 「导入项目」→ 选择仓库根目录
    - AppID 填你自己的（个人主体）
    - 确定后会自动识别 `project.config.json`
-3. **替换环境 ID**：编辑 `miniprogram/app.js`，把 `env: 'your-env-id'` 改为你的真实环境 ID。
+3. **确认环境 ID**：编辑 `miniprogram/app.js`，将顶部的 `ENV_ID` 改为你的真实环境 ID。当前仓库已配置生产环境，部署到其他 AppID 时必须替换。
 4. **编译预览**：右上角「编译」按钮即可看到首页。
 
 ---
@@ -31,7 +31,7 @@
 
 > 更直接的逐步部署清单见 `docs/CLOUD_SETUP.md`。下面是原始说明。
 
-### 3.1 建库（5 个集合）
+### 3.1 建库（7 个集合）
 
 打开开发者工具 →「云开发」→「数据库」→「集合管理」→「+」逐个新建：
 
@@ -41,21 +41,25 @@ games
 transactions
 terms
 handRanks
+circles
+seasons
 ```
 
 ### 3.2 配置权限（Spec §2.6）
 
 对每个集合点「数据权限」，按下表配置：
 
-| 集合           | 推荐权限                                              |
-| -------------- | ----------------------------------------------------- |
-| `users`        | 仅创建者可读写（`only-creator`）                      |
-| `games`        | 所有人可读，仅创建者可写（`read-only-creator-write`） |
-| `transactions` | 仅创建者可读写                                        |
-| `terms`        | 所有人可读，仅管理员可写                              |
-| `handRanks`    | 所有人可读，仅管理员可写                              |
+| 集合           | 推荐权限                 |
+| -------------- | ------------------------ |
+| `users`        | 仅本人可读，前端不可写   |
+| `games`        | 登录用户可读，前端不可写 |
+| `transactions` | 登录用户可读，前端不可写 |
+| `terms`        | 所有人可读，前端不可写   |
+| `handRanks`    | 所有人可读，前端不可写   |
+| `circles`      | 登录用户可读，前端不可写 |
+| `seasons`      | 登录用户可读，前端不可写 |
 
-> 真正的"庄家可写、玩家可读"细粒度规则由云函数（`recordTransaction` / `settleGame`）在服务端校验 `hostOpenid === OPENID`，无需在 DB 规则里实现。
+> 具体 JSON 规则以 `docs/CLOUD_SETUP.md §3` 为准。所有业务写入均由云函数鉴权后执行，前端不直写数据库。
 
 ### 3.3 部署 19 个云函数
 
@@ -94,8 +98,8 @@ removeCircleMember
 
 ```bash
 npm install
-npm test         # 运行 settle 与 invite-code 单元测试
-npm run lint     # （可选）静态检查
+npm run check    # 单元测试 + Mock 全链路 + 合规扫描
+npm run lint     # ESLint 静态检查
 ```
 
 预期输出：所有用例 ✓，10 万次邀请码碰撞 < 1%。
@@ -134,7 +138,7 @@ grep -RIn --exclude-dir=.git -E "赌|赢钱|下注|赌资" .
 ## 七、常见问题
 
 **Q1. `cloud.init` 报 env 错误？**
-A：必须把 `your-env-id` 替换为真实环境 ID；环境 ID 在「云开发」控制台左上角可看。
+A：必须把 `miniprogram/app.js` 顶部的 `ENV_ID` 替换为真实环境 ID；环境 ID 在「云开发」控制台左上角可看。
 
 **Q2. 庄家操作返回 `NOT_HOST`？**
 A：云函数会比对 `hostOpenid === OPENID`，确认你是用创建者账号在操作。

@@ -24,7 +24,7 @@
 
 ## 2. 云资源准备
 
-### 2.1 建库（5 个集合）
+### 2.1 建库（7 个集合）
 
 按 `docs/DEPLOY.md §3.1` 在「云开发 → 数据库」逐个新建：
 
@@ -34,6 +34,8 @@ games
 transactions
 terms
 handRanks
+circles
+seasons
 ```
 
 ### 2.2 配置权限
@@ -90,10 +92,11 @@ removeCircleMember
 
 ```bash
 npm install
-npm test
+npm run check
+npm run lint
 ```
 
-预期：所有 ✓。
+预期：两条命令均正常退出。
 
 ### 3.2 关键路径手测
 

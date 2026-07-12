@@ -13,7 +13,9 @@ global.wx = {
 
 // 让 require 找到 miniprogram/utils
 const utilsRoot = path.join(__dirname, '..', 'miniprogram', 'utils')
-require('module').Module._nodeModulePaths(utilsRoot).forEach(() => {})
+require('module')
+  .Module._nodeModulePaths(utilsRoot)
+  .forEach(() => {})
 
 const cloudMock = require(path.join(utilsRoot, 'cloud-mock.js'))
 cloudMock.install()
@@ -23,7 +25,10 @@ const assert = require('assert')
 function step(name, fn) {
   return Promise.resolve(fn()).then(
     () => console.log('  ✓', name),
-    err => { console.error('  ✗', name, err.message); process.exitCode = 1 }
+    err => {
+      console.error('  ✗', name, err.message)
+      process.exitCode = 1
+    }
   )
 }
 
@@ -47,30 +52,88 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true)
     const game = raw.games.find(g => g._id === r.result.gameId)
     assert.strictEqual(game.players[0].nickname, '历史昵称')
+    assert.strictEqual(raw.users[0].nickname, '历史昵称', '恢复后应回填 users')
+    cloudMock.reset()
+  })
+
+  await step('已发布旧客户端漏传昵称时可从自动记录名恢复并回填', async () => {
+    const raw = cloudMock.getDb()._raw
+    raw.users[0].nickname = '玩家'
+    raw.users[0].avatar = ''
+    const r = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: { name: 'eter的神秘聚会（07-10）', buyIn: 100, smallBlind: 5, bigBlind: 5 }
+    })
+    assert.strictEqual(r.result.ok, true)
+    const game = raw.games.find(g => g._id === r.result.gameId)
+    assert.strictEqual(game.players[0].nickname, 'eter')
+    assert.strictEqual(raw.users[0].nickname, 'eter', '兼容恢复只需执行一次')
+    cloudMock.reset()
+  })
+
+  await step('有效 users 资料为空头像时不得被旧客户端或历史头像覆盖', async () => {
+    const raw = cloudMock.getDb()._raw
+    raw.users[0].avatar = ''
+    const r = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: {
+        name: '头像权威测试',
+        nickname: '过期本地昵称',
+        avatar: 'cloud://stale-avatar',
+        buyIn: 100,
+        smallBlind: 5,
+        bigBlind: 5
+      }
+    })
+    assert.strictEqual(r.result.ok, true)
+    const game = raw.games.find(g => g._id === r.result.gameId)
+    assert.strictEqual(game.players[0].nickname, 'Demo 玩家')
+    assert.strictEqual(game.players[0].avatar, '')
     cloudMock.reset()
   })
 
   let gameId
   await step('创建一局', async () => {
-    const r = await wx.cloud.callFunction({ name: 'createGame', data: {
-      name: 'Mock 创建测试局', buyIn: 100, smallBlind: 10, bigBlind: 20, blindUpMinutes: 20,
-      nickname: '过期本地昵称'
-    }})
+    const r = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: {
+        name: 'Mock 创建测试局',
+        buyIn: 100,
+        smallBlind: 10,
+        bigBlind: 20,
+        blindUpMinutes: 20,
+        nickname: '过期本地昵称'
+      }
+    })
     assert.strictEqual(r.result.ok, true)
     assert.ok(r.result.gameId)
     assert.strictEqual(r.result.inviteCode.length, 6)
     gameId = r.result.gameId
     const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
     assert.strictEqual(game.players[0].nickname, 'Demo 玩家', '云端资料应优先于本地快照')
+    assert.strictEqual(game.name, 'Mock 创建测试局', '记录名按原样保存，不再追加合规后缀')
+    assert.strictEqual(game.txRevision, 1)
+    assert.strictEqual(r.result.game._id, gameId, '创建响应应携带可直接上屏的权威快照')
+  })
+
+  await step('旧客户端自定义记录名继续兼容', async () => {
+    const r = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: { name: '周末现金局', buyIn: 100, smallBlind: 5, bigBlind: 5 }
+    })
+    assert.strictEqual(r.result.ok, true, '服务端不得收紧旧客户端已有名称入参')
   })
 
   await step('查询进行中牌局列表', async () => {
     const db = wx.cloud.database()
     const _ = db.command
-    const r = await db.collection('games').where({
-      status: 'ongoing',
-      players: _.elemMatch({ openid: 'mock_me' })
-    }).get()
+    const r = await db
+      .collection('games')
+      .where({
+        status: 'ongoing',
+        players: _.elemMatch({ openid: 'mock_me' })
+      })
+      .get()
     assert.ok(r.data.length >= 2, '应有至少 2 局进行中（demo 局 + 新建局）')
   })
 
@@ -110,9 +173,18 @@ function step(name, fn) {
     game.players = game.players.filter(p => p.openid !== 'mock_other')
   })
 
-  await step('参与人自助 rebuy 应被允许且同操作号只入账一次', async () => {
-    // 新建局只有 me，模拟不到第二人；改用 demo 局测，给 mock_bob 自助补码不可（mock 模式下我是 me）
-    // 这里只测 me 给自己 rebuy
+  await step('结算后再次买入应撤销该成员结算且同操作号只入账一次', async () => {
+    const before = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    Object.assign(before.players[0], {
+      currentStack: 120,
+      finalStack: 120,
+      profit: 20,
+      finalProfit: 20,
+      share: 8,
+      checkedOutAt: new Date()
+    })
+    before.checkedOutCount = 1
+    before.settledCount = 1
     const data = {
       gameId,
       type: 'rebuy',
@@ -120,12 +192,24 @@ function step(name, fn) {
       amount: 50,
       operationId: 'rebuy_mock_0001'
     }
+    const beforeRevision = before.txRevision
     const first = await wx.cloud.callFunction({ name: 'recordTransaction', data })
     const replay = await wx.cloud.callFunction({ name: 'recordTransaction', data })
     assert.strictEqual(first.result.ok, true)
     assert.strictEqual(replay.result.idempotent, true)
     const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
-    assert.strictEqual(game.players[0].totalBuyIn, 150)
+    const player = game.players[0]
+    assert.strictEqual(player.totalBuyIn, 150)
+    assert.strictEqual(player.currentStack, 170)
+    assert.strictEqual(player.finalStack, null)
+    assert.strictEqual(player.profit, 0)
+    assert.strictEqual(player.finalProfit, null)
+    assert.strictEqual(player.share, 0)
+    assert.strictEqual(player.checkedOutAt, null)
+    assert.strictEqual(game.checkedOutCount, 0)
+    assert.strictEqual(game.settledCount, 0)
+    assert.strictEqual(game.txRevision, beforeRevision + 1)
+    assert.strictEqual(first.result.game.txRevision, game.txRevision)
     assert.strictEqual(
       cloudMock.getDb()._raw.transactions.filter(t => t.operationId === data.operationId).length,
       1
@@ -141,9 +225,14 @@ function step(name, fn) {
     const before = (await db.collection('games').doc('game_live_demo').get()).data
     const bob = before.players.find(p => p.openid === 'mock_bob')
     assert.ok(bob, '演示局中应有 Bob')
-    const r = await wx.cloud.callFunction({ name: 'recordTransaction', data: {
-      gameId: 'game_live_demo', type: 'eliminate', playerOpenid: 'mock_bob'
-    }})
+    const r = await wx.cloud.callFunction({
+      name: 'recordTransaction',
+      data: {
+        gameId: 'game_live_demo',
+        type: 'eliminate',
+        playerOpenid: 'mock_bob'
+      }
+    })
     assert.strictEqual(r.result.ok, true)
     const after = (await db.collection('games').doc('game_live_demo').get()).data
     assert.ok(!after.players.some(p => p.openid === 'mock_bob'), 'Bob 应被移出 players')
@@ -153,9 +242,14 @@ function step(name, fn) {
   })
 
   await step('最终结算（Σ profit ≠ 0 应拒绝）', async () => {
-    const r = await wx.cloud.callFunction({ name: 'settleGame', data: {
-      gameId, mode: 'finalize', finalStacks: { 'mock_me': 100 }
-    }})
+    const r = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: {
+        gameId,
+        mode: 'finalize',
+        finalStacks: { mock_me: 100 }
+      }
+    })
     assert.strictEqual(r.result.ok, false)
     assert.strictEqual(r.result.error, 'PROFIT_NOT_ZERO')
   })
@@ -199,6 +293,9 @@ function step(name, fn) {
 
   await step('费用分摊：expense 模式（MVP 买单）与保留已存设置', async () => {
     // 设置费用：MVP 买单 → 唯一赢家 me 承担全部
+    const beforeGame = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    const beforeRevision = beforeGame.txRevision
+    const beforeStateRevision = beforeGame.stateRevision
     const r = await wx.cloud.callFunction({
       name: 'settleGame',
       data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
@@ -206,6 +303,12 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true)
     assert.strictEqual(r.result.game.expenseMode, 'mvp')
     assert.strictEqual(r.result.game.players[0].share, 30)
+    assert.strictEqual(r.result.game.txRevision, beforeRevision, '费用设置不新增流水版本')
+    assert.strictEqual(
+      r.result.game.stateRevision,
+      beforeStateRevision + 1,
+      '费用修改应推进房间状态版本，确保多端按顺序校准'
+    )
     // 之后的 checkout 不带费用参数，不应把费用清零
     const edit = await wx.cloud.callFunction({
       name: 'settleGame',
@@ -243,10 +346,45 @@ function step(name, fn) {
   await step('查询历史战绩（status=ended）', async () => {
     const db = wx.cloud.database()
     const _ = db.command
-    const r = await db.collection('games').where({
-      status: 'ended', players: _.elemMatch({ openid: 'mock_me' })
-    }).orderBy('endedAt', 'desc').get()
+    const r = await db
+      .collection('games')
+      .where({
+        status: 'ended',
+        players: _.elemMatch({ openid: 'mock_me' })
+      })
+      .orderBy('endedAt', 'desc')
+      .get()
     assert.ok(r.data.length >= 5, '应至少有 5 局历史 + 1 局刚结算 = 6')
+  })
+
+  await step('完整流水分页应覆盖 80 条以上记录', async () => {
+    const db = cloudMock.getDb()
+    const raw = db._raw
+    const bulk = Array.from({ length: 105 }, (_, index) => ({
+      _id: `bulk_tx_${String(index).padStart(3, '0')}`,
+      gameId,
+      type: 'rebuy',
+      playerOpenid: 'mock_me',
+      amount: 1,
+      timestamp: new Date(Date.now() + index),
+      meta: { hands: 1 }
+    }))
+    raw.transactions.push(...bulk)
+    const count = await db.collection('transactions').where({ gameId }).count()
+    const pages = []
+    for (let skip = 0; skip < count.total; skip += 20) {
+      const page = await db
+        .collection('transactions')
+        .where({ gameId })
+        .orderBy('timestamp', 'asc')
+        .skip(skip)
+        .limit(20)
+        .get()
+      pages.push(...page.data)
+    }
+    assert.strictEqual(pages.length, count.total)
+    assert.strictEqual(new Set(pages.map(tx => tx._id)).size, count.total)
+    raw.transactions = raw.transactions.filter(tx => !tx._id.startsWith('bulk_tx_'))
   })
 
   await step('积分榜重置应按合规局重算胜率', async () => {
@@ -289,10 +427,26 @@ function step(name, fn) {
       makeGame('rank_game_2', 3, [-20, 80, -30, -30])
     )
 
+    const initial = await wx.cloud.callFunction({ name: 'resetSeason', data: { circleId } })
+    assert.strictEqual(initial.result.ok, true)
+    assert.strictEqual(initial.result.qualifiedCount, 2)
+    const season = raw.seasons.find(s => s._id === circle.currentSeasonId)
+    delete season.excludedGameIds
+    delete season.exclusionScopeVersion
+    raw.games.find(g => g._id === 'rank_game_2').excludeFromSeason = true
     const reset = await wx.cloud.callFunction({ name: 'resetSeason', data: { circleId } })
     assert.strictEqual(reset.result.ok, true)
-    assert.strictEqual(reset.result.qualifiedCount, 2)
-    const season = raw.seasons.find(s => s._id === circle.currentSeasonId)
+    assert.strictEqual(reset.result.qualifiedCount, 1)
+    assert.deepStrictEqual(season.excludedGameIds, ['rank_game_2'], '旧牌局级排除应迁入当前赛季')
+    raw.games.find(g => g._id === 'rank_game_2').excludeFromSeason = false
+    const legacyIgnored = await wx.cloud.callFunction({ name: 'resetSeason', data: { circleId } })
+    assert.strictEqual(legacyIgnored.result.qualifiedCount, 1, '迁移后旧字段变化不应影响本季')
+    const legacyRestored = await wx.cloud.callFunction({
+      name: 'excludeGame',
+      data: { circleId, gameId: 'rank_game_2', exclude: false }
+    })
+    assert.strictEqual(legacyRestored.result.ok, true)
+    assert.strictEqual(season.calculationMeta.qualifiedCount, 2)
     const me = season.rankings.find(r => r.openid === 'mock_me')
     const bob = season.rankings.find(r => r.openid === 'mock_bob')
     assert.strictEqual(me.games, 2)
@@ -300,6 +454,38 @@ function step(name, fn) {
     assert.strictEqual(me.winRate, 50)
     assert.strictEqual(bob.winRate, 50)
     assert.strictEqual(bob.nickname, 'Bob', '重复的默认用户记录不能覆盖真实昵称')
+
+    const excluded = await wx.cloud.callFunction({
+      name: 'excludeGame',
+      data: { circleId, gameId: 'rank_game_1', exclude: true }
+    })
+    assert.strictEqual(excluded.result.ok, true)
+    assert.deepStrictEqual(season.excludedGameIds, ['rank_game_1'])
+    assert.strictEqual(season.calculationMeta.qualifiedCount, 1)
+    assert.strictEqual(raw.games.find(g => g._id === 'rank_game_1').excludeFromSeason, undefined)
+    assert.strictEqual(season.gameSummaries.find(g => g._id === 'rank_game_1').excluded, true)
+
+    const restored = await wx.cloud.callFunction({
+      name: 'excludeGame',
+      data: { circleId, gameId: 'rank_game_1', exclude: false }
+    })
+    assert.strictEqual(restored.result.ok, true)
+    assert.deepStrictEqual(season.excludedGameIds, [])
+    assert.strictEqual(season.calculationMeta.qualifiedCount, 2)
+
+    raw.games.find(g => g._id === 'rank_game_1').hostOpenid = 'mock_me'
+    const legacyExcluded = await wx.cloud.callFunction({
+      name: 'excludeGame',
+      data: { gameId: 'rank_game_1', exclude: true }
+    })
+    assert.strictEqual(legacyExcluded.result.ok, true)
+    assert.strictEqual(legacyExcluded.result.legacy, true)
+    assert.strictEqual(raw.games.find(g => g._id === 'rank_game_1').excludeFromSeason, true)
+    assert.deepStrictEqual(season.excludedGameIds, ['rank_game_1'])
+    await wx.cloud.callFunction({
+      name: 'excludeGame',
+      data: { circleId, gameId: 'rank_game_1', exclude: false }
+    })
 
     const removed = await wx.cloud.callFunction({
       name: 'removeCircleMember',
@@ -313,17 +499,23 @@ function step(name, fn) {
 
   await step('数据库 watch 能收到推送', async () => {
     const db = wx.cloud.database()
-    const livedoc = (await db.collection('games').where({ inviteCode: 'DEMO99' }).limit(1).get()).data[0]
+    const livedoc = (await db.collection('games').where({ inviteCode: 'DEMO99' }).limit(1).get())
+      .data[0]
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('watch 未在 1s 内回调')), 1000)
-      const w = db.collection('games').doc(livedoc._id).watch({
-        onChange: snapshot => {
-          if (snapshot.docs?.length) {
-            clearTimeout(t); w.close(); resolve()
-          }
-        },
-        onError: reject
-      })
+      const w = db
+        .collection('games')
+        .doc(livedoc._id)
+        .watch({
+          onChange: snapshot => {
+            if (snapshot.docs?.length) {
+              clearTimeout(t)
+              w.close()
+              resolve()
+            }
+          },
+          onError: reject
+        })
     })
   })
 

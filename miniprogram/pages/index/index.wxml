@@ -3,7 +3,7 @@
     <view class="hero-top">
       <view class="hero-brand">
         <view class="logo">StaxKit</view>
-        <view class="slogan">记录每一场，统计每一分。</view>
+        <view class="slogan">Hold'em, held right.</view>
       </view>
       <view class="daily-badge" wx:if="{{dailyWord.word}}" bindtap="onTapDailyWord">
         <text class="daily-label">每日一字</text>
@@ -11,12 +11,12 @@
       </view>
     </view>
     <view class="hero-actions">
-      <view class="action-btn action-btn--primary" bindtap="onCreate">创建房间</view>
+      <view class="action-btn action-btn--primary" bindtap="onCreate">创建积分记录</view>
     </view>
   </view>
 
   <view class="section-head">
-    <view class="section-title">最近记录</view>
+    <view class="section-title">最近积分记录</view>
     <view class="more-btn" bindtap="onHistory">全部 ›</view>
   </view>
 
@@ -24,7 +24,7 @@
     <view class="game-row card" wx:for="{{recentGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
       <view class="game-left">
         <view class="game-name ellipsis">{{item.name || 'StaxKit 记录'}}</view>
-        <view class="game-meta text-sub">{{item.players.length}} 人 · {{item._status === 'ongoing' ? '进行中' : item._dateStr}}</view>
+        <view class="game-meta text-sub">娱乐积分 · {{item.players.length}} 人 · {{item._status === 'ongoing' ? '进行中' : item._dateStr}}</view>
       </view>
       <view class="game-right">
         <view class="status-tag {{item._status}}">{{item._status === 'ongoing' ? '进行中' : '已结束'}}</view>
@@ -38,7 +38,7 @@
       <view class="sk sk-line sk-w-40"></view>
     </view>
   </block>
-  <view wx:else class="empty-hint text-sub">还没有记录，创建房间或加入一个吧</view>
+  <view wx:else class="empty-hint text-sub">还没有积分记录，创建后分享给朋友即可参与</view>
 
   <view class="footer">
     <button class="btn btn--ghost btn--block share-btn" open-type="share">分享 StaxKit</button>

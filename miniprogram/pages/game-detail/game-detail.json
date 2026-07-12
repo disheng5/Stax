@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "牌局",
+  "navigationBarTitleText": "积分记录",
   "enableShareAppMessage": true,
   "usingComponents": {
     "player-card": "/components/player-card/player-card",

@@ -1,8 +1,9 @@
-<view class="container">
-  <view class="card">
-    <view class="label">邀请码</view>
-    <input class="code-input" placeholder="输入 8 位邀请码" maxlength="8" value="{{code}}" bindinput="onCodeInput" />
+<view class="container invite-page">
+  <view class="invite-card">
+    <view class="invite-mark">榜</view>
+    <view class="invite-title">{{status === 'joining' ? '正在加入积分榜' : '邀请暂不可用'}}</view>
+    <view class="invite-note text-sub">{{message}}</view>
+    <view class="invite-loading" wx:if="{{status === 'joining'}}"></view>
+    <button class="btn btn--ghost btn--block" wx:else bindtap="onBack">返回积分榜</button>
   </view>
-  <button class="btn btn--primary btn--block" bindtap="onJoin" disabled="{{submitting || code.length < 8}}">加入</button>
-  <view class="tip text-sub">加入后产生的记录才计入本赛季</view>
 </view>

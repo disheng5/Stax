@@ -21,7 +21,7 @@ const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 ## 1. 打开云开发控制台
 
 1. 打开微信开发者工具
-2. 导入项目：`/Users/bytedance/Stax`
+2. 导入本仓库根目录（包含 `project.config.json`）
 3. 顶部点 **云开发**
 4. 确认左上角环境为：`cloud1-d7gykoaktfc01fbf0`
 
@@ -80,7 +80,7 @@ seasons
 }
 ```
 
-说明：详情页会读取最近流水；写入、撤销都走云函数。
+说明：详情页先展示最新流水，再分页补齐整场记录用于对账；写入、撤销都走云函数。
 
 ### 3.4 terms
 
@@ -131,16 +131,16 @@ seasons
 云数据库默认只有 `_id` 索引，以下高频查询必须建索引，否则数据量上来后全是集合扫描。
 控制台 → 数据库 → 选中集合 → **索引管理** → 新建：
 
-| 集合 | 索引字段 | 用途 |
-| --- | --- | --- |
-| games | `inviteCode` 升序 + `status` 升序 | 邀请码加入牌局 |
-| games | `status` 升序 + `players.openid` 升序 + `endedAt` 降序 | 首页/历史「我参与的局」 |
-| games | `status` 升序 + `endedAt` 升序 + `startedAt` 升序 | 赛季计分时间窗查询 |
-| transactions | `gameId` 升序 + `timestamp` 降序 | 牌局流水 |
-| users | `_openid` 升序 | 按 openid 查用户 |
-| circles | `status` 升序 + `memberOpenids` 升序 | 结算后触发赛季计分 |
-| circles | `inviteCode` 升序 + `status` 升序 | 邀请码加入圈子 |
-| seasons | `circleId` 升序 | 圈子赛季查询 |
+| 集合         | 索引字段                                               | 用途                    |
+| ------------ | ------------------------------------------------------ | ----------------------- |
+| games        | `inviteCode` 升序 + `status` 升序                      | 邀请码加入牌局          |
+| games        | `status` 升序 + `players.openid` 升序 + `endedAt` 降序 | 首页/历史「我参与的局」 |
+| games        | `status` 升序 + `endedAt` 升序 + `startedAt` 升序      | 赛季计分时间窗查询      |
+| transactions | `gameId` 升序 + `timestamp` 降序                       | 牌局流水                |
+| users        | `_openid` 升序                                         | 按 openid 查用户        |
+| circles      | `status` 升序 + `memberOpenids` 升序                   | 结算后触发赛季计分      |
+| circles      | `inviteCode` 升序 + `status` 升序                      | 邀请码加入圈子          |
+| seasons      | `circleId` 升序                                        | 圈子赛季查询            |
 
 > `players.openid` / `memberOpenids` 是数组字段，云数据库（MongoDB）会自动建多键索引，直接按上表填写即可。
 
@@ -306,7 +306,7 @@ removeCircleMember
 3. 进入牌局详情页，看到邀请码
 4. 用另一个微信号扫码/输入邀请码加入
 5. 参与人点「我要补码」
-6. 房主看到最近流水，可撤销
+6. 房主看到完整流水，可撤销
 7. 房主点「结束并结算」
 8. 输入最终筹码，确保 `Σ profit = 0`
 9. 输入额外费用，例如 `60`，选择「赢家按比例」

@@ -100,9 +100,6 @@ Page({
   onCreate() {
     wx.navigateTo({ url: '/pages/circle-create/circle-create' })
   },
-  onJoin() {
-    wx.navigateTo({ url: '/pages/circle-join/circle-join' })
-  },
   onOpenCircle(e) {
     wx.navigateTo({ url: '/pages/circle-detail/circle-detail?id=' + e.currentTarget.dataset.id })
   }

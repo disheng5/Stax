@@ -40,7 +40,7 @@
 
 .main-row {
   display: grid;
-  grid-template-columns: 1fr 80rpx 100rpx 120rpx;
+  grid-template-columns: 1fr 80rpx 120rpx 120rpx;
   align-items: center;
   gap: 8rpx;
 }
@@ -115,6 +115,18 @@
 
 .profit {
   font-weight: 700;
+}
+
+.profit.text-gain {
+  color: var(--gain);
+}
+
+.profit.text-loss {
+  color: var(--loss);
+}
+
+.profit.text-sub {
+  color: var(--text-sub);
 }
 
 .profit-action {

@@ -8,6 +8,7 @@ const { createMockDb } = require('./db-mock.js')
 const { buildSeed, MY_OPENID } = require('./mock-data.js')
 const { computeShares } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
+const { recoverLegacyNickname } = require('./game-name.js')
 
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 const meaningfulNickname = value => {
@@ -27,11 +28,21 @@ function operationUpdate(game, operationId) {
   return { recentOperationIds: ids.slice(-50) }
 }
 
+function nextTxRevision(game) {
+  return Math.max(0, Number(game.txRevision) || 0) + 1
+}
+
+function nextStateRevision(game) {
+  return Math.max(0, Number(game.stateRevision ?? game.txRevision) || 0) + 1
+}
+
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
   if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
   if (value === 'mvp') return 'mvp'
-  return 'all'
+  if (['all', 'even'].includes(value)) return 'all'
+  // 与线上一致：未知取值回退产品默认「水上比例」
+  return 'winner'
 }
 
 // 与线上一致：结束后 3 小时内允许修改结算积分/费用
@@ -42,19 +53,76 @@ function withinEditWindow(game, now) {
   return Number.isFinite(endedAt) && now - endedAt <= EDIT_WINDOW_MS
 }
 
-async function currentProfile(fallbackNickname = '', fallbackAvatar = '') {
+function profileTime(value) {
+  const n = +new Date(value || 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+function latestGameProfile(games) {
+  const profiles = (games || [])
+    .map(game => {
+      const player = (game.players || []).find(item => item.openid === MY_OPENID)
+      if (!player) return null
+      return {
+        nickname: player.nickname,
+        avatar: player.avatar || '',
+        updatedAt:
+          player.profileUpdatedAt || game.profileUpdatedAt || game.endedAt || game.startedAt || ''
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => profileTime(b.updatedAt) - profileTime(a.updatedAt))
+  return {
+    nickname: (profiles.find(item => meaningfulNickname(item.nickname)) || {}).nickname || '',
+    avatar: (profiles.find(item => item.avatar) || {}).avatar || ''
+  }
+}
+
+async function currentProfile(fallbackNickname = '', fallbackAvatar = '', rawName = '') {
   const db = getDb()
   const result = await db.collection('users').where({ _openid: MY_OPENID }).limit(100).get()
   const users = result.data || []
   const server = users.find(user => meaningfulNickname(user.nickname)) || users[0] || {}
-  return {
-    nickname: meaningfulNickname(server.nickname)
-      ? server.nickname.trim()
-      : meaningfulNickname(fallbackNickname)
-        ? fallbackNickname.trim()
-        : '',
-    avatar: server.avatar || fallbackAvatar || ''
+  const hasStoredIdentity = meaningfulNickname(server.nickname)
+  let nickname = hasStoredIdentity ? server.nickname.trim() : ''
+  let avatar = hasStoredIdentity ? server.avatar || '' : server.avatar || fallbackAvatar || ''
+  let recovered = false
+
+  if (!nickname && meaningfulNickname(fallbackNickname)) {
+    nickname = fallbackNickname.trim()
+    recovered = true
   }
+  if (!nickname) {
+    const legacyNickname = recoverLegacyNickname(rawName)
+    if (meaningfulNickname(legacyNickname)) {
+      nickname = legacyNickname
+      recovered = true
+    }
+  }
+  if (!hasStoredIdentity && (!nickname || !avatar)) {
+    const history = latestGameProfile(db._raw.games)
+    if (!nickname && meaningfulNickname(history.nickname)) {
+      nickname = history.nickname.trim()
+      recovered = true
+    }
+    if (!avatar && history.avatar) avatar = history.avatar
+  }
+
+  if (recovered && meaningfulNickname(nickname)) {
+    const data = { nickname, avatar, updatedAt: new Date(), profileVersion: 2 }
+    if (users.length) {
+      await Promise.all(users.map(user => db.collection('users').doc(user._id).update({ data })))
+    } else {
+      await db.collection('users').add({
+        data: {
+          ...data,
+          createdAt: new Date(),
+          stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, wins: 0 }
+        }
+      })
+    }
+  }
+  return { nickname, avatar }
 }
 
 let MOCK_DB = null
@@ -97,8 +165,7 @@ const handlers = {
     } else {
       const nickname =
         upsertNickname ||
-        (canBootstrap &&
-        !meaningfulNickname(user.nickname) && meaningfulNickname(bootstrapNickname)
+        (canBootstrap && !meaningfulNickname(user.nickname) && meaningfulNickname(bootstrapNickname)
           ? bootstrapNickname.trim()
           : user.nickname)
       const avatar =
@@ -132,9 +199,11 @@ const handlers = {
     nickname = '庄家',
     avatar = ''
   }) {
-    if (!name) return { ok: false, error: 'INVALID_NAME' }
+    const rawName = typeof name === 'string' ? name.trim() : ''
+    if (!rawName) return { ok: false, error: 'INVALID_NAME' }
+    const normalizedName = rawName
     const db = getDb()
-    const profile = await currentProfile(nickname, avatar)
+    const profile = await currentProfile(nickname, avatar, rawName)
     if (!meaningfulNickname(profile.nickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
     const inviteCode = generateInviteCode()
     const now = new Date()
@@ -151,43 +220,44 @@ const handlers = {
         curBb = Math.floor(curBb * 1.5)
       }
     }
-    const created = await db.collection('games').add({
-      data: {
-        hostOpenid: MY_OPENID,
-        name,
-        status: 'ongoing',
-        buyIn,
-        smallBlind,
-        bigBlind,
-        blindUpMinutes,
-        playerOpsShared: playerOpsShared !== false,
-        scoreRatio: Number(scoreRatio) > 0 ? Number(scoreRatio) : 1,
-        blindStructure,
-        currentLevel: 0,
-        levelStartedAt: now,
-        paused: false,
-        pausedAt: null,
-        pausedAccumMs: 0,
-        startedAt: now,
-        endedAt: null,
-        inviteCode,
-        players: [
-          {
-            openid: MY_OPENID,
-            nickname: profile.nickname,
-            avatar: profile.avatar,
-            buyInCount: 1,
-            totalBuyIn: buyIn,
-            currentStack: buyIn,
-            finalStack: null,
-            profit: 0,
-            joinedAt: now,
-            eliminatedAt: null
-          }
-        ],
-        totalPot: buyIn
-      }
-    })
+    const game = {
+      hostOpenid: MY_OPENID,
+      name: normalizedName,
+      status: 'ongoing',
+      buyIn,
+      smallBlind,
+      bigBlind,
+      blindUpMinutes,
+      playerOpsShared: playerOpsShared !== false,
+      scoreRatio: Number(scoreRatio) > 0 ? Number(scoreRatio) : 1,
+      blindStructure,
+      currentLevel: 0,
+      levelStartedAt: now,
+      paused: false,
+      pausedAt: null,
+      pausedAccumMs: 0,
+      startedAt: now,
+      endedAt: null,
+      inviteCode,
+      txRevision: 1,
+      stateRevision: 1,
+      players: [
+        {
+          openid: MY_OPENID,
+          nickname: profile.nickname,
+          avatar: profile.avatar,
+          buyInCount: 1,
+          totalBuyIn: buyIn,
+          currentStack: buyIn,
+          finalStack: null,
+          profit: 0,
+          joinedAt: now,
+          eliminatedAt: null
+        }
+      ],
+      totalPot: buyIn
+    }
+    const created = await db.collection('games').add({ data: game })
     await db.collection('transactions').add({
       data: {
         gameId: created._id,
@@ -201,16 +271,10 @@ const handlers = {
         meta: { hands: 1 }
       }
     })
-    return { ok: true, gameId: created._id, inviteCode }
+    return { ok: true, gameId: created._id, inviteCode, game: { ...game, _id: created._id } }
   },
 
-  async joinGame({
-    inviteCode,
-    nickname = '玩家',
-    avatar = '',
-    mode = 'player',
-    hands = 1
-  }) {
+  async joinGame({ inviteCode, nickname = '玩家', avatar = '', mode = 'player', hands = 1 }) {
     if (!/^[A-Z0-9]{6}$/.test(inviteCode || '')) return { ok: false, error: 'INVALID_CODE' }
     const db = getDb()
     const found = await db
@@ -222,7 +286,7 @@ const handlers = {
     const game = found.data[0]
     if (mode === 'viewer') return { ok: true, gameId: game._id, viewer: true }
     if (game.players.find(p => p.openid === MY_OPENID))
-      return { ok: true, gameId: game._id, alreadyJoined: true }
+      return { ok: true, gameId: game._id, alreadyJoined: true, game }
     const profile = await currentProfile(nickname, avatar)
     if (!meaningfulNickname(profile.nickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
     const now = new Date()
@@ -240,15 +304,13 @@ const handlers = {
       joinedAt: now,
       eliminatedAt: null
     }
-    await db
-      .collection('games')
-      .doc(game._id)
-      .update({
-        data: {
-          players: [...game.players, player],
-          totalPot: game.totalPot + amount
-        }
-      })
+    const update = {
+      players: [...game.players, player],
+      totalPot: game.totalPot + amount,
+      txRevision: nextTxRevision(game),
+      stateRevision: nextStateRevision(game)
+    }
+    await db.collection('games').doc(game._id).update({ data: update })
     await db.collection('transactions').add({
       data: {
         gameId: game._id,
@@ -262,7 +324,7 @@ const handlers = {
         meta: { hands: buyHands }
       }
     })
-    return { ok: true, gameId: game._id }
+    return { ok: true, gameId: game._id, game: { ...game, ...update } }
   },
 
   async recordTransaction({
@@ -285,7 +347,7 @@ const handlers = {
     const game = got.data
     const operationId = normalizeOperationId(rawOperationId)
     if (operationId && (game.recentOperationIds || []).includes(operationId)) {
-      return { ok: true, idempotent: true, operationId }
+      return { ok: true, idempotent: true, operationId, game }
     }
     if (game.status !== 'ongoing') return { ok: false, error: 'GAME_ENDED' }
     const isHost = game.hostOpenid === MY_OPENID
@@ -306,23 +368,32 @@ const handlers = {
           : buyIn > 0
             ? Math.max(1, Math.round(amount / buyIn))
             : 1
+      const previous = players[idx]
       players[idx] = {
-        ...players[idx],
-        buyInCount: players[idx].buyInCount + hands,
-        totalBuyIn: players[idx].totalBuyIn + amount,
-        currentStack: (players[idx].currentStack || 0) + amount,
+        ...previous,
+        buyInCount: (Number(previous.buyInCount) || 0) + hands,
+        totalBuyIn: (Number(previous.totalBuyIn) || 0) + amount,
+        currentStack: (Number(previous.currentStack) || 0) + amount,
+        finalStack: null,
+        profit: 0,
+        finalProfit: null,
+        share: 0,
+        checkedOutAt: null,
         eliminatedAt: null
       }
-      await db
-        .collection('games')
-        .doc(gameId)
-        .update({
-          data: {
-            players,
-            totalPot: game.totalPot + amount,
-            ...operationUpdate(game, operationId)
-          }
-        })
+      const settledCount = players.filter(
+        player => player.finalStack !== null && player.finalStack !== undefined
+      ).length
+      const update = {
+        players,
+        totalPot: game.totalPot + amount,
+        checkedOutCount: settledCount,
+        settledCount,
+        txRevision: nextTxRevision(game),
+        stateRevision: nextStateRevision(game),
+        ...operationUpdate(game, operationId)
+      }
+      await db.collection('games').doc(gameId).update({ data: update })
       const tx = await db.collection('transactions').add({
         data: {
           gameId,
@@ -337,7 +408,7 @@ const handlers = {
           ...(operationId ? { operationId } : {})
         }
       })
-      return { ok: true, txId: tx._id }
+      return { ok: true, txId: tx._id, game: { ...game, ...update } }
     }
     if (type === 'revoke') {
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
@@ -359,16 +430,14 @@ const handlers = {
         totalBuyIn: Math.max(0, players[idx].totalBuyIn - tx.amount),
         currentStack: Math.max(0, (players[idx].currentStack || 0) - tx.amount)
       }
-      await db
-        .collection('games')
-        .doc(gameId)
-        .update({
-          data: {
-            players,
-            totalPot: game.totalPot - tx.amount,
-            ...operationUpdate(game, operationId)
-          }
-        })
+      const update = {
+        players,
+        totalPot: game.totalPot - tx.amount,
+        txRevision: nextTxRevision(game),
+        stateRevision: nextStateRevision(game),
+        ...operationUpdate(game, operationId)
+      }
+      await db.collection('games').doc(gameId).update({ data: update })
       await db
         .collection('transactions')
         .doc(txId)
@@ -380,7 +449,7 @@ const handlers = {
             ...(operationId ? { revokeOperationId: operationId } : {})
           }
         })
-      return { ok: true }
+      return { ok: true, game: { ...game, ...update } }
     }
     if (type === 'eliminate') {
       // 与线上一致：踢出 = 彻底移除玩家，买入从总池扣除，快照入 removedPlayers
@@ -391,20 +460,18 @@ const handlers = {
       const removed = players[idx]
       players.splice(idx, 1)
       const removedBuyIn = Number(removed.totalBuyIn) || 0
-      await db
-        .collection('games')
-        .doc(gameId)
-        .update({
-          data: {
-            players,
-            totalPot: Math.max(0, (game.totalPot || 0) - removedBuyIn),
-            removedPlayers: [
-              ...(game.removedPlayers || []),
-              { ...removed, removedAt: now, removedBy: MY_OPENID }
-            ],
-            ...operationUpdate(game, operationId)
-          }
-        })
+      const update = {
+        players,
+        totalPot: Math.max(0, (game.totalPot || 0) - removedBuyIn),
+        removedPlayers: [
+          ...(game.removedPlayers || []),
+          { ...removed, removedAt: now, removedBy: MY_OPENID }
+        ],
+        txRevision: nextTxRevision(game),
+        stateRevision: nextStateRevision(game),
+        ...operationUpdate(game, operationId)
+      }
+      await db.collection('games').doc(gameId).update({ data: update })
       await db.collection('transactions').add({
         data: {
           gameId,
@@ -419,12 +486,12 @@ const handlers = {
           ...(operationId ? { operationId } : {})
         }
       })
-      return { ok: true }
+      return { ok: true, game: { ...game, ...update } }
     }
     if (type === 'pauseToggle') {
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
       const paused = !game.paused
-      const update = { paused }
+      const update = { paused, stateRevision: nextStateRevision(game) }
       if (paused) update.pausedAt = now
       else if (game.pausedAt) {
         update.pausedAccumMs = (game.pausedAccumMs || 0) + (now - new Date(game.pausedAt))
@@ -445,6 +512,7 @@ const handlers = {
             currentLevel: next,
             levelStartedAt: now,
             pausedAccumMs: 0,
+            stateRevision: nextStateRevision(game),
             ...operationUpdate(game, operationId)
           }
         })
@@ -454,34 +522,39 @@ const handlers = {
   },
 
   async settleGame(event = {}) {
-    const { gameId, finalStacks, mode = 'checkout' } = event
+    const { gameId, finalStacks } = event
+    // 与线上一致：按载荷形状推断意图，绝不按 mode 名称拒绝（契约红线）
     const hasExtraCost = event.extraCost !== undefined && event.extraCost !== null
     const hasExpenseMode = !!(event.expenseMode || event.aaMode)
     const extraCost = hasExtraCost ? Number(event.extraCost) : 0
-    const expenseMode = hasExpenseMode ? normalizeExpenseMode(event.expenseMode || event.aaMode) : 'all'
+    const expenseMode = hasExpenseMode
+      ? normalizeExpenseMode(event.expenseMode || event.aaMode)
+      : 'all'
     if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
-    if (!['checkout', 'finalize', 'expense'].includes(mode))
-      return { ok: false, error: 'INVALID_MODE' }
     if (hasExtraCost && (!Number.isFinite(extraCost) || extraCost < 0))
       return { ok: false, error: 'INVALID_EXTRA_COST' }
-    let submittedOpenids = []
+    const submittedOpenids = []
     const normalizedStacks = {}
-    if (mode !== 'expense') {
-      if (!finalStacks) return { ok: false, error: 'INVALID_PARAMS' }
-      submittedOpenids = Object.keys(finalStacks).filter(
-        openid =>
-          finalStacks[openid] !== '' &&
-          finalStacks[openid] !== null &&
-          finalStacks[openid] !== undefined
-      )
-      if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
-      for (const openid of submittedOpenids) {
-        const stack = Number(finalStacks[openid])
+    if (finalStacks && typeof finalStacks === 'object') {
+      for (const openid of Object.keys(finalStacks)) {
+        const v = finalStacks[openid]
+        if (v === '' || v === null || v === undefined) continue
+        const stack = Number(v)
         if (!Number.isFinite(stack) || stack < 0) return { ok: false, error: 'INVALID_STACK' }
+        submittedOpenids.push(openid)
         normalizedStacks[openid] = stack
       }
-    } else if (!hasExtraCost) {
-      return { ok: false, error: 'INVALID_EXTRA_COST' }
+    }
+    let mode
+    if (event.mode === 'finalize') {
+      mode = 'finalize'
+      if (!submittedOpenids.length) return { ok: false, error: 'NO_STACKS_SUBMITTED' }
+    } else if (submittedOpenids.length) {
+      mode = 'checkout'
+    } else if (hasExtraCost) {
+      mode = 'expense'
+    } else {
+      return { ok: false, error: 'NO_STACKS_SUBMITTED' }
     }
     const db = getDb()
     const got = await db
@@ -523,7 +596,9 @@ const handlers = {
     const effExtraCost = hasExtraCost ? extraCost : Number(game.extraCost) || 0
     const effExpenseMode = hasExpenseMode
       ? expenseMode
-      : normalizeExpenseMode(game.expenseMode || game.aaMode || 'all')
+      : game.expenseMode || game.aaMode
+        ? normalizeExpenseMode(game.expenseMode || game.aaMode)
+        : 'winner'
 
     let players = game.players.map(p => {
       if (!submittedOpenids.includes(p.openid)) return p
@@ -556,19 +631,19 @@ const handlers = {
       shares.forEach(s => {
         shareMap[s.openid] = s.share || 0
       })
-      players = players.map(p =>
-        p.eliminatedAt
-          ? p
-          : {
-            ...p,
-            share: shareMap[p.openid] || 0,
-            finalProfit: p.profit
-          }
-      )
+      players = players.map(p => {
+        if (p.eliminatedAt) return p
+        return {
+          ...p,
+          share: shareMap[p.openid] || 0,
+          finalProfit: p.profit
+        }
+      })
     }
     const settledAll = players.filter(
       p => p.finalStack !== null && p.finalStack !== undefined
     ).length
+    const writesTransactions = submittedOpenids.length > 0
     const update = {
       players,
       extraCost: effExtraCost,
@@ -577,6 +652,8 @@ const handlers = {
       shareTotal: shares.reduce((s, x) => s + (x.share || 0), 0),
       checkedOutCount: settledAll,
       settledCount: settledAll,
+      stateRevision: nextStateRevision(game),
+      ...(writesTransactions ? { txRevision: nextTxRevision(game) } : {}),
       ...operationUpdate(game, operationId)
     }
     if (justEnded) {
@@ -600,7 +677,15 @@ const handlers = {
         }
       })
     }
-    return { ok: true, ended, justEnded, edited, diff, players, game: { ...game, ...update, players } }
+    return {
+      ok: true,
+      ended,
+      justEnded,
+      edited,
+      diff,
+      players,
+      game: { ...game, ...update, players }
+    }
   },
 
   async aiReview({ gameId }) {
@@ -786,7 +871,10 @@ const handlers = {
           startAt: now,
           endAt: new Date(now.getTime() + 42 * 24 * 3600 * 1000),
           status: 'ongoing',
-          rankings: []
+          rankings: [],
+          excludedGameIds: [],
+          exclusionScopeVersion: 1,
+          exclusionRevision: 0
         }
       })
       circle.currentSeasonId = created._id
@@ -804,14 +892,19 @@ const handlers = {
     const queryStart =
       Number(season.seasonNo) <= 1 && circleCreatedAt < seasonStart ? circleCreatedAt : seasonStart
     const activePlayers = g => (g.players || []).filter(p => !p.eliminatedAt)
-    const qualifiedGames = (raw.games || [])
+    const excludedGameIds = new Set(season.excludedGameIds || [])
+    const needsLegacyMigration = season.exclusionScopeVersion !== 1
+    const candidateGames = (raw.games || [])
       .filter(g => g.status === 'ended')
       .filter(g => new Date(g.endedAt || g.startedAt) >= queryStart)
       .filter(g => new Date(g.endedAt || g.startedAt) < seasonEnd)
-      .filter(g => !g.excludeFromSeason)
       .filter(g => activePlayers(g).length >= 4)
       .filter(g => new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60 * 1000)
       .filter(g => activePlayers(g).some(p => memberSet[p.openid]))
+    if (needsLegacyMigration) {
+      candidateGames.filter(g => g.excludeFromSeason).forEach(g => excludedGameIds.add(g._id))
+    }
+    const qualifiedGames = candidateGames.filter(g => !excludedGameIds.has(g._id))
 
     const stats = {}
     members.forEach(openid => {
@@ -887,7 +980,10 @@ const handlers = {
       })
 
     season.rankings = rankings
-    season.gameSummaries = qualifiedGames
+    season.excludedGameIds = [...excludedGameIds]
+    season.exclusionScopeVersion = 1
+    season.exclusionRevision = Math.max(0, Number(season.exclusionRevision) || 0)
+    season.gameSummaries = candidateGames
       .slice(-50)
       .reverse()
       .map(g => ({
@@ -895,22 +991,83 @@ const handlers = {
         name: g.name || '',
         playerCount: activePlayers(g).length,
         startedAt: g.startedAt,
-        endedAt: g.endedAt
+        endedAt: g.endedAt,
+        excluded: excludedGameIds.has(g._id)
       }))
     season.calculatedAt = new Date()
-    season.calculationMeta = { algorithmVersion: 4, qualifiedCount: qualifiedGames.length }
+    season.calculationMeta = { algorithmVersion: 5, qualifiedCount: qualifiedGames.length }
     db._notify('seasons', season._id)
     return {
       ok: true,
       seasonId: season._id,
       rankedCount: rankings.filter(r => r.rank > 0).length,
       qualifiedCount: qualifiedGames.length,
-      algorithmVersion: 4
+      algorithmVersion: 5
     }
   },
 
   async resetSeason({ circleId }) {
     return handlers.calcSeasonScore({ circleId })
+  },
+
+  async excludeGame({ gameId, circleId, exclude = true }) {
+    if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
+    const db = getDb()
+    const raw = db._raw
+    const game = (raw.games || []).find(g => g._id === gameId)
+    if (!game) return { ok: false, error: 'NOT_FOUND' }
+    const legacy = !circleId
+    let circles
+    if (legacy) {
+      if (game.hostOpenid !== MY_OPENID) return { ok: false, error: 'NOT_HOST' }
+      circles = (raw.circles || []).filter(
+        circle =>
+          circle.status === 'active' &&
+          circle.currentSeasonId &&
+          (game.players || []).some(p => (circle.memberOpenids || []).includes(p.openid))
+      )
+      game.excludeFromSeason = !!exclude
+      db._notify('games', gameId)
+    } else {
+      const circle = (raw.circles || []).find(c => c._id === circleId)
+      if (!circle || circle.status !== 'active') return { ok: false, error: 'NOT_FOUND' }
+      if (circle.ownerOpenid !== MY_OPENID) return { ok: false, error: 'NOT_HOST' }
+      if (!(game.players || []).some(p => (circle.memberOpenids || []).includes(p.openid))) {
+        return { ok: false, error: 'GAME_NOT_IN_CIRCLE' }
+      }
+      circles = [circle]
+    }
+    let firstSeasonId = ''
+    for (const circle of circles) {
+      const season = (raw.seasons || []).find(s => s._id === circle.currentSeasonId)
+      if (!season || season.status !== 'ongoing') {
+        if (!legacy) return { ok: false, error: 'NO_ACTIVE_SEASON' }
+        continue
+      }
+      if (season.exclusionScopeVersion !== 1) {
+        const migration = await handlers.calcSeasonScore({ circleId: circle._id })
+        if (!migration.ok) {
+          if (!legacy) return migration
+          continue
+        }
+      }
+      const ids = new Set(season.excludedGameIds || [])
+      if (exclude) ids.add(gameId)
+      else ids.delete(gameId)
+      season.excludedGameIds = [...ids]
+      season.exclusionScopeVersion = 1
+      season.exclusionRevision = Math.max(0, Number(season.exclusionRevision) || 0) + 1
+      firstSeasonId = firstSeasonId || season._id
+      db._notify('seasons', season._id)
+      await handlers.calcSeasonScore({ circleId: circle._id })
+    }
+    return {
+      ok: true,
+      circleId: circleId || '',
+      seasonId: firstSeasonId,
+      excluded: !!exclude,
+      legacy
+    }
   },
 
   async removeCircleMember({ circleId, targetOpenid }) {
@@ -920,7 +1077,8 @@ const handlers = {
     if (!circle || circle.status !== 'active') return { ok: false, error: 'NOT_FOUND' }
     if (circle.ownerOpenid !== MY_OPENID) return { ok: false, error: 'NOT_OWNER' }
     if (targetOpenid === circle.ownerOpenid) return { ok: false, error: 'OWNER_CANNOT_REMOVE' }
-    if (!(circle.memberOpenids || []).includes(targetOpenid)) return { ok: false, error: 'NOT_MEMBER' }
+    if (!(circle.memberOpenids || []).includes(targetOpenid))
+      return { ok: false, error: 'NOT_MEMBER' }
     circle.memberOpenids = circle.memberOpenids.filter(o => o !== targetOpenid)
     if (circle.memberJoinedAt) delete circle.memberJoinedAt[targetOpenid]
     db._notify('circles', circleId)

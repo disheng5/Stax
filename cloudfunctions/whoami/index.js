@@ -34,9 +34,7 @@ function bestProfile(candidates) {
   const sorted = (candidates || []).filter(Boolean).slice().sort(sortProfiles)
   const best = sorted[0] || {}
   const named = sorted.find(p => meaningfulNickname(p.nickname))
-  const withAvatar = sorted
-    .filter(p => p.avatar)
-    .sort((a, b) => profileTime(b) - profileTime(a))[0]
+  const withAvatar = sorted.filter(p => p.avatar).sort((a, b) => profileTime(b) - profileTime(a))[0]
   const withStats = sorted.find(p => p.stats)
   return {
     ...best,
@@ -120,22 +118,32 @@ async function syncProfileToGames(openid, nickname, avatar, updatedAt) {
     await runBatches(stale, 10, game =>
       db
         .runTransaction(async transaction => {
-          const snap = await transaction.collection('games').doc(game._id).get().catch(() => null)
+          const snap = await transaction
+            .collection('games')
+            .doc(game._id)
+            .get()
+            .catch(() => null)
           if (!snap || !snap.data || snap.data.status !== 'ongoing') return
-          const players = (snap.data.players || []).map(p =>
-            p.openid === openid
-              ? {
-                ...p,
-                nickname: nickname || p.nickname,
-                avatar: avatar || p.avatar,
-                profileUpdatedAt: updatedAt
-              }
-              : p
-          )
+          const players = (snap.data.players || []).map(p => {
+            if (p.openid !== openid) return p
+            return {
+              ...p,
+              nickname: nickname || p.nickname,
+              avatar: avatar || p.avatar,
+              profileUpdatedAt: updatedAt
+            }
+          })
           await transaction
             .collection('games')
             .doc(game._id)
-            .update({ data: { players, profileUpdatedAt: updatedAt } })
+            .update({
+              data: {
+                players,
+                profileUpdatedAt: updatedAt,
+                stateRevision:
+                  Math.max(0, Number(snap.data.stateRevision ?? snap.data.txRevision) || 0) + 1
+              }
+            })
         }, 3)
         .catch(err => console.error('[syncProfileToGames txn]', game._id, err))
     )
@@ -147,9 +155,7 @@ async function syncProfileToGames(openid, nickname, avatar, updatedAt) {
 async function syncProfileToSeasons(openid, nickname, avatar, updatedAt) {
   try {
     const circles = await fetchAll(() =>
-      db
-        .collection('circles')
-        .where({ status: 'active', memberOpenids: _.elemMatch(_.eq(openid)) })
+      db.collection('circles').where({ status: 'active', memberOpenids: _.elemMatch(_.eq(openid)) })
     )
     const seasonIds = [...new Set(circles.map(c => c.currentSeasonId).filter(Boolean))]
     await runBatches(seasonIds, 10, seasonId =>
@@ -162,16 +168,15 @@ async function syncProfileToSeasons(openid, nickname, avatar, updatedAt) {
         if (!got || !got.data || got.data.status !== 'ongoing') return
         const rankings = got.data.rankings || []
         if (!rankings.some(r => r.openid === openid)) return
-        const next = rankings.map(r =>
-          r.openid === openid
-            ? {
-              ...r,
-              nickname: nickname || r.nickname,
-              avatar: avatar || r.avatar,
-              profileUpdatedAt: updatedAt
-            }
-            : r
-        )
+        const next = rankings.map(r => {
+          if (r.openid !== openid) return r
+          return {
+            ...r,
+            nickname: nickname || r.nickname,
+            avatar: avatar || r.avatar,
+            profileUpdatedAt: updatedAt
+          }
+        })
         await transaction
           .collection('seasons')
           .doc(seasonId)
@@ -193,18 +198,13 @@ function serializeUser(user) {
 exports.main = async event => {
   try {
     const { OPENID } = cloud.getWXContext()
-    const {
-      upsertNickname,
-      upsertAvatar,
-      bootstrapNickname,
-      bootstrapAvatar,
-      bootstrapOpenid
-    } = event || {}
+    const { upsertNickname, upsertAvatar, bootstrapNickname, bootstrapAvatar, bootstrapOpenid } =
+      event || {}
 
     if (!OPENID) return { ok: false, error: 'OPENID_UNAVAILABLE_IN_TEST_CONSOLE' }
-    if (upsertNickname !== undefined && !meaningfulNickname(upsertNickname)) {
-      return { ok: false, error: 'INVALID_NICKNAME' }
-    }
+    // 向后兼容：upsertNickname 不合格（空/通用名/超长）时【忽略该 upsert】，
+    // 绝不因此拒绝整个 whoami——它每次启动都调，一旦失败老前端拿不到 openid 会整体不可用。
+    const upsertNicknameOk = upsertNickname !== undefined && meaningfulNickname(upsertNickname)
 
     const q = await db.collection('users').where({ _openid: OPENID }).limit(PAGE_SIZE).get()
     const docs = q.data || []
@@ -212,10 +212,7 @@ exports.main = async event => {
     let nickname = stored.nickname || ''
     let avatar = stored.avatar || ''
 
-    if (
-      !meaningfulNickname(nickname) ||
-      (!avatar && Number(stored.profileVersion || 0) < 2)
-    ) {
+    if (!meaningfulNickname(nickname) || (!avatar && Number(stored.profileVersion || 0) < 2)) {
       const recovered = await findLatestGameProfile(OPENID)
       if (!meaningfulNickname(nickname) && meaningfulNickname(recovered.nickname)) {
         nickname = recovered.nickname.trim()
@@ -225,16 +222,12 @@ exports.main = async event => {
 
     // bootstrap 只填历史空值，绝不覆盖云端已有真资料。
     const canBootstrap = bootstrapOpenid === OPENID
-    if (
-      canBootstrap &&
-      !meaningfulNickname(nickname) &&
-      meaningfulNickname(bootstrapNickname)
-    ) {
+    if (canBootstrap && !meaningfulNickname(nickname) && meaningfulNickname(bootstrapNickname)) {
       nickname = bootstrapNickname.trim()
     }
     if (canBootstrap && !avatar && bootstrapAvatar) avatar = bootstrapAvatar
 
-    if (upsertNickname !== undefined) nickname = upsertNickname.trim()
+    if (upsertNicknameOk) nickname = upsertNickname.trim()
     if (upsertAvatar !== undefined) avatar = upsertAvatar || ''
 
     const profileChanged = stored.nickname !== nickname || (stored.avatar || '') !== avatar

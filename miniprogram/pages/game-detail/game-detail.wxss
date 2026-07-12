@@ -3,25 +3,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16rpx 4rpx;
-  margin-bottom: 12rpx;
+  gap: 20rpx;
+  padding: 18rpx 4rpx;
+  margin-bottom: 10rpx;
 }
 
 .info-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-sub);
   font-size: 24rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .share-btn {
   flex-shrink: 0;
-  height: 52rpx;
-  padding: 0 24rpx;
+  height: 60rpx;
+  padding: 0 22rpx;
   border-radius: var(--radius-sm);
   background: var(--table-green);
   color: #fff;
   font-size: 24rpx;
   font-weight: 600;
-  line-height: 52rpx;
+  line-height: 60rpx;
 }
 
 .notice {
@@ -124,18 +130,18 @@
 }
 
 .tx-list {
-  padding: 10rpx 24rpx;
+  padding: 12rpx 24rpx 18rpx;
 }
 
 .tx {
   display: flex;
   align-items: center;
-  gap: 10rpx;
-  min-height: 40rpx;
-  padding: 10rpx 0;
-  border-bottom: 2rpx solid var(--border);
+  gap: 12rpx;
+  min-height: 64rpx;
+  padding: 8rpx 0;
+  border-bottom: 1rpx solid var(--border);
   font-size: 24rpx;
-  line-height: 40rpx;
+  line-height: 34rpx;
   white-space: nowrap;
 }
 
@@ -149,8 +155,9 @@
 }
 
 .tx-type {
-  color: var(--text-sub);
   flex-shrink: 0;
+  min-width: 48rpx;
+  color: var(--text-sub);
 }
 
 .tx-type--entry { color: var(--table-green); }
@@ -159,14 +166,14 @@
 .tx-type--settle { color: var(--text-sub); }
 
 .tx-time {
-  width: 72rpx;
+  width: 74rpx;
   color: var(--text-sub);
   font-size: 22rpx;
   flex-shrink: 0;
 }
 
 .tx-name {
-  max-width: 180rpx;
+  max-width: 160rpx;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
@@ -183,6 +190,15 @@
   text-overflow: ellipsis;
 }
 
+.tx-detail-number {
+  display: inline-block;
+  margin: 0 3rpx;
+  color: var(--text);
+  font-size: 24rpx;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .tx-revoked {
   flex-shrink: 0;
   color: var(--text-sub);
@@ -190,7 +206,7 @@
 }
 
 .expense-block {
-  padding: 4rpx 0 2rpx;
+  padding: 6rpx 0 12rpx;
 }
 
 .expense-head,
@@ -202,8 +218,8 @@
 }
 
 .expense-head {
-  min-height: 48rpx;
-  margin-bottom: 4rpx;
+  min-height: 54rpx;
+  margin-bottom: 8rpx;
 }
 
 .expense-title {
@@ -221,9 +237,9 @@
 }
 
 .expense-row {
-  min-height: 48rpx;
+  min-height: 54rpx;
   font-size: 24rpx;
-  line-height: 48rpx;
+  line-height: 54rpx;
 }
 
 .expense-name {
@@ -240,8 +256,12 @@
 
 .expense-divider {
   height: 2rpx;
-  margin-top: 8rpx;
+  margin-top: 12rpx;
   background: var(--border);
+}
+
+.ledger-title {
+  margin: 30rpx 4rpx 14rpx;
 }
 
 .btn-tiny {
@@ -390,11 +410,12 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin: 20rpx 0;
-  padding: 20rpx 28rpx;
-  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  margin: 20rpx 0 24rpx;
+  padding: 22rpx 28rpx;
+  background: #fff;
   border-radius: var(--radius-md);
   border: 1rpx solid rgba(43, 108, 176, 0.08);
+  box-shadow: 0 3rpx 12rpx rgba(24, 52, 82, 0.05);
 }
 
 .summary-item {
@@ -437,47 +458,137 @@
 }
 
 .game-sub-info {
-  margin-bottom: 16rpx;
-}
-
-.final-section {
-  padding: 16rpx 0 8rpx;
-}
-
-.final-label {
-  font-size: 24rpx;
-  margin-bottom: 12rpx;
-}
-
-.final-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16rpx;
-}
-
-.final-input {
-  width: 240rpx;
-  height: 72rpx;
-  border: 2rpx solid var(--border);
-  border-radius: var(--radius-sm);
-  text-align: right;
-  padding: 0 16rpx;
-  font-size: 28rpx;
-  color: var(--text);
-}
-
-.final-hint {
-  font-size: 22rpx;
-  margin-top: 8rpx;
+  margin-bottom: 20rpx;
 }
 
 /* 顶栏双操作按钮 */
-.info-actions { display: flex; gap: 16rpx; flex-shrink: 0; }
-
-/* 结束后可编辑提示 */
-.edit-window-hint { text-align: center; margin: 12rpx 0 4rpx; font-size: 22rpx; }
+.info-actions { display: flex; gap: 12rpx; flex-shrink: 0; }
 
 /* 费用分摊面板 */
-.final-picker { flex: 1; text-align: right; }
-.picker-value { color: var(--text); font-size: 30rpx; }
+.expense-mask {
+  padding: 32rpx;
+  box-sizing: border-box;
+  background: rgba(16, 24, 32, 0.5);
+}
+
+.expense-sheet {
+  width: 620rpx;
+  max-width: 100%;
+  padding: 38rpx 40rpx 34rpx;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+.expense-modal-head {
+  display: grid;
+  grid-template-columns: 64rpx 1fr 64rpx;
+  align-items: center;
+}
+
+.expense-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  color: var(--text-sub);
+  font-size: 42rpx;
+  line-height: 1;
+}
+
+.expense-close:active {
+  opacity: 0.55;
+}
+
+.expense-modal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.expense-head-spacer {
+  width: 64rpx;
+}
+
+.expense-form {
+  margin-top: 30rpx;
+}
+
+.expense-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-height: 88rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.expense-field-label {
+  flex-shrink: 0;
+  color: var(--text);
+  font-size: 27rpx;
+  font-weight: 500;
+}
+
+.expense-amount-input {
+  flex: 1;
+  min-width: 0;
+  height: 88rpx;
+  color: var(--text);
+  font-size: 32rpx;
+  text-align: right;
+}
+
+.expense-mode-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  color: var(--text-sub);
+  font-size: 29rpx;
+}
+
+.expense-mode-arrow {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+}
+
+.expense-compliance-note {
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(226, 232, 240, 0.8);
+  color: var(--text-sub);
+  font-size: 22rpx;
+}
+
+.expense-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.expense-button {
+  height: 84rpx;
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 84rpx;
+  text-align: center;
+}
+
+.expense-button--cancel {
+  background: #f2f4f7;
+  color: var(--text-sub);
+}
+
+.expense-button--confirm {
+  background: var(--table-green);
+  color: #fff;
+}
+
+.expense-button--disabled {
+  opacity: 0.55;
+}

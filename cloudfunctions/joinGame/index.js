@@ -46,7 +46,7 @@ exports.main = async event => {
 
   // 已在则直接返回
   const exists = (game.players || []).find(p => p.openid === OPENID)
-  if (exists) return { ok: true, gameId: game._id, alreadyJoined: true }
+  if (exists) return { ok: true, gameId: game._id, alreadyJoined: true, game }
 
   // users 是权威资料；历史线上用户尚未迁入 users 时，使用客户端已校验资料兜底。
   let finalNickname = meaningfulNickname(nickname) ? nickname.trim() : ''
@@ -62,8 +62,7 @@ exports.main = async event => {
 
   const buyHands = Math.min(99, Math.max(1, Math.floor(Number(hands) || 1)))
   const gameBuyIn = Number(game.buyIn)
-  if (!Number.isFinite(gameBuyIn) || gameBuyIn <= 0)
-    return { ok: false, error: 'INVALID_AMOUNT' }
+  if (!Number.isFinite(gameBuyIn) || gameBuyIn <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
   const amount = gameBuyIn * buyHands
   const now = new Date()
   const player = {
@@ -93,16 +92,14 @@ exports.main = async event => {
         return { ok: false, error: 'GAME_NOT_FOUND' }
       const cur = snap.data
       if ((cur.players || []).some(p => p.openid === OPENID))
-        return { ok: true, alreadyJoined: true }
-      await transaction
-        .collection('games')
-        .doc(game._id)
-        .update({
-          data: {
-            players: [...(cur.players || []), player],
-            totalPot: (Number(cur.totalPot) || 0) + amount
-          }
-        })
+        return { ok: true, alreadyJoined: true, game: cur }
+      const update = {
+        players: [...(cur.players || []), player],
+        totalPot: (Number(cur.totalPot) || 0) + amount,
+        txRevision: Math.max(0, Number(cur.txRevision) || 0) + 1,
+        stateRevision: Math.max(0, Number(cur.stateRevision ?? cur.txRevision) || 0) + 1
+      }
+      await transaction.collection('games').doc(game._id).update({ data: update })
       const tx = await transaction.collection('transactions').add({
         data: {
           gameId: game._id,
@@ -114,14 +111,14 @@ exports.main = async event => {
           meta: { hands: buyHands }
         }
       })
-      return { ok: true, txId: tx && tx._id }
+      return { ok: true, txId: tx && tx._id, game: { ...cur, ...update } }
     }, 3)
   } catch (err) {
     console.error('[joinGame txn]', err)
     return { ok: false, error: 'CONFLICT_RETRY' }
   }
   if (!txn.ok) return txn
-  if (txn.alreadyJoined) return { ok: true, gameId: game._id, alreadyJoined: true }
+  if (txn.alreadyJoined) return { ok: true, gameId: game._id, alreadyJoined: true, game: txn.game }
 
-  return { ok: true, gameId: game._id }
+  return { ok: true, gameId: game._id, game: txn.game }
 }

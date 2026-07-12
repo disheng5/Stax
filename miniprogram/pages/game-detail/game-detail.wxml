@@ -7,7 +7,7 @@
     </view>
   </view>
   <view class="game-sub-info">
-    <text class="text-sub">盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每手 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · {{game.scoreRatio}}:1</text></text>
+    <text class="text-sub">娱乐积分 · 盲注 {{game.smallBlind}}/{{game.bigBlind}} · 每份 {{game.buyIn}}<text wx:if="{{game.scoreRatio > 1}}"> · {{game.scoreRatio}}:1</text></text>
   </view>
 
   <view class="notice" wx:if="{{game.players.length <= 1 && game.status === 'ongoing'}}">当前只有 1 位玩家，请分享给好友邀请加入</view>
@@ -42,9 +42,9 @@
   </view>
 
   <view class="table-head">
-    <text>玩家</text>
+    <text>成员</text>
     <text>手数</text>
-    <text>码量</text>
+    <text>剩余积分</text>
     <text>盈亏</text>
   </view>
   <view class="players">
@@ -74,11 +74,7 @@
     <text class="bar-item text-warning" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal !== 0}}">账差: {{settleResult.aboveTotal + settleResult.belowTotal > 0 ? '+' : ''}}{{settleResult.aboveTotal + settleResult.belowTotal}}</text>
   </view>
 
-  <view class="edit-window-hint text-sub" wx:if="{{game.status === 'ended' && canEditSettle && isPlayer && !viewerMode}}">
-    结束后 3 小时内可点击成员修改结算积分
-  </view>
-
-  <view class="section-title" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">流水记录</view>
+  <view class="section-title ledger-title" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">流水记录</view>
   <view class="card tx-list" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">
     <view class="expense-block" wx:if="{{settleResult && settleResult.expenseRows.length}}">
       <view class="expense-head">
@@ -95,7 +91,14 @@
       <text class="tx-time">{{tx.timeStr}}</text>
       <text class="tx-type tx-type--{{tx.typeClass}}">{{tx.typeLabel}}</text>
       <text class="tx-name">{{tx.nickname}}</text>
-      <text class="tx-detail">{{tx.detail}}</text>
+      <text class="tx-detail">
+        <text
+          wx:for="{{tx.detailParts}}"
+          wx:for-item="part"
+          wx:key="key"
+          class="{{part.emphasis ? 'tx-detail-number' : ''}}"
+        >{{part.text}}</text>
+      </text>
       <text class="tx-revoked" wx:if="{{tx.revoked}}">已撤销</text>
     </view>
   </view>
@@ -136,25 +139,44 @@
   </view>
 </view>
 
-<view class="hands-mask" wx:if="{{expensePanel.show}}" bindtap="onExpensePanelClose">
-  <view class="hands-sheet" catchtap="onExpensePanelStop">
-    <view class="hands-title">费用分摊</view>
-    <view class="final-section">
-      <view class="final-row">
-        <text class="final-label">费用总额</text>
-        <input class="final-input" type="digit" placeholder="0" value="{{expensePanel.extraCost}}" bindinput="onExtraCostInput" />
-      </view>
-      <view class="final-row">
-        <text class="final-label">分摊方式</text>
-        <picker class="final-picker" mode="selector" range="{{['全员平均', '水上比例', '水上平均', 'MVP买单']}}" value="{{expensePanel.expenseMode === 'all' ? 0 : expensePanel.expenseMode === 'winner' ? 1 : expensePanel.expenseMode === 'winnerEven' ? 2 : 3}}" bindchange="onExpenseModePick">
-          <view class="picker-value">{{expenseModeLabels[expensePanel.expenseMode]}} ▾</view>
-        </picker>
-      </view>
-      <view class="final-hint text-sub">费用仅记录分摊，不影响盈亏积分</view>
+<view class="hands-mask expense-mask" wx:if="{{expensePanel.show}}" bindtap="onExpensePanelClose">
+  <view class="expense-sheet" catchtap="onExpensePanelStop">
+    <view class="expense-modal-head">
+      <view class="expense-close" bindtap="onExpensePanelClose">×</view>
+      <view class="expense-modal-title">费用分摊</view>
+      <view class="expense-head-spacer"></view>
     </view>
-    <view class="hands-actions">
-      <view class="hands-btn cancel" bindtap="onExpensePanelClose">取消</view>
-      <view class="hands-btn confirm" bindtap="onExpenseConfirm">确定</view>
+
+    <view class="expense-form">
+      <view class="expense-field">
+        <text class="expense-field-label">费用总额</text>
+        <input
+          class="expense-amount-input"
+          type="digit"
+          placeholder="0"
+          value="{{expensePanel.extraCost}}"
+          bindinput="onExtraCostInput"
+        />
+      </view>
+      <picker
+        mode="selector"
+        range="{{['全员平均', '水上比例', '水上平均', 'MVP买单']}}"
+        value="{{expensePanel.expenseMode === 'all' ? 0 : expensePanel.expenseMode === 'winner' ? 1 : expensePanel.expenseMode === 'winnerEven' ? 2 : 3}}"
+        bindchange="onExpenseModePick"
+      >
+        <view class="expense-field">
+          <text class="expense-field-label">分摊方式</text>
+          <view class="expense-mode-value">{{expenseModeLabels[expensePanel.expenseMode]}}<text class="expense-mode-arrow">▾</text></view>
+        </view>
+      </picker>
+      <view class="expense-compliance-note">仅记录费用分摊，不计入本局积分结果</view>
+    </view>
+
+    <view class="expense-actions">
+      <view class="expense-button expense-button--cancel" bindtap="onExpensePanelClose">取消</view>
+      <view class="expense-button expense-button--confirm {{expensePanel.submitting ? 'expense-button--disabled' : ''}}" bindtap="onExpenseConfirm">
+        {{expensePanel.submitting ? '保存中…' : '确定'}}
+      </view>
     </view>
   </view>
 </view>

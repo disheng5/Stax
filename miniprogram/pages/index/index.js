@@ -141,18 +141,11 @@ Page({
   },
 
   onShareAppMessage() {
-    const dw = this.data.dailyWord
-    if (dw.word) {
-      return {
-        title: `「${dw.word}」—— StaxKit 每日一字`,
-        path: '/pages/index/index'
-      }
-    }
     const s = this.data.myStats
-    let title = 'StaxKit — 朋友局记账神器'
+    let title = 'StaxKit · 朋友局娱乐积分记录'
     if (s && s.totalGames >= 3) {
       const pf = formatProfit(s.totalProfit || 0)
-      title = `我用 StaxKit 记了 ${s.totalGames} 局，累计 ${pf}，来一起打牌？`
+      title = `我用 StaxKit 记录了 ${s.totalGames} 场朋友局，累计积分 ${pf}`
     }
     return { title, path: '/pages/index/index' }
   }

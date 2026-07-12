@@ -4,13 +4,19 @@ const { settle } = require('../../utils/settle.js')
 const { computeShares } = require('../../utils/aa.js')
 const {
   invalidateGamesCache,
+  markGamesChanged,
   cacheGame,
-  getCachedGame,
+  getCachedGameEntry,
   removeCachedGame
 } = require('../../utils/game-data.js')
 const avatarCache = require('../../utils/avatar.js')
 const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 const { createOperationId } = require('../../utils/operation.js')
+const {
+  transactionDetailParts,
+  transactionDetailText,
+  transactionHandState
+} = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 
 const TX_TYPE_LABEL = {
@@ -31,27 +37,13 @@ const TX_TYPE_CLASS = {
   settlePartial: 'settle'
 }
 
-function transactionDetail(tx, hands, accHands) {
-  if (tx.type === 'buyIn') return `入场${hands}手，共${accHands}手`
-  if (tx.type === 'rebuy' || tx.type === 'addOn') {
-    if (tx.revoked) return `买入${hands}手，未计入当前手数`
-    return `当前${Math.max(0, accHands - hands)}手，买入${hands}手，共${accHands}手`
-  }
-  if (tx.type === 'settle' || tx.type === 'settlePartial') {
-    return `剩余积分${Number(tx.amount) || 0}`
-  }
-  if (tx.type === 'eliminate') {
-    const removedBuyIn = Number(tx.meta?.removedBuyIn) || Math.abs(Number(tx.amount) || 0)
-    return removedBuyIn > 0 ? `移出房间，扣除${removedBuyIn}积分` : '移出房间'
-  }
-  return Number(tx.amount) ? `积分${Number(tx.amount)}` : ''
-}
-
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
   if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
   if (value === 'mvp') return 'mvp'
-  return 'all'
+  if (['all', 'even'].includes(value)) return 'all'
+  // 与云函数一致：未知取值回退产品默认「水上比例」
+  return 'winner'
 }
 
 const EXPENSE_MODE_LABELS = {
@@ -91,8 +83,7 @@ Page({
     settleDiff: 0,
     aboveTotal: 0,
     belowTotal: 0,
-    canEditSettle: false,
-    expensePanel: { show: false, extraCost: '', expenseMode: 'all', submitting: false },
+    expensePanel: { show: false, extraCost: '', expenseMode: 'winner', submitting: false },
     expenseModeLabels: EXPENSE_MODE_LABELS,
     expenseModeOptions: EXPENSE_MODE_OPTIONS,
     settleResult: null,
@@ -110,12 +101,11 @@ Page({
       this.setData({ loading: false, notFound: true })
       return
     }
-    const cachedGame = getCachedGame(gameId)
-    if (cachedGame) this._applyGame(cachedGame, { cached: true })
-    // HTTP 直拉先上屏，watch 作为实时升级通道，两者并行；
-    // 若 watch 首包抢先到达，这次直拉结果作废，避免重复渲染（deferToWatch）
+    const cached = getCachedGameEntry(gameId)
+    if (cached?.game) this._applyGame(cached.game, { cached: true })
+    // 刚由创建/加入响应写入的快照可直接消费；普通历史快照仍并行校验，避免陈旧数据。
     this._watchDelivered = false
-    this._fetchGameOnce({ deferToWatch: true })
+    if (!cached || cached.age > 2000) this._fetchGameOnce({ deferToWatch: true })
     this._startWatch()
     await this._ensureOpenid()
     this._recomputeIdentity()
@@ -189,10 +179,11 @@ Page({
       playerOpsShared: game.playerOpsShared,
       totalPot: game.totalPot,
       checkedOutCount: game.checkedOutCount,
-      excludeFromSeason: game.excludeFromSeason,
       endedAt: game.endedAt,
       extraCost: game.extraCost,
       expenseMode: game.expenseMode,
+      txRevision: game.txRevision || 0,
+      stateRevision: game.stateRevision ?? game.txRevision ?? 0,
       players: (game.players || []).map(p => [
         p.openid,
         p.nickname,
@@ -228,6 +219,18 @@ Page({
 
   // watch、HTTP 与本地快照共用的落地逻辑。
   _applyGame(game, options = {}) {
+    const current = this.data.game
+    const incomingRevision = Number(game.stateRevision ?? game.txRevision) || 0
+    const currentRevision = Number(current?.stateRevision ?? current?.txRevision) || 0
+    if (
+      current &&
+      game._id === current._id &&
+      incomingRevision < currentRevision &&
+      !options.cached &&
+      !options.optimistic
+    ) {
+      return
+    }
     const myOpenid = this.data.myOpenid || app.globalData.openid || ''
     const isHost = !!myOpenid && game.hostOpenid === myOpenid
     const isPlayer = !!myOpenid && (game.players || []).some(p => p.openid === myOpenid)
@@ -254,14 +257,16 @@ Page({
     const g = { ...game, players }
     const signature = this._gameSignature(g)
     if (signature === this._renderSignature) {
-      cacheGame(g)
-      if (!options.cached) this._resolveAvatars(players)
+      if (!options.optimistic) {
+        cacheGame(g)
+        if (!options.cached) this._resolveAvatars(players)
+      }
       return
     }
     this._renderSignature = signature
     const settleStatus = this._getSettleStatus(g)
     // 终局与结束后的积分修正/费用变更都要让首页与历史即时刷新
-    if (g.status === 'ended' && this.data.game) invalidateGamesCache()
+    if (g.status === 'ended' && this.data.game && !options.optimistic) invalidateGamesCache()
     const patch = {
       game: g,
       isHost,
@@ -270,16 +275,17 @@ Page({
       loading: false,
       notFound: false,
       loadError: false,
-      canEditSettle: canEditSettle(g),
       ...settleStatus
     }
     if (g.status === 'ended') Object.assign(patch, this._createSettleResult(g))
     if (myOpenid && myOpenid !== this.data.myOpenid) patch.myOpenid = myOpenid
     this.setData(patch)
-    cacheGame(g)
-    this._resolveAvatars(players)
-    this._resolveDisplayAvatars(players)
-    this._fetchRecentTx()
+    if (!options.optimistic) {
+      cacheGame(g)
+      this._resolveAvatars(players)
+      this._resolveDisplayAvatars(players)
+      this._fetchRecentTx()
+    }
   },
 
   _startWatch() {
@@ -399,7 +405,7 @@ Page({
   },
 
   // 用 game 文档中与流水相关的字段构造签名：
-  // 签名没变说明没有新交易（盲注升级/暂停等推送不触发流水重拉）
+  // 状态版本不进入签名，盲注升级、暂停和费用修改不会触发流水重拉。
   _txSignature(game) {
     if (!game) return ''
     const players = game.players || []
@@ -415,9 +421,16 @@ Page({
       }
       if (p.eliminatedAt) elim++
     })
-    return [game.totalPot || 0, players.length, buySum, checked, finalSum, elim, game.status].join(
-      '|'
-    )
+    return [
+      game.txRevision || 0,
+      game.totalPot || 0,
+      players.length,
+      buySum,
+      checked,
+      finalSum,
+      elim,
+      game.status
+    ].join('|')
   },
 
   async _fetchRecentTx(force = false) {
@@ -431,107 +444,42 @@ Page({
     this._txFetching = true
     try {
       const db = wx.cloud.database()
-      const _ = db.command
-      const coll = db.collection('transactions').where({ gameId: this.data.gameId })
-      let all = null
-
-      // 增量路径：已有缓存且非强制刷新（撤销需全量以更新 revoked 标记）时，
-      // 只拉比已知最新更晚的流水；一次拉满 20 条说明落后太多，回退全量
-      if (!force && Array.isArray(this._txRaw) && this._txRaw.length) {
-        const newestTs = this._txRaw.reduce((m, t) => {
-          const v = +new Date(t.timestamp)
-          return v > m ? v : m
-        }, 0)
-        const inc = await db
-          .collection('transactions')
-          .where({ gameId: this.data.gameId, timestamp: _.gt(new Date(newestTs)) })
-          .orderBy('timestamp', 'desc')
-          .limit(20)
-          .get()
-        if (inc.data.length < 20) {
-          const known = {}
-          this._txRaw.forEach(t => {
-            known[t._id] = true
-          })
-          all = [...inc.data.filter(t => !known[t._id]), ...this._txRaw]
-        }
-      }
-
-      if (!all) {
-        // 全量路径：count + 首页并行，其余页并行补齐（固定 2 轮 RTT）
-        const [countRes, first] = await Promise.all([
-          coll.count(),
-          coll.orderBy('timestamp', 'desc').limit(20).get()
-        ])
-        all = first.data
-        const total = countRes.total || 0
-        if (total > 20) {
-          for (let skip = 20; skip < total; skip += 100) {
-            const fetches = []
-            for (let s = skip; s < Math.min(skip + 100, total); s += 20) {
-              fetches.push(coll.orderBy('timestamp', 'desc').skip(s).limit(20).get())
+      const query = () => db.collection('transactions').where({ gameId: this.data.gameId })
+      // 流水是对账依据：版本变化后总是按最旧到最新完整校准，避免迟提交记录被时间增量漏掉。
+      const first = await query().orderBy('timestamp', 'desc').limit(20).get()
+      let all = first.data || []
+      this._applyTransactions(all, sig)
+      if (all.length === 20) {
+        const countRes = await query()
+          .count()
+          .catch(() => null)
+        if (countRes && typeof countRes.total === 'number') {
+          const total = countRes.total || all.length
+          const complete = []
+          for (let skip = 0; skip < total; skip += 100) {
+            const pages = []
+            for (let offset = skip; offset < Math.min(skip + 100, total); offset += 20) {
+              pages.push(query().orderBy('timestamp', 'asc').skip(offset).limit(20).get())
             }
-            const rest = await Promise.all(fetches)
-            rest.forEach(r => {
-              all = all.concat(r.data)
+            const results = await Promise.all(pages)
+            results.forEach(result => {
+              complete.push(...(result.data || []))
             })
           }
+          all = complete
+        } else {
+          const complete = []
+          for (let skip = 0; ; skip += 20) {
+            const page = await query().orderBy('timestamp', 'asc').skip(skip).limit(20).get()
+            complete.push(...(page.data || []))
+            if ((page.data || []).length < 20) break
+          }
+          all = complete
         }
       }
-      this._txRaw = all
-      const nameMap = {}
-      ;(this.data.game?.players || []).forEach(p => {
-        nameMap[p.openid] = p.nickname
-      })
-      ;(this.data.game?.removedPlayers || []).forEach(p => {
-        if (!nameMap[p.openid]) nameMap[p.openid] = p.nickname
-      })
-      const buyIn = Number(this.data.game?.buyIn || 0)
-      const asc = all.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      const totalHands = {}
-      const totalAmount = {}
-      const handsMap = {}
-      const accHandsMap = {}
-      const accAmountMap = {}
-      asc.forEach(t => {
-        const isBuy =
-          t.type === 'buyIn' || ((t.type === 'rebuy' || t.type === 'addOn') && !t.revoked)
-        let h = 0
-        if (t.type === 'buyIn') h = Math.max(1, Number(t.meta?.hands) || 1)
-        else if (t.type === 'rebuy' || t.type === 'addOn') {
-          h =
-            Number(t.meta?.hands) ||
-            (buyIn > 0 ? Math.max(1, Math.round((t.amount || 0) / buyIn)) : 1)
-        }
-        handsMap[t._id] = h
-        if (isBuy) {
-          totalHands[t.playerOpenid] = (totalHands[t.playerOpenid] || 0) + h
-          totalAmount[t.playerOpenid] = (totalAmount[t.playerOpenid] || 0) + (Number(t.amount) || 0)
-        }
-        accHandsMap[t._id] = totalHands[t.playerOpenid] || 0
-        accAmountMap[t._id] = totalAmount[t.playerOpenid] || 0
-      })
-      const recentTx = all.slice(0, 80).map(t => {
-        const d = t.timestamp ? new Date(t.timestamp) : null
-        const timeStr = d
-          ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-          : ''
-        const hands = handsMap[t._id] || 0
-        const accHands = accHandsMap[t._id] || 0
-        return {
-          ...t,
-          nickname: nameMap[t.playerOpenid] || t.meta?.nickname || '某玩家',
-          hands,
-          accHands,
-          accAmount: accAmountMap[t._id] || 0,
-          timeStr,
-          typeLabel: TX_TYPE_LABEL[t.type] || '记录',
-          typeClass: TX_TYPE_CLASS[t.type] || 'settle',
-          detail: transactionDetail(t, hands, accHands)
-        }
-      })
-      this.setData({ recentTx })
-      this._lastTxSig = sig
+      this._applyTransactions(all, sig)
+      const latestSig = this._txSignature(this.data.game)
+      if (latestSig && latestSig !== sig) this._txRefreshQueued = true
     } catch (err) {
       console.error(err)
     } finally {
@@ -542,6 +490,50 @@ Page({
         setTimeout(() => this._fetchRecentTx(queuedForce), 0)
       }
     }
+  },
+
+  _applyTransactions(transactions, signature) {
+    const seen = {}
+    const all = (transactions || [])
+      .filter(tx => {
+        const key = tx._id || `${tx.timestamp}|${tx.type}|${tx.playerOpenid}|${tx.amount}`
+        if (seen[key]) return false
+        seen[key] = true
+        return true
+      })
+      .slice()
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    this._txRaw = all
+    const nameMap = {}
+    const buyIn = Number(this.data.game?.buyIn || 0)
+    const profiles = [...(this.data.game?.players || []), ...(this.data.game?.removedPlayers || [])]
+    profiles.forEach(player => {
+      if (!nameMap[player.openid]) nameMap[player.openid] = player.nickname
+    })
+
+    const handState = transactionHandState(all, profiles, buyIn)
+
+    const recentTx = all.map(tx => {
+      const d = tx.timestamp ? new Date(tx.timestamp) : null
+      const timeStr = d
+        ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        : ''
+      const hands = handState[tx._id]?.hands || 0
+      const accHands = handState[tx._id]?.accHands || 0
+      return {
+        ...tx,
+        nickname: nameMap[tx.playerOpenid] || tx.meta?.nickname || '某玩家',
+        hands,
+        accHands,
+        timeStr,
+        typeLabel: TX_TYPE_LABEL[tx.type] || '记录',
+        typeClass: TX_TYPE_CLASS[tx.type] || 'settle',
+        detail: transactionDetailText(tx, hands, accHands),
+        detailParts: transactionDetailParts(tx, hands, accHands)
+      }
+    })
+    this.setData({ recentTx })
+    this._lastTxSig = signature
   },
 
   // 首帧用本地缓存秒显；后台轻量刷新 users 表，保证改名/换头像能很快纠正。
@@ -629,31 +621,47 @@ Page({
   _patchPlayer(openid, patch, extraSet = {}) {
     const game = this.data.game
     if (!game) return
-    const players = (game.players || []).map(p =>
-      p.openid === openid ? { ...p, ...patch(p) } : p
-    )
+    const players = (game.players || []).map(p => (p.openid === openid ? { ...p, ...patch(p) } : p))
     const nextGame = { ...game, players }
     if (extraSet['game.totalPot'] !== undefined) nextGame.totalPot = extraSet['game.totalPot']
     const settleStatus = this._getSettleStatus(nextGame)
     this._renderSignature = this._gameSignature(nextGame)
     this.setData({ 'game.players': players, ...extraSet, ...settleStatus })
-    cacheGame(nextGame)
     try {
       wx.vibrateShort({ type: 'light' })
     } catch (_) {}
   },
 
   _applyOptimisticBuy(openid, amount, hands) {
-    if (!this.data.game) return
-    this._patchPlayer(
-      openid,
-      p => ({
-        buyInCount: (p.buyInCount || 0) + hands,
-        totalBuyIn: (p.totalBuyIn || 0) + amount,
-        currentStack: (p.currentStack || 0) + amount,
+    const game = this.data.game
+    if (!game) return
+    const players = (game.players || []).map(player => {
+      if (player.openid !== openid) return player
+      return {
+        ...player,
+        buyInCount: (Number(player.buyInCount) || 0) + hands,
+        totalBuyIn: (Number(player.totalBuyIn) || 0) + amount,
+        currentStack: (Number(player.currentStack) || 0) + amount,
+        finalStack: null,
+        profit: 0,
+        finalProfit: null,
+        share: 0,
+        checkedOutAt: null,
         eliminatedAt: null
-      }),
-      { 'game.totalPot': (Number(this.data.game.totalPot) || 0) + amount }
+      }
+    })
+    const settledCount = players.filter(
+      player => player.finalStack !== null && player.finalStack !== undefined
+    ).length
+    this._applyGame(
+      {
+        ...game,
+        players,
+        totalPot: (Number(game.totalPot) || 0) + amount,
+        checkedOutCount: settledCount,
+        settledCount
+      },
+      { optimistic: true }
     )
   },
 
@@ -661,6 +669,7 @@ Page({
     if (this._recording) return
     this._recording = true
     const optimistic = (type === 'rebuy' || type === 'addOn') && !!this.data.game
+    const rollbackGame = optimistic ? this.data.game : null
     if (optimistic) {
       this._applyOptimisticBuy(playerOpenid, amount, Math.max(1, Number(extra.hands) || 1))
     } else {
@@ -685,14 +694,17 @@ Page({
           err ||
           '操作失败'
         wx.showToast({ title: msg, icon: 'none' })
+        if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
         if (optimistic) this._fetchGameOnce()
       } else {
-        this._fetchRecentTx()
+        if (res.result.game) this._applyGame(res.result.game)
+        else this._fetchRecentTx()
       }
     } catch (err) {
       if (!optimistic) wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '网络异常', icon: 'none' })
+      if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
       if (optimistic) this._fetchGameOnce()
     } finally {
       this._recording = false
@@ -799,8 +811,8 @@ Page({
           wx.showToast({ title: '筹码不能小于 0', icon: 'none' })
           return
         }
-        // 乐观上屏：本地先记下桌筹码，失败再回拉
-        this._applyOptimisticCheckout(openid, finalStack)
+        // 乐观上屏：最后一位结算时直接呈现终局；失败立即回滚。
+        const rollbackGame = this._applyOptimisticCheckout(openid, finalStack)
         try {
           const res = await wx.cloud.callFunction({
             name: 'settleGame',
@@ -817,22 +829,24 @@ Page({
                 ALREADY_ENDED: '结束已超 3 小时，积分已锁定',
                 INVALID_STACK: '请输入有效的非负积分',
                 PLAYER_OPS_DISABLED: '本局仅房主可操作',
+                INVALID_MODE: '请更新到最新版后重试',
                 CONFLICT_RETRY: '操作冲突，请重试'
-              }[res.result?.error] ||
-              res.result?.error ||
-              '操作失败'
+              }[res.result?.error] || '操作失败，请稍后重试'
             wx.showToast({ title: msg, icon: 'none' })
+            if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
             this._fetchGameOnce()
             return
           }
+          if (res.result.game) this._applyGame(res.result.game)
+          else this._fetchGameOnce()
           wx.showToast({
             title: res.result.justEnded ? '全员结算完成，已收局' : '已记录',
             icon: 'success'
           })
-          this._fetchRecentTx()
         } catch (err) {
           console.error(err)
           wx.showToast({ title: '网络异常', icon: 'none' })
+          if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
           this._fetchGameOnce()
         }
       }
@@ -840,11 +854,42 @@ Page({
   },
 
   _applyOptimisticCheckout(openid, finalStack) {
-    this._patchPlayer(openid, p => ({
-      finalStack,
-      profit: finalStack - (p.totalBuyIn || 0),
-      currentStack: finalStack
-    }))
+    const game = this.data.game
+    if (!game) return null
+    const now = new Date()
+    let players = (game.players || []).map(p => {
+      if (p.openid !== openid) return p
+      return {
+        ...p,
+        finalStack,
+        profit: finalStack - (p.totalBuyIn || 0),
+        currentStack: finalStack,
+        checkedOutAt: p.checkedOutAt || now
+      }
+    })
+    const active = players.filter(p => !p.eliminatedAt)
+    const allSettled =
+      active.length > 0 && active.every(p => p.finalStack !== null && p.finalStack !== undefined)
+    if (allSettled) {
+      players = players.map(p =>
+        p.eliminatedAt ? p : { ...p, finalProfit: Number(p.profit) || 0 }
+      )
+    }
+    const settledCount = players.filter(
+      p => p.finalStack !== null && p.finalStack !== undefined
+    ).length
+    const nextGame = {
+      ...game,
+      players,
+      checkedOutCount: settledCount,
+      settledCount,
+      ...(allSettled && game.status === 'ongoing' ? { status: 'ended', endedAt: now } : {})
+    }
+    this._applyGame(nextGame, { optimistic: true })
+    try {
+      wx.vibrateShort({ type: 'light' })
+    } catch (_) {}
+    return game
   },
 
   _confirmEliminate(openid) {
@@ -888,9 +933,9 @@ Page({
             }
           })
           wx.hideLoading()
-          if (!res.result?.ok)
-            wx.showToast({ title: res.result?.error || '撤销失败', icon: 'none' })
+          if (!res.result?.ok) wx.showToast({ title: '撤销失败，请稍后重试', icon: 'none' })
           else {
+            if (res.result.game) this._applyGame(res.result.game)
             wx.showToast({ title: '已撤销', icon: 'success' })
             this._fetchRecentTx(true)
           }
@@ -950,7 +995,11 @@ Page({
       expensePanel: {
         show: true,
         extraCost: Number(game.extraCost) > 0 ? String(game.extraCost) : '',
-        expenseMode: normalizeExpenseMode(game.expenseMode || game.aaMode || 'all'),
+        // 已存过就用存的；没存过默认「水上比例」
+        expenseMode:
+          game.expenseMode || game.aaMode
+            ? normalizeExpenseMode(game.expenseMode || game.aaMode)
+            : 'winner',
         submitting: false
       }
     })
@@ -999,16 +1048,16 @@ Page({
             ALREADY_ENDED: '结束已超 3 小时，费用已锁定',
             PLAYER_OPS_DISABLED: '本局仅房主可操作',
             INVALID_EXTRA_COST: '请输入有效的费用金额',
+            INVALID_MODE: '请更新到最新版后重试',
             CONFLICT_RETRY: '操作冲突，请重试'
-          }[res.result?.error] ||
-          res.result?.error ||
-          '操作失败'
+          }[res.result?.error] || '操作失败，请稍后重试'
         wx.showToast({ title: msg, icon: 'none' })
         return
       }
       this.setData({ 'expensePanel.show': false })
       wx.showToast({ title: '已保存', icon: 'success' })
-      this._fetchGameOnce()
+      if (res.result.game) this._applyGame(res.result.game)
+      else this._fetchGameOnce()
     } catch (err) {
       wx.hideLoading()
       console.error(err)
@@ -1040,9 +1089,7 @@ Page({
           buyInCount: p.buyInCount || 1,
           totalBuyIn,
           finalStack,
-          profit: hasFinalStack
-            ? finalStack - totalBuyIn
-            : Number(p.finalProfit ?? p.profit) || 0
+          profit: hasFinalStack ? finalStack - totalBuyIn : Number(p.finalProfit ?? p.profit) || 0
         }
       })
     const transfers = settle(profitList.map(p => ({ nickname: p.nickname, profit: p.profit })))
@@ -1052,7 +1099,9 @@ Page({
       const serverShares = players
         .filter(p => !p.eliminatedAt && Number(p.share) > 0)
         .map(p => ({ openid: p.openid, nickname: p.nickname || '玩家', share: Number(p.share) }))
-      shares = serverShares.length ? serverShares : computeShares(profitList, extraCost, expenseMode)
+      shares = serverShares.length
+        ? serverShares
+        : computeShares(profitList, extraCost, expenseMode)
     }
     const expenseRows = shares
       .filter(item => Number(item.share) > 0)
@@ -1079,8 +1128,7 @@ Page({
       const m = Math.floor((ms % 3600000) / 60000)
       duration = h > 0 ? `${h}h ${m}m` : `${m} 分钟`
     }
-    const quote =
-      this.data.settleResult?.quote ||
+    const quote = this.data.settleResult?.quote ||
       SUNZI[Math.floor(Math.random() * SUNZI.length)] || { text: '', from: '' }
     const gameName =
       (Array.isArray(gameOrPlayers) ? this.data.game?.name : gameOrPlayers?.name) || 'StaxKit 牌局'
@@ -1137,7 +1185,7 @@ Page({
     }
     const code = this.data.inviteCode || this.data.game?.inviteCode
     if (!code) {
-      wx.showToast({ title: '无法获取邀请码，请重新分享', icon: 'none' })
+      wx.showToast({ title: '邀请信息已失效，请让好友重新分享', icon: 'none' })
       return
     }
     wx.showModal({
@@ -1163,7 +1211,7 @@ Page({
             }
           })
           wx.hideLoading()
-          const { ok, error, alreadyJoined } = res.result || {}
+          const { ok, error, alreadyJoined, game } = res.result || {}
           if (!ok) {
             const msg =
               {
@@ -1177,6 +1225,8 @@ Page({
             return
           }
           if (alreadyJoined) wx.showToast({ title: '你已经在桌上', icon: 'none' })
+          markGamesChanged()
+          if (game) this._applyGame(game)
           this.setData({ viewerMode: false })
         } catch (err) {
           wx.hideLoading()
@@ -1198,7 +1248,7 @@ Page({
     const playerN = g?.players?.length || 0
     const pot = g?.totalPot || 0
     return {
-      title: `「${g?.name || 'StaxKit 牌局'}」${playerN} 人在打，总池 ${pot}`,
+      title: `「${g?.name || 'StaxKit 积分记录'}」· ${playerN} 人 · 累计积分 ${pot}`,
       path:
         '/pages/game-detail/game-detail?id=' +
         this.data.gameId +
