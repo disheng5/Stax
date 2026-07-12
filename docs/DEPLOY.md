@@ -31,7 +31,7 @@
 
 > 更直接的逐步部署清单见 `docs/CLOUD_SETUP.md`。下面是原始说明。
 
-### 3.1 建库（7 个集合）
+### 3.1 建库（8 个集合）
 
 打开开发者工具 →「云开发」→「数据库」→「集合管理」→「+」逐个新建：
 
@@ -43,25 +43,27 @@ terms
 handRanks
 circles
 seasons
+opReceipts
 ```
 
 ### 3.2 配置权限（Spec §2.6）
 
 对每个集合点「数据权限」，按下表配置：
 
-| 集合           | 推荐权限                 |
-| -------------- | ------------------------ |
-| `users`        | 仅本人可读，前端不可写   |
-| `games`        | 登录用户可读，前端不可写 |
-| `transactions` | 登录用户可读，前端不可写 |
-| `terms`        | 所有人可读，前端不可写   |
-| `handRanks`    | 所有人可读，前端不可写   |
-| `circles`      | 登录用户可读，前端不可写 |
-| `seasons`      | 登录用户可读，前端不可写 |
+| 集合           | 推荐权限                     |
+| -------------- | ---------------------------- |
+| `users`        | 仅本人可读，前端不可写       |
+| `games`        | 登录用户可读，前端不可写     |
+| `transactions` | 登录用户可读，前端不可写     |
+| `terms`        | 所有人可读，前端不可写       |
+| `handRanks`    | 所有人可读，前端不可写       |
+| `circles`      | 登录用户可读，前端不可写     |
+| `seasons`      | 登录用户可读，前端不可写     |
+| `opReceipts`   | 前端不可读不可写（仅云函数） |
 
 > 具体 JSON 规则以 `docs/CLOUD_SETUP.md §3` 为准。所有业务写入均由云函数鉴权后执行，前端不直写数据库。
 
-### 3.3 部署 19 个云函数
+### 3.3 部署 22 个云函数
 
 对 `cloudfunctions/` 下每个目录右键 → **上传并部署：云端安装依赖**：
 
@@ -85,7 +87,12 @@ resetSeason
 excludeGame
 deleteGameRecord
 removeCircleMember
+getSeasonView
+getMyAnalytics
+getGameView
 ```
+
+> 只读聚合函数 `getSeasonView` / `getMyAnalytics` / `getGameView` 承载隐私裁剪；`recordTransaction` / `settleGame` 已接入 `opReceipts` 持久幂等，务必先建好 `opReceipts` 集合再部署。
 
 ### 3.4 灌入种子数据
 

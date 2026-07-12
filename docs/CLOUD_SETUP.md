@@ -29,7 +29,7 @@ const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 
 ## 2. 创建数据库集合
 
-云开发控制台 → 左侧 **数据库** → **集合管理** → **新建集合**，依次创建 7 个集合：
+云开发控制台 → 左侧 **数据库** → **集合管理** → **新建集合**，依次创建 8 个集合：
 
 ```text
 users
@@ -39,6 +39,7 @@ terms
 handRanks
 circles
 seasons
+opReceipts
 ```
 
 不要漏，名字必须完全一致，大小写也要一致。
@@ -124,6 +125,17 @@ seasons
 
 说明：赛季排名与比赛摘要（`gameSummaries`）前端直读；计算与写入只走 `calcSeasonScore` / `settleSeason`。
 
+### 3.8 opReceipts
+
+```json
+{
+  "read": false,
+  "write": false
+}
+```
+
+说明：持久幂等回执集合，仅云函数读写（前端完全不可访问）。文档结构 `{ _id: '<gameId>:<operationId>', gameId, operationId, result, createdAt }`。`recordTransaction` / `settleGame` 有 `operationId` 时先查回执命中即返回原结果，事务成功后写回执，保证弱网久离线重放零重复写入。
+
 ---
 
 ## 3.5 创建数据库索引（性能必做）
@@ -141,6 +153,7 @@ seasons
 | circles      | `status` 升序 + `memberOpenids` 升序                   | 结算后触发赛季计分      |
 | circles      | `inviteCode` 升序 + `status` 升序                      | 邀请码加入圈子          |
 | seasons      | `circleId` 升序                                        | 圈子赛季查询            |
+| opReceipts   | `_id`（默认，形如 `<gameId>:<operationId>`）           | 幂等回执命中查询        |
 
 > `players.openid` / `memberOpenids` 是数组字段，云数据库（MongoDB）会自动建多键索引，直接按上表填写即可。
 
@@ -152,7 +165,7 @@ seasons
 
 右键目录 → **上传并部署：云端安装依赖**
 
-全部 19 个都需要部署：
+全部 22 个都需要部署：
 
 ```text
 whoami          createGame      joinGame
@@ -162,9 +175,10 @@ createCircle    joinCircle      leaveCircle
 dissolveCircle  calcSeasonScore settleSeason
 resetSeason     excludeGame     deleteGameRecord
 removeCircleMember
+getSeasonView   getMyAnalytics  getGameView
 ```
 
-建议顺序：先 `whoami`，再牌局链路（createGame → joinGame → recordTransaction → settleGame），再圈子链路（createCircle → joinCircle → calcSeasonScore → …），最后其余。
+建议顺序：先 `whoami`，再牌局链路（createGame → joinGame → recordTransaction → settleGame），再圈子链路（createCircle → joinCircle → calcSeasonScore → …），再只读聚合（getSeasonView / getMyAnalytics / getGameView），最后其余。
 
 每个部署完成后，控制台应该显示上传成功。
 
