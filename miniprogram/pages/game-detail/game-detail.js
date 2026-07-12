@@ -869,11 +869,11 @@ Page({
       success: res => {
         const action = actions[res.tapIndex]
         if (action === 'selfrebuy') {
-          this._promptAmount('补码', openid, 'rebuy')
+          this._promptAmount('买入', openid, 'rebuy')
         } else if (action === 'settle') {
           this._doSettle(openid, player)
         } else if (action === 'rebuy') {
-          this._promptAmount('帮他补码', openid, 'rebuy')
+          this._promptAmount('帮他买入', openid, 'rebuy')
         } else if (action === 'eliminate') {
           this._confirmEliminate(openid)
         }
@@ -994,19 +994,19 @@ Page({
   },
 
   onRebuy(e) {
-    this._promptAmount('帮他补码', e.detail.openid, 'rebuy')
+    this._promptAmount('帮他买入', e.detail.openid, 'rebuy')
   },
   onAddOn(e) {
-    this._promptAmount('代补 (Add-on)', e.detail.openid, 'addOn')
+    this._promptAmount('追加买入', e.detail.openid, 'addOn')
   },
   onSelfRebuy(e) {
-    this._promptAmount('补码', e.detail.openid, 'rebuy')
+    this._promptAmount('买入', e.detail.openid, 'rebuy')
   },
 
   onRevokeTx(e) {
     const txId = e.currentTarget.dataset.id
     wx.showModal({
-      title: '撤销该笔补码',
+      title: '撤销该笔买入',
       content: '将回退该玩家的买入额与次数，且操作不可再次撤销',
       success: async r => {
         if (!r.confirm) return
