@@ -550,6 +550,11 @@
   border-bottom: 1rpx solid var(--border);
 }
 
+/* picker 内的分摊方式字段是最后一行，不再画线，避免与说明分隔线形成孤立双线 */
+picker .expense-field {
+  border-bottom: none;
+}
+
 .expense-field-label {
   flex-shrink: 0;
   color: var(--text);
@@ -582,8 +587,6 @@
 
 .expense-compliance-note {
   margin-top: 18rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid rgba(226, 232, 240, 0.8);
   color: var(--text-sub);
   font-size: 22rpx;
 }
