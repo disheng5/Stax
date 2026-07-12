@@ -69,34 +69,38 @@ function buildTrendNote(signals) {
   const { recentSum, prevSum, best, worst, sampleCount } = signals
   const rising = recentSum > prevSum
   const falling = recentSum < prevSum
+  const recentCount = Math.min(sampleCount, 5)
+  const fmt = v => `${v >= 0 ? '+' : ''}${v}`
 
   let observation
   if (rising) {
-    observation = `近段 ${sampleCount >= 10 ? '5' : Math.min(sampleCount, 5)} 场累计 ${recentSum >= 0 ? '+' : ''}${recentSum}，节奏比前一段更顺。`
+    observation = `最近 ${recentCount} 场合计 ${fmt(recentSum)} 分，比前一段更好。`
   } else if (falling) {
-    observation = `近段累计 ${recentSum >= 0 ? '+' : ''}${recentSum}，相比前一段有所回落。`
+    observation = `最近 ${recentCount} 场合计 ${fmt(recentSum)} 分，比前一段差一些。`
   } else {
-    observation = `近段累计与前段持平，波动区间 ${worst} 到 ${best >= 0 ? '+' : ''}${best}。`
+    observation = `最近 ${recentCount} 场基本持平，单场在 ${worst} 到 ${fmt(best)} 之间波动。`
   }
 
   let perspective
-  if (falling && worst < 0) {
-    perspective =
-      '短期结果波动是样本量不足的正常表现，不足以定义长期水平。关注可控变量比关注结果更有效率。'
+  if (falling) {
+    perspective = `${sampleCount} 场还太少，单看输赢说明不了水平，运气占的比重很大。别急着改打法。`
   } else if (rising) {
-    perspective = '结果在短期里很响，决策质量通常更安静。保持当前节奏，观察是否可持续。'
+    perspective = '赢的时候也复盘一下：是牌好，还是选择对。这样赢得才稳。'
   } else {
-    perspective = '稳定本身是一种信号——说明决策框架在当前环境里是自洽的。'
+    perspective = '成绩稳定，说明打法没大漏洞。想再进一步，可以从下面这条细节入手。'
   }
 
-  let action
-  if (falling) {
-    action = '下一次可以只观察一个变量：边缘起手是否比平时停留得更久。'
-  } else if (rising) {
-    action = '下一次可以记录一个决策：哪一手选择了放弃，事后觉得是正确的。'
-  } else {
-    action = '下一次可以留意：在什么位置、什么人数下，自己最容易偏离计划。'
-  }
+  const TIPS = [
+    '位置很重要：在按钮位（最后行动）多打一些牌，在枪口位（最先行动）收紧，长期更划算。',
+    '别用同花小张去追顺子/同花：多数时候赔率不够，跟注前先估一下凑成的概率。',
+    '下注想清楚目的：是想让更差的牌跟注（要价值），还是想让更好的牌盖牌（在诈唬），没目的就别下。',
+    '拿到大牌该加注就加注，慢打常常少赢甚至让对手追牌翻盘。',
+    '被再加注（3-bet）时先想对手范围，边缘牌直接盖掉比硬跟更省分。',
+    '翻牌没中也别习惯性跟注：给自己定个规矩——没听牌、没成对就果断放弃。',
+    '记住几个常用赔率：听同花约 4:1、听两头顺约 5:1，池底赔率不够就别追。'
+  ]
+  const tip = TIPS[Math.abs(recentSum + worst + best) % TIPS.length]
+  const action = `下一局可以试一个小技巧：${tip}`
 
   return { enough: true, observation, perspective, action }
 }

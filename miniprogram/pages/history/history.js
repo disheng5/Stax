@@ -7,6 +7,7 @@ const {
   cacheGame
 } = require('../../utils/game-data.js')
 const { computeGameStats, gameScore, sortDimensionRows } = require('../../utils/stats.js')
+const { buildTrendNote } = require('../../utils/analytics.js')
 const app = getApp()
 
 Page({
@@ -216,21 +217,18 @@ Page({
       this.setData({ aiSummary: [] })
       return
     }
-    const last5 = scores.slice(-5)
-    const prev5 = scores.slice(-10, -5)
-    const sum = arr => arr.reduce((s, v) => s + v, 0)
-    const recent = sum(last5)
-    const prev = sum(prev5)
-    const best = Math.max(...scores)
-    const worst = Math.min(...scores)
-    const trend =
-      prev5.length && recent > prev
-        ? '近段节奏比前一段更顺，关注决策质量是否可持续。'
-        : prev5.length && recent < prev
-          ? '近段有所回落，单局波动是正常表现，不足以定义长期水平。'
-          : '样本正在累积，先保持稳定记录。'
+    // 与服务端 getMyAnalytics.note 同源，保证口径与措辞一致
+    const recent = scores.slice(-5).reduce((s, v) => s + v, 0)
+    const prev = scores.slice(-10, -5).reduce((s, v) => s + v, 0)
+    const note = buildTrendNote({
+      sampleCount: scores.length,
+      recentSum: recent,
+      prevSum: prev,
+      best: Math.max(...scores),
+      worst: Math.min(...scores)
+    })
     this.setData({
-      aiSummary: [trend, `单场波动区间 ${formatProfit(worst)} 到 ${formatProfit(best)}。`]
+      aiSummary: note.enough ? [note.observation, note.perspective, note.action] : []
     })
   },
 
