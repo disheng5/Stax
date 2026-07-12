@@ -137,8 +137,8 @@
   display: flex;
   align-items: center;
   gap: 12rpx;
-  min-height: 64rpx;
-  padding: 8rpx 0;
+  min-height: 48rpx;
+  padding: 4rpx 0;
   border-bottom: 1rpx solid var(--border);
   font-size: 24rpx;
   line-height: 34rpx;
@@ -203,6 +203,21 @@
   flex-shrink: 0;
   color: var(--text-sub);
   font-size: 22rpx;
+}
+
+.tx-operator {
+  flex-shrink: 0;
+  color: var(--text-sub);
+  font-size: 22rpx;
+  margin-left: 8rpx;
+}
+
+.tx-before-after {
+  flex-shrink: 0;
+  color: var(--text-sub);
+  font-size: 22rpx;
+  font-variant-numeric: tabular-nums;
+  margin-left: 8rpx;
 }
 
 .expense-block {

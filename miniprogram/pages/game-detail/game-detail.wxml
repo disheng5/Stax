@@ -99,6 +99,8 @@
           class="{{part.emphasis ? 'tx-detail-number' : ''}}"
         >{{part.text}}</text>
       </text>
+      <text class="tx-operator" wx:if="{{tx.operatorSuffix}}">{{tx.operatorSuffix}}</text>
+      <text class="tx-before-after" wx:if="{{tx.beforeAfter}}">{{tx.beforeAfter}}</text>
       <text class="tx-revoked" wx:if="{{tx.revoked}}">已撤销</text>
     </view>
   </view>

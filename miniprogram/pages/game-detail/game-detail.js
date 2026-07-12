@@ -15,7 +15,9 @@ const { createOperationId } = require('../../utils/operation.js')
 const {
   transactionDetailParts,
   transactionDetailText,
-  transactionHandState
+  transactionHandState,
+  sortTransactions,
+  mergeTransactions
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 
@@ -493,16 +495,7 @@ Page({
   },
 
   _applyTransactions(transactions, signature) {
-    const seen = {}
-    const all = (transactions || [])
-      .filter(tx => {
-        const key = tx._id || `${tx.timestamp}|${tx.type}|${tx.playerOpenid}|${tx.amount}`
-        if (seen[key]) return false
-        seen[key] = true
-        return true
-      })
-      .slice()
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    const all = sortTransactions(mergeTransactions([], transactions))
     this._txRaw = all
     const nameMap = {}
     const buyIn = Number(this.data.game?.buyIn || 0)
@@ -520,6 +513,17 @@ Page({
         : ''
       const hands = handState[tx._id]?.hands || 0
       const accHands = handState[tx._id]?.accHands || 0
+      const operatorSuffix =
+        tx.operatorOpenid && tx.operatorOpenid !== tx.playerOpenid
+          ? `由 ${tx.operatorNicknameSnapshot || nameMap[tx.operatorOpenid] || ''}`
+          : ''
+      const beforeAfter =
+        tx.beforeValue !== null &&
+        tx.beforeValue !== undefined &&
+        tx.afterValue !== null &&
+        tx.afterValue !== undefined
+          ? `${tx.beforeValue} → ${tx.afterValue}`
+          : ''
       return {
         ...tx,
         nickname: nameMap[tx.playerOpenid] || tx.meta?.nickname || '某玩家',
@@ -529,7 +533,9 @@ Page({
         typeLabel: TX_TYPE_LABEL[tx.type] || '记录',
         typeClass: TX_TYPE_CLASS[tx.type] || 'settle',
         detail: transactionDetailText(tx, hands, accHands),
-        detailParts: transactionDetailParts(tx, hands, accHands)
+        detailParts: transactionDetailParts(tx, hands, accHands),
+        operatorSuffix,
+        beforeAfter
       }
     })
     this.setData({ recentTx })
