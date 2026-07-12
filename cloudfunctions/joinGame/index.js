@@ -93,9 +93,11 @@ exports.main = async event => {
       const cur = snap.data
       if ((cur.players || []).some(p => p.openid === OPENID))
         return { ok: true, alreadyJoined: true, game: cur }
+      const seq = Math.max(0, Number(cur.txSeq) || 0) + 1
       const update = {
         players: [...(cur.players || []), player],
         totalPot: (Number(cur.totalPot) || 0) + amount,
+        txSeq: seq,
         txRevision: Math.max(0, Number(cur.txRevision) || 0) + 1,
         stateRevision: Math.max(0, Number(cur.stateRevision ?? cur.txRevision) || 0) + 1
       }
@@ -107,7 +109,11 @@ exports.main = async event => {
           playerOpenid: OPENID,
           amount,
           operatorOpenid: OPENID,
+          operatorNicknameSnapshot: finalNickname,
           timestamp: now,
+          operationSequence: seq,
+          beforeHands: 0,
+          afterHands: buyHands,
           meta: { hands: buyHands }
         }
       })

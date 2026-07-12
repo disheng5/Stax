@@ -428,6 +428,13 @@ exports.main = async event => {
         p => p.finalStack !== null && p.finalStack !== undefined
       ).length
       const writesTransactions = submittedOpenids.length > 0
+      const prevExtraCost = Number(game.extraCost) || 0
+      const expenseChanged = hasExtraCost && effExtraCost !== prevExtraCost
+      const emitsTransactions = writesTransactions || (mode === 'expense' && expenseChanged)
+      const seqBase = Math.max(0, Number(game.txSeq) || 0)
+      let seqCursor = seqBase
+      const operatorNickname = (game.players || []).find(p => p.openid === OPENID)?.nickname || ''
+      const txCount = submittedOpenids.length + (mode === 'expense' && expenseChanged ? 1 : 0)
       const update = {
         players,
         extraCost: effExtraCost,
@@ -437,8 +444,11 @@ exports.main = async event => {
         checkedOutCount: settledAll,
         settledCount: settledAll,
         stateRevision: Math.max(0, Number(game.stateRevision ?? game.txRevision) || 0) + 1,
-        ...(writesTransactions
-          ? { txRevision: Math.max(0, Number(game.txRevision) || 0) + 1 }
+        ...(emitsTransactions
+          ? {
+            txSeq: seqBase + txCount,
+            txRevision: Math.max(0, Number(game.txRevision) || 0) + 1
+          }
           : {}),
         ...operationUpdate(game, operationId)
       }
@@ -450,6 +460,12 @@ exports.main = async event => {
       await transaction.collection('games').doc(gameId).update({ data: update })
       // 牌局状态与流水同事务提交，watch 不会再看到“数据已变、流水尚未落库”的中间态。
       for (const openid of submittedOpenids) {
+        const prevPlayer = prevPlayers.find(p => p.openid === openid)
+        const beforeValue =
+          prevPlayer && prevPlayer.finalStack !== null && prevPlayer.finalStack !== undefined
+            ? prevPlayer.finalStack
+            : null
+        seqCursor++
         await transaction.collection('transactions').add({
           data: {
             gameId,
@@ -457,10 +473,36 @@ exports.main = async event => {
             playerOpenid: openid,
             amount: normalizedStacks[openid],
             operatorOpenid: OPENID,
+            operatorNicknameSnapshot: operatorNickname,
             byHost: isHost,
             revoked: false,
             timestamp: now,
+            operationSequence: seqCursor,
+            beforeValue,
+            afterValue: normalizedStacks[openid],
             meta: { mode, expenseMode: effExpenseMode, extraCost: effExtraCost, edited },
+            ...(operationId ? { operationId } : {})
+          }
+        })
+      }
+      // 仅修改费用（不含结算）时也留一条可审计流水，展示前后值与操作人。
+      if (mode === 'expense' && expenseChanged) {
+        seqCursor++
+        await transaction.collection('transactions').add({
+          data: {
+            gameId,
+            type: 'expense',
+            playerOpenid: OPENID,
+            amount: effExtraCost,
+            operatorOpenid: OPENID,
+            operatorNicknameSnapshot: operatorNickname,
+            byHost: isHost,
+            revoked: false,
+            timestamp: now,
+            operationSequence: seqCursor,
+            beforeValue: prevExtraCost,
+            afterValue: effExtraCost,
+            meta: { expenseMode: effExpenseMode },
             ...(operationId ? { operationId } : {})
           }
         })

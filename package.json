@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint \"miniprogram/**/*.js\" \"cloudfunctions/**/*.js\"",
     "format": "prettier --write \"**/*.{js,json,wxml,wxss}\"",
-    "test": "node tests/settle.test.js && node tests/invite-code.test.js && node tests/aa.test.js && node tests/profile-cache.test.js && node tests/stats.test.js && node tests/game-name.test.js && node tests/transaction-format.test.js",
+    "test": "node tests/settle.test.js && node tests/invite-code.test.js && node tests/aa.test.js && node tests/profile-cache.test.js && node tests/stats.test.js && node tests/game-name.test.js && node tests/transaction-format.test.js && node tests/ai-wording.test.js && node tests/transaction-order.test.js && node tests/season-view.test.js && node tests/analytics.test.js && node tests/pending-ops.test.js",
     "test:mock": "node scripts/test-mock.js",
     "compliance": "node scripts/compliance-check.js",
     "gen:images": "node scripts/gen-images.js",

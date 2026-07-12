@@ -36,6 +36,14 @@ function nextStateRevision(game) {
   return Math.max(0, Number(game.stateRevision ?? game.txRevision) || 0) + 1
 }
 
+function nextTxSeq(game) {
+  return Math.max(0, Number(game.txSeq) || 0) + 1
+}
+
+function mockNickname(game, openid) {
+  return (game.players || []).find(p => p.openid === openid)?.nickname || ''
+}
+
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
   if (['winnerEven', 'winnersEven'].includes(value)) return 'winnerEven'
@@ -304,9 +312,11 @@ const handlers = {
       joinedAt: now,
       eliminatedAt: null
     }
+    const seq = nextTxSeq(game)
     const update = {
       players: [...game.players, player],
       totalPot: game.totalPot + amount,
+      txSeq: seq,
       txRevision: nextTxRevision(game),
       stateRevision: nextStateRevision(game)
     }
@@ -318,9 +328,13 @@ const handlers = {
         playerOpenid: MY_OPENID,
         amount,
         operatorOpenid: MY_OPENID,
+        operatorNicknameSnapshot: player.nickname || '',
         byHost: false,
         revoked: false,
         timestamp: now,
+        operationSequence: seq,
+        beforeHands: 0,
+        afterHands: buyHands,
         meta: { hands: buyHands }
       }
     })
@@ -384,11 +398,13 @@ const handlers = {
       const settledCount = players.filter(
         player => player.finalStack !== null && player.finalStack !== undefined
       ).length
+      const seq = nextTxSeq(game)
       const update = {
         players,
         totalPot: game.totalPot + amount,
         checkedOutCount: settledCount,
         settledCount,
+        txSeq: seq,
         txRevision: nextTxRevision(game),
         stateRevision: nextStateRevision(game),
         ...operationUpdate(game, operationId)
@@ -401,9 +417,13 @@ const handlers = {
           playerOpenid: targetOpenid,
           amount,
           operatorOpenid: MY_OPENID,
+          operatorNicknameSnapshot: mockNickname(game, MY_OPENID),
           byHost: isHost,
           revoked: false,
           timestamp: now,
+          operationSequence: seq,
+          beforeHands: Number(previous.buyInCount) || 0,
+          afterHands: (Number(previous.buyInCount) || 0) + hands,
           meta: { hands },
           ...(operationId ? { operationId } : {})
         }
@@ -433,6 +453,7 @@ const handlers = {
       const update = {
         players,
         totalPot: game.totalPot - tx.amount,
+        txSeq: nextTxSeq(game),
         txRevision: nextTxRevision(game),
         stateRevision: nextStateRevision(game),
         ...operationUpdate(game, operationId)
@@ -446,6 +467,7 @@ const handlers = {
             revoked: true,
             revokedAt: now,
             revokedBy: MY_OPENID,
+            revokedByNicknameSnapshot: mockNickname(game, MY_OPENID),
             ...(operationId ? { revokeOperationId: operationId } : {})
           }
         })
@@ -460,6 +482,7 @@ const handlers = {
       const removed = players[idx]
       players.splice(idx, 1)
       const removedBuyIn = Number(removed.totalBuyIn) || 0
+      const seq = nextTxSeq(game)
       const update = {
         players,
         totalPot: Math.max(0, (game.totalPot || 0) - removedBuyIn),
@@ -467,6 +490,7 @@ const handlers = {
           ...(game.removedPlayers || []),
           { ...removed, removedAt: now, removedBy: MY_OPENID }
         ],
+        txSeq: seq,
         txRevision: nextTxRevision(game),
         stateRevision: nextStateRevision(game),
         ...operationUpdate(game, operationId)
@@ -479,9 +503,11 @@ const handlers = {
           playerOpenid,
           amount: -removedBuyIn,
           operatorOpenid: MY_OPENID,
+          operatorNicknameSnapshot: mockNickname(game, MY_OPENID),
           byHost: true,
           revoked: false,
           timestamp: now,
+          operationSequence: seq,
           meta: { nickname: removed.nickname || '', removedBuyIn },
           ...(operationId ? { operationId } : {})
         }
@@ -644,6 +670,14 @@ const handlers = {
       p => p.finalStack !== null && p.finalStack !== undefined
     ).length
     const writesTransactions = submittedOpenids.length > 0
+    const prevExtraCost = Number(game.extraCost) || 0
+    const expenseChanged = hasExtraCost && effExtraCost !== prevExtraCost
+    const emitsTransactions = writesTransactions || (mode === 'expense' && expenseChanged)
+    const prevPlayers = game.players || []
+    const seqBase = Math.max(0, Number(game.txSeq) || 0)
+    let seqCursor = seqBase
+    const operatorNickname = mockNickname(game, MY_OPENID)
+    const txCount = submittedOpenids.length + (mode === 'expense' && expenseChanged ? 1 : 0)
     const update = {
       players,
       extraCost: effExtraCost,
@@ -653,7 +687,7 @@ const handlers = {
       checkedOutCount: settledAll,
       settledCount: settledAll,
       stateRevision: nextStateRevision(game),
-      ...(writesTransactions ? { txRevision: nextTxRevision(game) } : {}),
+      ...(emitsTransactions ? { txSeq: seqBase + txCount, txRevision: nextTxRevision(game) } : {}),
       ...operationUpdate(game, operationId)
     }
     if (justEnded) {
@@ -662,6 +696,12 @@ const handlers = {
     }
     await db.collection('games').doc(gameId).update({ data: update })
     for (const openid of submittedOpenids) {
+      const prevPlayer = prevPlayers.find(p => p.openid === openid)
+      const beforeValue =
+        prevPlayer && prevPlayer.finalStack !== null && prevPlayer.finalStack !== undefined
+          ? prevPlayer.finalStack
+          : null
+      seqCursor++
       await db.collection('transactions').add({
         data: {
           gameId,
@@ -669,10 +709,35 @@ const handlers = {
           playerOpenid: openid,
           amount: normalizedStacks[openid],
           operatorOpenid: MY_OPENID,
+          operatorNicknameSnapshot: operatorNickname,
           byHost: game.hostOpenid === MY_OPENID,
           revoked: false,
           timestamp: now,
+          operationSequence: seqCursor,
+          beforeValue,
+          afterValue: normalizedStacks[openid],
           meta: { mode, expenseMode: effExpenseMode, extraCost: effExtraCost, edited },
+          ...(operationId ? { operationId } : {})
+        }
+      })
+    }
+    if (mode === 'expense' && expenseChanged) {
+      seqCursor++
+      await db.collection('transactions').add({
+        data: {
+          gameId,
+          type: 'expense',
+          playerOpenid: MY_OPENID,
+          amount: effExtraCost,
+          operatorOpenid: MY_OPENID,
+          operatorNicknameSnapshot: operatorNickname,
+          byHost: game.hostOpenid === MY_OPENID,
+          revoked: false,
+          timestamp: now,
+          operationSequence: seqCursor,
+          beforeValue: prevExtraCost,
+          afterValue: effExtraCost,
+          meta: { expenseMode: effExpenseMode },
           ...(operationId ? { operationId } : {})
         }
       })

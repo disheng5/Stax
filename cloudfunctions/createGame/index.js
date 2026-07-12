@@ -266,6 +266,7 @@ exports.main = async event => {
     inviteCode,
     txRevision: 1,
     stateRevision: 1,
+    txSeq: 1,
     players: [
       {
         openid: OPENID,
@@ -295,7 +296,11 @@ exports.main = async event => {
             playerOpenid: OPENID,
             amount: normalizedBuyIn,
             operatorOpenid: OPENID,
+            operatorNicknameSnapshot: profile.nickname || '',
             timestamp: now,
+            operationSequence: 1,
+            beforeHands: 0,
+            afterHands: 1,
             meta: { hands: 1 }
           }
         })

@@ -40,6 +40,15 @@ function nextStateRevision(game) {
   return Math.max(0, Number(game.stateRevision ?? game.txRevision) || 0) + 1
 }
 
+function nextTxSeq(game) {
+  return Math.max(0, Number(game.txSeq) || 0) + 1
+}
+
+function resolveNickname(game, openid) {
+  const player = (game.players || []).find(p => p.openid === openid)
+  return player?.nickname || ''
+}
+
 // 在事务中读取 game 文档并执行 fn；fn 返回业务结果。
 // 事务冲突由 runTransaction 自动重试（3 次），仍失败则返回 CONFLICT_RETRY。
 async function withGameTxn(gameId, operationId, actorOpenid, fn) {
@@ -118,11 +127,13 @@ exports.main = async event => {
         const settledCount = players.filter(
           player => player.finalStack !== null && player.finalStack !== undefined
         ).length
+        const seq = nextTxSeq(game)
         const update = {
           players,
           totalPot: (Number(game.totalPot) || 0) + amount,
           checkedOutCount: settledCount,
           settledCount,
+          txSeq: seq,
           txRevision: nextTxRevision(game),
           stateRevision: nextStateRevision(game),
           ...operationUpdate(game, operationId)
@@ -135,9 +146,13 @@ exports.main = async event => {
             playerOpenid: targetOpenid,
             amount,
             operatorOpenid: OPENID,
+            operatorNicknameSnapshot: resolveNickname(game, OPENID),
             byHost: isHost,
             revoked: false,
             timestamp: now,
+            operationSequence: seq,
+            beforeHands: Number(previous.buyInCount) || 0,
+            afterHands: (Number(previous.buyInCount) || 0) + hands,
             meta: { hands },
             ...operationMeta(operationId)
           }
@@ -178,6 +193,7 @@ exports.main = async event => {
         const update = {
           players,
           totalPot: Math.max(0, (Number(game.totalPot) || 0) - tx.amount),
+          txSeq: nextTxSeq(game),
           txRevision: nextTxRevision(game),
           stateRevision: nextStateRevision(game),
           ...operationUpdate(game, operationId)
@@ -191,6 +207,7 @@ exports.main = async event => {
               revoked: true,
               revokedAt: now,
               revokedBy: OPENID,
+              revokedByNicknameSnapshot: resolveNickname(game, OPENID),
               ...(operationId ? { revokeOperationId: operationId } : {})
             }
           })
@@ -212,6 +229,7 @@ exports.main = async event => {
         removed = players[idx]
         players.splice(idx, 1)
         const removedBuyIn = Number(removed.totalBuyIn) || 0
+        const seq = nextTxSeq(game)
         const update = {
           players,
           totalPot: Math.max(0, (Number(game.totalPot) || 0) - removedBuyIn),
@@ -219,6 +237,7 @@ exports.main = async event => {
             ...(game.removedPlayers || []),
             { ...removed, removedAt: now, removedBy: OPENID }
           ],
+          txSeq: seq,
           txRevision: nextTxRevision(game),
           stateRevision: nextStateRevision(game),
           ...operationUpdate(game, operationId)
@@ -231,9 +250,11 @@ exports.main = async event => {
             playerOpenid,
             amount: -removedBuyIn,
             operatorOpenid: OPENID,
+            operatorNicknameSnapshot: resolveNickname(game, OPENID),
             byHost: true,
             revoked: false,
             timestamp: now,
+            operationSequence: seq,
             meta: {
               nickname: removed.nickname || '',
               removedBuyIn

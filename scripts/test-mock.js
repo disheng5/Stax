@@ -220,6 +220,41 @@ function step(name, fn) {
     // mock 模式下 me 一定是 host，无法验证 NOT_HOST 路径；跳过
   })
 
+  await step('流水新增字段：operationSequence 单调递增、操作人快照、前后手数', async () => {
+    const probeGameId = 'game_live_demo'
+    const raw = cloudMock.getDb()._raw
+    const game = raw.games.find(g => g._id === probeGameId)
+    const before = game.txSeq || 0
+    const r = await wx.cloud.callFunction({
+      name: 'recordTransaction',
+      data: {
+        gameId: probeGameId,
+        type: 'rebuy',
+        playerOpenid: 'mock_me',
+        amount: 50,
+        operationId: 'seq_probe_0001'
+      }
+    })
+    assert.strictEqual(r.result.ok, true)
+    const after = cloudMock.getDb()._raw.games.find(g => g._id === probeGameId)
+    assert.strictEqual(after.txSeq, before + 1, 'txSeq 应单调递增')
+    const tx = cloudMock
+      .getDb()
+      ._raw.transactions.filter(t => t.gameId === probeGameId && t.type === 'rebuy')
+      .sort((a, b) => (b.operationSequence || 0) - (a.operationSequence || 0))[0]
+    assert.strictEqual(tx.operationSequence, after.txSeq, '流水顺序号应与 txSeq 对齐')
+    assert.ok('operatorNicknameSnapshot' in tx, '应写入操作人昵称快照')
+    assert.ok(
+      typeof tx.beforeHands === 'number' && typeof tx.afterHands === 'number',
+      '应写入前后手数'
+    )
+    assert.strictEqual(
+      tx.afterHands - tx.beforeHands,
+      tx.meta.hands,
+      '前后手数差应等于本次买入手数'
+    )
+  })
+
   await step('踢人：从 players 移除、总池扣减、快照入 removedPlayers', async () => {
     const db = wx.cloud.database()
     const before = (await db.collection('games').doc('game_live_demo').get()).data
@@ -296,6 +331,7 @@ function step(name, fn) {
     const beforeGame = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
     const beforeRevision = beforeGame.txRevision
     const beforeStateRevision = beforeGame.stateRevision
+    const beforeSeq = beforeGame.txSeq || 0
     const r = await wx.cloud.callFunction({
       name: 'settleGame',
       data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
@@ -303,12 +339,24 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true)
     assert.strictEqual(r.result.game.expenseMode, 'mvp')
     assert.strictEqual(r.result.game.players[0].share, 30)
-    assert.strictEqual(r.result.game.txRevision, beforeRevision, '费用设置不新增流水版本')
+    assert.strictEqual(
+      r.result.game.txRevision,
+      beforeRevision + 1,
+      '费用修改应留一条可审计流水并推进流水版本'
+    )
+    assert.strictEqual(r.result.game.txSeq, beforeSeq + 1, '费用修改应占用一个流水顺序号')
     assert.strictEqual(
       r.result.game.stateRevision,
       beforeStateRevision + 1,
       '费用修改应推进房间状态版本，确保多端按顺序校准'
     )
+    const expenseTx = cloudMock
+      .getDb()
+      ._raw.transactions.filter(t => t.gameId === gameId && t.type === 'expense')
+    assert.strictEqual(expenseTx.length, 1, '费用修改应生成一条 expense 流水')
+    assert.strictEqual(expenseTx[0].beforeValue, 0)
+    assert.strictEqual(expenseTx[0].afterValue, 30)
+    assert.ok(expenseTx[0].operatorOpenid, '费用流水应记录操作人')
     // 之后的 checkout 不带费用参数，不应把费用清零
     const edit = await wx.cloud.callFunction({
       name: 'settleGame',
