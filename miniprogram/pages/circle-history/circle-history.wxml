@@ -5,10 +5,12 @@
 
   <view class="card season-item" wx:for="{{seasons}}" wx:key="_id">
     <view class="season-name">{{item.seasonName}}</view>
-    <view class="champion-row">
-      <text class="champion-label">魁首</text>
-      <text class="champion-name">{{item.championNickname}}</text>
-      <text class="champion-bb text-gain">+{{item.championBB}} BB</text>
+    <view class="honors-row" wx:if="{{item.honors.length}}">
+      <view class="honor-chip" wx:for="{{item.honors}}" wx:for-item="h" wx:key="rank">
+        <view class="honor-rank rank-{{h.rank <= 3 ? h.rank : 'n'}}">{{h.rank}}</view>
+        <text class="honor-name">{{h.nickname}}</text>
+      </view>
     </view>
+    <view class="text-sub" wx:else style="font-size:22rpx;">无上榜</view>
   </view>
 </view>

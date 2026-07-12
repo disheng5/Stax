@@ -22,12 +22,14 @@ Page({
         if ((page.data || []).length < 20) break
       }
       const seasons = all.map(s => {
-        const champ = (s.rankings || []).find(r => r.rank === 1)
+        const top3 = (s.rankings || [])
+          .filter(r => r.rank > 0 && r.rank <= 3)
+          .sort((a, b) => a.rank - b.rank)
+          .map(r => ({ rank: r.rank, nickname: r.nickname || '玩家', avatar: r.avatar || '' }))
         return {
           _id: s._id,
           seasonName: s.seasonName,
-          championNickname: champ ? champ.nickname : '无人',
-          championBB: champ ? champ.profitBB : 0,
+          honors: top3,
           settledAt: s.settledAt
         }
       })
