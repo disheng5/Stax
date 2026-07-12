@@ -23,13 +23,46 @@ Page({
     if (!/^[A-Z0-9]{6}$/.test(code)) return
     this.setData({ loadingGame: true })
     try {
+      await app.globalData.openidReady
       const db = wx.cloud.database()
-      const res = await db
+      // 先查进行中，再查已结束（新分享直达支持结束局回看）
+      let res = await db
         .collection('games')
         .where({ inviteCode: code, status: 'ongoing' })
         .limit(1)
         .get()
-      this.setData({ game: res.data[0] || null })
+      if (!res.data.length) {
+        res = await db
+          .collection('games')
+          .where({ inviteCode: code, status: 'ended' })
+          .orderBy('endedAt', 'desc')
+          .limit(1)
+          .get()
+      }
+      const game = res.data[0] || null
+      if (game) {
+        // 通过 getGameView 做身份裁剪与鉴权判断
+        const gv = await wx.cloud
+          .callFunction({
+            name: 'getGameView',
+            data: { gameId: game._id, inviteCode: code }
+          })
+          .catch(() => null)
+        const view = gv && gv.result
+        if (view && view.ok && view.role === 'player') {
+          // 已是参与者直接跳转
+          cacheGame(game)
+          wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${game._id}` })
+          return
+        }
+        if (view && view.ok && view.role === 'viewerEnded') {
+          // 已结束局的受分享人直接跳转（观看）
+          cacheGame(game)
+          wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${game._id}&mode=viewer` })
+          return
+        }
+      }
+      this.setData({ game })
     } catch (err) {
       console.error(err)
       wx.showToast({ title: '积分记录加载失败', icon: 'none' })
