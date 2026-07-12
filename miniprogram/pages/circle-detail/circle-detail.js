@@ -6,9 +6,11 @@ Page({
     circleId: '',
     circle: null,
     season: null,
-    ranked: [],
-    unranked: [],
-    seasonGames: [],
+    honors: [],
+    members: [],
+    me: null,
+    myGames: [],
+    ownerReview: [],
     seasonCount: 0,
     isOwner: false,
     daysLeft: 0,
@@ -21,13 +23,14 @@ Page({
     if (!circleId) return
     try {
       const snapshot = wx.getStorageSync(`stax_circle_${circleId}`)
-      if (snapshot?.circle && Date.now() - (snapshot.ts || 0) < 2 * 24 * 60 * 60 * 1000) {
-        const isOwner = snapshot.circle.ownerOpenid === app.globalData.openid
-        this.setData({ circle: snapshot.circle, isOwner })
-        this._applySeason(snapshot.season || null)
-        if (Array.isArray(snapshot.season?.gameSummaries)) {
-          this._setSeasonGames(snapshot.season.gameSummaries)
+      if (snapshot?.view && Date.now() - (snapshot.ts || 0) < 2 * 24 * 60 * 60 * 1000) {
+        if (snapshot.circle) {
+          this.setData({
+            circle: snapshot.circle,
+            isOwner: snapshot.circle.ownerOpenid === app.globalData.openid
+          })
         }
+        this._applyView(snapshot.view)
       }
     } catch (_) {}
   },
@@ -43,60 +46,66 @@ Page({
     this._closeSeasonWatch()
   },
 
+  // 服务端最小视图：不再在客户端直读全量 rankings；隐私裁剪由 getSeasonView 完成。
   async _fetch() {
     if (!this.data.circleId) return
     try {
       await app.globalData.openidReady
-      const openid = app.globalData.openid
-      const db = wx.cloud.database()
-      const got = await db.collection('circles').doc(this.data.circleId).get()
-      const circle = got.data
-      const isOwner = circle.ownerOpenid === openid
-      let season = null
-
-      if (circle.currentSeasonId) {
-        const s = await db
-          .collection('seasons')
-          .doc(circle.currentSeasonId)
-          .get()
-          .catch(() => null)
-        if (s && s.data) season = s.data
+      const res = await wx.cloud.callFunction({
+        name: 'getSeasonView',
+        data: { circleId: this.data.circleId }
+      })
+      const view = res && res.result
+      if (!view || !view.ok) {
+        this.setData({ loading: false })
+        return
       }
-
-      this.setData({ circle, isOwner })
-      this._applySeason(season)
-      this._persistSnapshot(circle, season)
-      this._loadSeasonGames(circle, season)
-      this._startSeasonWatch(circle, season)
+      // 圈子基础信息（名称/成员数/邀请码/owner 判定）仍需 circle 文档
+      const db = wx.cloud.database()
+      const got = await db
+        .collection('circles')
+        .doc(this.data.circleId)
+        .get()
+        .catch(() => null)
+      const circle = got && got.data ? got.data : this.data.circle
+      if (circle) {
+        this.setData({ circle, isOwner: circle.ownerOpenid === app.globalData.openid })
+      }
+      this._applyView(view)
+      this._persistSnapshot(circle, view)
+      this._startSeasonWatch(view.season)
     } catch (err) {
       console.error(err)
       this.setData({ loading: false })
     }
   },
 
-  _persistSnapshot(circle = this.data.circle, season = this.data.season) {
-    if (!this.data.circleId || !circle) return
+  _persistSnapshot(circle = this.data.circle, view) {
+    if (!this.data.circleId) return
     try {
       wx.setStorageSync(`stax_circle_${this.data.circleId}`, {
         ts: Date.now(),
         circle,
-        season
+        view
       })
     } catch (_) {}
   },
 
-  _applySeason(season) {
-    let ranked = [],
-      unranked = [],
-      daysLeft = 0
-    if (season) {
+  _applyView(view) {
+    if (!view) {
+      this.setData({ loading: false })
+      return
+    }
+    const season = view.season || null
+    let daysLeft = 0
+    if (season && season.endAt) {
       const now = new Date()
       daysLeft = Math.max(0, Math.ceil((new Date(season.endAt) - now) / (24 * 60 * 60 * 1000)))
-      ranked = (season.rankings || []).filter(r => r.rank > 0).sort((a, b) => a.rank - b.rank)
-      unranked = (season.rankings || []).filter(r => r.rank === 0)
     }
-    avatarCache.putProfiles([...(ranked || []), ...(unranked || [])], { source: 'snapshot' })
-    // users 缓存优先于赛季快照，避免旧排名把刚修改的新资料覆盖回去。
+    // 荣誉前三 / 成员：只有头像与昵称（+名次），做本地资料兜底与缓存优先
+    avatarCache.putProfiles([...(view.honors || []), ...(view.members || [])], {
+      source: 'snapshot'
+    })
     const fill = r => {
       const cached = avatarCache.cached(r.openid) || {}
       const avatar = cached.avatar || r.avatar || ''
@@ -114,68 +123,23 @@ Page({
           (avatar && !avatar.startsWith('cloud://') ? avatar : '')
       }
     }
-    const enrich = r => {
-      const wins = Number(r.wins) || 0
-      const games = Number(r.games) || 0
-      const hasWins = r.wins !== undefined && r.wins !== null
-      const winRate = hasWins
-        ? games
-          ? Math.round((wins * 1000) / games) / 10
-          : 0
-        : Number(r.winRate) || 0
-      return fill({ ...r, winRate })
-    }
-    ranked = ranked.map(enrich)
-    unranked = unranked.map(enrich)
-    this.setData({ season, ranked, unranked, daysLeft, loading: false })
-    if (this.data.circle) this._persistSnapshot(this.data.circle, season)
+    const honors = (view.honors || []).map(fill)
+    const members = (view.members || []).map(fill)
+    const ownerReview = (view.ownerReview || []).map(g => this._decorateReview(g))
+    const seasonCount = ownerReview.filter(g => !g.excluded).length
+    this.setData({
+      season,
+      honors,
+      members,
+      me: view.me || null,
+      myGames: (view.myGames || []).map(g => this._decorateMyGame(g)),
+      ownerReview,
+      seasonCount: view.isOwner ? seasonCount : (view.myGames || []).length,
+      daysLeft,
+      loading: false
+    })
     this._resolveRankProfiles()
     this._resolveRankDisplayAvatars()
-    this._repairBrokenWinRate(season)
-  },
-
-  _isBrokenWinRateSeason(season) {
-    if (!season || !Array.isArray(season.rankings)) return false
-    const algorithmVersion = Number(season.calculationMeta?.algorithmVersion) || 0
-    if (season.rankings.length && algorithmVersion < 4) return true
-    const hasGenericProfiles = season.rankings.some(
-      rank => !avatarCache.meaningfulNickname(rank.nickname)
-    )
-    if (hasGenericProfiles) return true
-    const played = season.rankings.filter(r => Number(r.games) > 0)
-    if (played.length < 2) return false
-    const hasAnyWin = played.some(r => Number(r.wins) > 0 || Number(r.winRate) > 0)
-    const hasGames = Array.isArray(season.gameSummaries) && season.gameSummaries.length > 0
-    return hasGames && !hasAnyWin
-  },
-
-  async _repairBrokenWinRate(season) {
-    if (!this._isBrokenWinRateSeason(season)) return
-    if (this._winRateRepairing === season._id || this._winRateRepairTried === season._id) return
-    this._winRateRepairing = season._id
-    try {
-      await wx.cloud.callFunction({
-        name: 'calcSeasonScore',
-        data: { circleId: this.data.circleId }
-      })
-      this._winRateRepairTried = season._id
-      const db = wx.cloud.database()
-      const latest = await db
-        .collection('seasons')
-        .doc(season._id)
-        .get()
-        .catch(() => null)
-      if (latest && latest.data) {
-        this._applySeason(latest.data)
-        if (Array.isArray(latest.data.gameSummaries)) {
-          this._setSeasonGames(latest.data.gameSummaries)
-        }
-      }
-    } catch (err) {
-      console.error('[repair winRate]', err)
-    } finally {
-      this._winRateRepairing = ''
-    }
   },
 
   _closeSeasonWatch() {
@@ -187,27 +151,24 @@ Page({
     this._seasonWatchId = ''
   },
 
-  _startSeasonWatch(circle, season) {
-    if (!season || !season._id) {
+  _startSeasonWatch(season) {
+    if (!season || !season.seasonId) {
       this._closeSeasonWatch()
       return
     }
-    if (this.seasonWatcher && this._seasonWatchId === season._id) return
+    if (this.seasonWatcher && this._seasonWatchId === season.seasonId) return
     this._closeSeasonWatch()
-    this._seasonWatchId = season._id
+    this._seasonWatchId = season.seasonId
     try {
       const db = wx.cloud.database()
       this.seasonWatcher = db
         .collection('seasons')
-        .doc(season._id)
+        .doc(season.seasonId)
         .watch({
-          onChange: snapshot => {
-            const latest = snapshot.docs && snapshot.docs[0]
-            if (!latest) return
-            this._applySeason(latest)
-            if (Array.isArray(latest.gameSummaries)) {
-              this._setSeasonGames(latest.gameSummaries)
-            }
+          // 只作为"数据已变"的信号，收到后重新拉取服务端裁剪视图（不直读 rankings）
+          onChange: () => {
+            this._lastFetch = 0
+            this._fetch()
           },
           onError: err => {
             console.warn('[season watch]', err)
@@ -220,9 +181,9 @@ Page({
     }
   },
 
-  // 排名资料以 users 表为准，节流刷新；旧 season.rankings 里的头像/昵称只用于首帧。
+  // 荣誉/成员资料以 users 表为准，节流刷新；视图里的头像/昵称只用于首帧。
   async _resolveRankProfiles() {
-    const all = [...(this.data.ranked || []), ...(this.data.unranked || [])]
+    const all = [...(this.data.honors || []), ...(this.data.members || [])]
     const shouldRefreshAll =
       !this._rankProfileRefreshAt || Date.now() - this._rankProfileRefreshAt > 60000
     const need = all
@@ -253,7 +214,7 @@ Page({
           ? { ...r, avatar, nickname, displayAvatar }
           : r
       })
-    this.setData({ ranked: patch(this.data.ranked), unranked: patch(this.data.unranked) })
+    this.setData({ honors: patch(this.data.honors), members: patch(this.data.members) })
     this._resolveRankDisplayAvatars()
   },
 
@@ -262,7 +223,7 @@ Page({
       this._rankDisplayQueued = true
       return
     }
-    const all = [...(this.data.ranked || []), ...(this.data.unranked || [])]
+    const all = [...(this.data.honors || []), ...(this.data.members || [])]
     const fileIDs = all.map(rank => rank.avatar).filter(Boolean)
     if (!fileIDs.some(fileID => fileID.startsWith('cloud://'))) return
     this._rankDisplayRefreshing = true
@@ -275,7 +236,7 @@ Page({
             ? { ...rank, displayAvatar }
             : rank
         })
-      this.setData({ ranked: patch(this.data.ranked), unranked: patch(this.data.unranked) })
+      this.setData({ honors: patch(this.data.honors), members: patch(this.data.members) })
     } finally {
       this._rankDisplayRefreshing = false
       if (this._rankDisplayQueued) {
@@ -285,30 +246,36 @@ Page({
     }
   },
 
-  _decorateSummary(g) {
+  _decorateMyGame(g) {
+    const d = new Date(g.endedAt)
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
     const h = Math.floor(dur / 3600000)
     const m = Math.floor((dur % 3600000) / 60000)
-    const d = new Date(g.endedAt)
     return {
       _id: g._id,
       name: g.name,
       playerCount: g.playerCount,
+      myProfit: g.myProfit,
       dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
       durationStr: h > 0 ? `${h}h ${m}` : `${m}m`,
+      counted: g.counted !== false
+    }
+  },
+
+  _decorateReview(g) {
+    const d = new Date(g.endedAt)
+    return {
+      shortId: g.shortId,
+      playerCount: g.playerCount,
+      dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
+      durationStr: `${g.durationMin}m`,
+      compliant: !!g.compliant,
       excluded: !!g.excluded
     }
   },
 
-  // 统一设置赛季比赛列表 + 计数（本赛季 N 场只数未排除的）
-  _setSeasonGames(summaries, season = this.data.season) {
-    const list = (summaries || []).map(g => this._decorateSummary(g))
-    const listedCount = list.filter(g => !g.excluded).length
-    const exactCount = Number(season?.calculationMeta?.qualifiedCount)
-    this.setData({
-      seasonGames: list,
-      seasonCount: Number.isFinite(exactCount) ? exactCount : listedCount
-    })
+  onOpenGame(e) {
+    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
   },
 
   // 榜主行内排除/恢复某场比赛
@@ -330,15 +297,18 @@ Page({
           })
           wx.hideLoading()
           if (!res.result || !res.result.ok) {
-            wx.showToast({ title: res.result?.error === 'NOT_HOST' ? '仅榜主可操作' : '操作失败', icon: 'none' })
+            wx.showToast({
+              title: res.result?.error === 'NOT_HOST' ? '仅榜主可操作' : '操作失败',
+              icon: 'none'
+            })
             return
           }
           // 本地先翻转，界面即时反馈；重算完成后 onShow 再校正为权威数据
-          const seasonGames = this.data.seasonGames.map(g =>
+          const ownerReview = this.data.ownerReview.map(g =>
             g._id === id ? { ...g, excluded: nextExclude } : g
           )
           this.setData({
-            seasonGames,
+            ownerReview,
             seasonCount: Math.max(0, this.data.seasonCount + (nextExclude ? -1 : 1))
           })
           this._lastFetch = 0

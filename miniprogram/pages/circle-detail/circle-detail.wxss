@@ -73,3 +73,21 @@
 .sg-chip { flex-shrink: 0; padding: 6rpx 20rpx; border-radius: 999rpx; font-size: 24rpx; border: 1rpx solid; }
 .sg-chip.exclude { color: var(--loss); border-color: var(--loss); background: rgba(46,157,91,0.08); }
 .sg-chip.restore { color: var(--text-sub); border-color: var(--border); background: transparent; }
+
+/* 我的赛季 */
+.my-season { padding: 12rpx 0 8rpx; }
+.my-season-title { font-size: 22rpx; margin-bottom: 12rpx; }
+.my-season-row { display: flex; gap: 12rpx; }
+.my-season-cell { flex: 1; text-align: center; padding: 12rpx 0; background: var(--bg-card, #f8f9fa); border-radius: 12rpx; }
+.my-season-num { font-size: 32rpx; font-weight: 700; line-height: 1.3; }
+.my-season-label { font-size: 20rpx; margin-top: 4rpx; }
+
+/* 成员网格 */
+.member-grid { display: flex; flex-wrap: wrap; gap: 20rpx 16rpx; padding: 4rpx 0 8rpx; }
+.member-chip { display: flex; align-items: center; gap: 8rpx; width: calc(50% - 8rpx); min-width: 0; }
+.member-avatar { width: 48rpx; height: 48rpx; border-radius: 50%; flex-shrink: 0; background: #eef1f5; }
+.member-name { font-size: 24rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 我的记录盈亏 */
+.profit-up { color: var(--loss); font-weight: 600; font-size: 26rpx; }
+.profit-down { color: var(--danger); font-weight: 600; font-size: 26rpx; }

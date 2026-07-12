@@ -34,8 +34,9 @@
 
     <view class="block-divider"></view>
 
-    <view wx:if="{{ranked.length || unranked.length}}">
-      <view class="rank-item" wx:for="{{ranked}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
+    <!-- 荣誉前三：只露头像/昵称/名次 -->
+    <view wx:if="{{honors.length}}">
+      <view class="rank-item" wx:for="{{honors}}" wx:key="openid">
         <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.rank}}</view>
         <view class="rank-avatar-wrap">
           <view class="rank-crown" wx:if="{{item.rank === 1}}"></view>
@@ -44,39 +45,75 @@
         <view class="rank-info">
           <view class="rank-name rank-name-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.nickname}}</view>
         </view>
-        <view class="rank-side text-sub">
-          <view>{{item.games}} 场</view>
-          <view>{{item.winRate}}%</view>
-        </view>
-      </view>
-      <view class="rank-divider" wx:if="{{unranked.length && ranked.length}}">—— 上榜线 ——</view>
-      <view class="rank-item unranked" wx:for="{{unranked}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
-        <view class="rank-badge rank-n">-</view>
-        <view class="rank-avatar-wrap">
-          <image class="rank-avatar" src="{{item.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
-        </view>
-        <view class="rank-info">
-          <view class="rank-name">{{item.nickname}}</view>
-          <view class="rank-hint text-sub">{{item.games < 1 ? '打一场即可上榜' : item.games + ' 场'}}</view>
-        </view>
       </view>
     </view>
     <view class="empty-rank" wx:else>
       <text class="text-sub">赛季刚开始，快来打第一场吧</text>
     </view>
 
-    <view wx:if="{{seasonGames.length}}">
+    <!-- 我的赛季：仅本人可见自己的名次/胜率/场次 -->
+    <view wx:if="{{me}}">
+      <view class="block-divider"></view>
+      <view class="my-season">
+        <view class="my-season-title text-sub">我的赛季</view>
+        <view class="my-season-row">
+          <view class="my-season-cell">
+            <view class="my-season-num">{{me.rank > 0 ? me.rank : '-'}}</view>
+            <view class="my-season-label text-sub">名次</view>
+          </view>
+          <view class="my-season-cell">
+            <view class="my-season-num">{{me.games}}</view>
+            <view class="my-season-label text-sub">场次</view>
+          </view>
+          <view class="my-season-cell">
+            <view class="my-season-num">{{me.winRate}}%</view>
+            <view class="my-season-label text-sub">胜率</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 成员：只露头像/昵称 -->
+    <view wx:if="{{members.length}}">
       <view class="block-divider"></view>
       <view class="games-header">
-        <text class="games-label text-sub">本赛季 {{seasonCount}} 场</text>
+        <text class="games-label text-sub">成员 {{members.length}} 人</text>
       </view>
-      <view class="season-game {{item.excluded ? 'excluded' : ''}}" wx:for="{{seasonGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
+      <view class="member-grid">
+        <view class="member-chip" wx:for="{{members}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
+          <image class="member-avatar" src="{{item.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
+          <text class="member-name">{{item.nickname}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 我的记录：本人参与且计入的记录 -->
+    <view wx:if="{{myGames.length}}">
+      <view class="block-divider"></view>
+      <view class="games-header">
+        <text class="games-label text-sub">我的记录 {{myGames.length}} 场</text>
+      </view>
+      <view class="season-game" wx:for="{{myGames}}" wx:key="_id" data-id="{{item._id}}" bindtap="onOpenGame">
         <view class="sg-left">
           <view class="sg-name">{{item.name || 'StaxKit 记录'}}</view>
           <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}} · {{item.durationStr}}</view>
         </view>
-        <view wx:if="{{isOwner}}" class="sg-chip {{item.excluded ? 'restore' : 'exclude'}}" catchtap="onToggleSeasonGame" data-id="{{item._id}}" data-excluded="{{item.excluded}}">{{item.excluded ? '恢复' : '排除'}}</view>
-        <view wx:else class="sg-right text-sub">{{item.durationStr}}</view>
+        <view class="sg-right {{item.myProfit >= 0 ? 'profit-up' : 'profit-down'}}">{{item.myProfit >= 0 ? '+' : ''}}{{item.myProfit}}</view>
+      </view>
+    </view>
+
+    <!-- 榜主复盘：仅 owner，只含短号/时间/人数/时长/合规，可排除/恢复 -->
+    <view wx:if="{{isOwner && ownerReview.length}}">
+      <view class="block-divider"></view>
+      <view class="games-header">
+        <text class="games-label text-sub">榜主复盘 · 本赛季 {{seasonCount}} 场</text>
+      </view>
+      <view class="season-game {{item.excluded ? 'excluded' : ''}}" wx:for="{{ownerReview}}" wx:key="_id">
+        <view class="sg-left">
+          <view class="sg-name">#{{item.shortId}} <text class="text-sub">{{item.compliant ? '' : '· 未达门槛'}}</text></view>
+          <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}} · {{item.durationStr}}</view>
+        </view>
+        <view class="sg-chip {{item.excluded ? 'restore' : 'exclude'}}" catchtap="onToggleSeasonGame" data-id="{{item._id}}" data-excluded="{{item.excluded}}">{{item.excluded ? '恢复' : '排除'}}</view>
       </view>
     </view>
   </view>

@@ -36,6 +36,7 @@ function buildOwnerReview(gameSummaries, excludedIds) {
     const durationMin = Math.round((end - start) / 60000)
     const shortId = (g._id || '').slice(-6).toUpperCase()
     return {
+      _id: g._id,
       shortId,
       startedAt: g.startedAt,
       endedAt: g.endedAt,
