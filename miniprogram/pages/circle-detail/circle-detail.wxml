@@ -101,21 +101,6 @@
         <view class="sg-right {{item.myProfit >= 0 ? 'profit-up' : 'profit-down'}}">{{item.myProfit >= 0 ? '+' : ''}}{{item.myProfit}}</view>
       </view>
     </view>
-
-    <!-- 榜主复盘：仅 owner，只含短号/时间/人数/时长/合规，可排除/恢复 -->
-    <view wx:if="{{isOwner && ownerReview.length}}">
-      <view class="block-divider"></view>
-      <view class="games-header">
-        <text class="games-label text-sub">榜主复盘 · 本赛季 {{seasonCount}} 场</text>
-      </view>
-      <view class="season-game {{item.excluded ? 'excluded' : ''}}" wx:for="{{ownerReview}}" wx:key="_id">
-        <view class="sg-left">
-          <view class="sg-name">#{{item.shortId}} <text class="text-sub">{{item.compliant ? '' : '· 未达门槛'}}</text></view>
-          <view class="sg-meta text-sub">{{item.playerCount}} 人 · {{item.dateStr}} · {{item.durationStr}}</view>
-        </view>
-        <view class="sg-chip {{item.excluded ? 'restore' : 'exclude'}}" catchtap="onToggleSeasonGame" data-id="{{item._id}}" data-excluded="{{item.excluded}}">{{item.excluded ? '恢复' : '排除'}}</view>
-      </view>
-    </view>
   </view>
 
   <view class="season-block card" wx:else>

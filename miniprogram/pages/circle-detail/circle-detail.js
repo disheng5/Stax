@@ -10,8 +10,6 @@ Page({
     members: [],
     me: null,
     myGames: [],
-    ownerReview: [],
-    seasonCount: 0,
     isOwner: false,
     daysLeft: 0,
     loading: true
@@ -125,16 +123,12 @@ Page({
     }
     const honors = (view.honors || []).map(fill)
     const members = (view.members || []).map(fill)
-    const ownerReview = (view.ownerReview || []).map(g => this._decorateReview(g))
-    const seasonCount = ownerReview.filter(g => !g.excluded).length
     this.setData({
       season,
       honors,
       members,
       me: view.me || null,
       myGames: (view.myGames || []).map(g => this._decorateMyGame(g)),
-      ownerReview,
-      seasonCount: view.isOwner ? seasonCount : (view.myGames || []).length,
       daysLeft,
       loading: false
     })
@@ -262,63 +256,8 @@ Page({
     }
   },
 
-  _decorateReview(g) {
-    const d = new Date(g.endedAt)
-    return {
-      shortId: g.shortId,
-      playerCount: g.playerCount,
-      dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
-      durationStr: `${g.durationMin}m`,
-      compliant: !!g.compliant,
-      excluded: !!g.excluded
-    }
-  },
-
   onOpenGame(e) {
     wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
-  },
-
-  // 榜主行内排除/恢复某场比赛
-  onToggleSeasonGame(e) {
-    if (!this.data.isOwner) return
-    const { id, excluded } = e.currentTarget.dataset
-    const nextExclude = !excluded
-    wx.showModal({
-      title: nextExclude ? '排除本场' : '恢复本场',
-      content: nextExclude ? '该场将不计入本赛季积分与排名。' : '该场将重新计入本赛季积分与排名。',
-      confirmText: nextExclude ? '排除' : '恢复',
-      success: async r => {
-        if (!r.confirm) return
-        wx.showLoading({ title: '处理中…' })
-        try {
-          const res = await wx.cloud.callFunction({
-            name: 'excludeGame',
-            data: { gameId: id, exclude: nextExclude, circleId: this.data.circleId }
-          })
-          wx.hideLoading()
-          if (!res.result || !res.result.ok) {
-            wx.showToast({
-              title: res.result?.error === 'NOT_HOST' ? '仅榜主可操作' : '操作失败',
-              icon: 'none'
-            })
-            return
-          }
-          // 本地先翻转，界面即时反馈；重算完成后 onShow 再校正为权威数据
-          const ownerReview = this.data.ownerReview.map(g =>
-            g._id === id ? { ...g, excluded: nextExclude } : g
-          )
-          this.setData({
-            ownerReview,
-            seasonCount: Math.max(0, this.data.seasonCount + (nextExclude ? -1 : 1))
-          })
-          this._lastFetch = 0
-          wx.showToast({ title: nextExclude ? '已排除' : '已恢复', icon: 'success' })
-        } catch (_) {
-          wx.hideLoading()
-          wx.showToast({ title: '网络异常', icon: 'none' })
-        }
-      }
-    })
   },
 
   // 赛季比赛列表直读 season.gameSummaries（calcSeasonScore 结算时写入），
