@@ -24,44 +24,58 @@ function isCommand(v) {
   return v && typeof v === 'object' && v.__cmd
 }
 const command = {
-  eq:        v => ({ __cmd: 'eq', v }),
-  neq:       v => ({ __cmd: 'neq', v }),
-  gt:        v => ({ __cmd: 'gt', v }),
-  gte:       v => ({ __cmd: 'gte', v }),
-  lt:        v => ({ __cmd: 'lt', v }),
-  lte:       v => ({ __cmd: 'lte', v }),
-  in:        v => ({ __cmd: 'in', v }),
-  nin:       v => ({ __cmd: 'nin', v }),
-  exists:    v => ({ __cmd: 'exists', v }),
+  eq: v => ({ __cmd: 'eq', v }),
+  neq: v => ({ __cmd: 'neq', v }),
+  gt: v => ({ __cmd: 'gt', v }),
+  gte: v => ({ __cmd: 'gte', v }),
+  lt: v => ({ __cmd: 'lt', v }),
+  lte: v => ({ __cmd: 'lte', v }),
+  in: v => ({ __cmd: 'in', v }),
+  nin: v => ({ __cmd: 'nin', v }),
+  exists: v => ({ __cmd: 'exists', v }),
   elemMatch: v => ({ __cmd: 'elemMatch', v }),
-  inc:       v => ({ __cmd: 'inc', v }),
-  push:      v => ({ __cmd: 'push', v }),
-  pull:      v => ({ __cmd: 'pull', v }),
-  remove:    () => ({ __cmd: 'remove' }),
-  set:       v => ({ __cmd: 'set', v }),
-  and:    (...args) => ({ __cmd: 'and', args }),
-  or:     (...args) => ({ __cmd: 'or', args })
+  inc: v => ({ __cmd: 'inc', v }),
+  push: v => ({ __cmd: 'push', v }),
+  pull: v => ({ __cmd: 'pull', v }),
+  remove: () => ({ __cmd: 'remove' }),
+  set: v => ({ __cmd: 'set', v }),
+  and: (...args) => ({ __cmd: 'and', args }),
+  or: (...args) => ({ __cmd: 'or', args })
 }
 
 // ===== where 匹配 =====
 function matchValue(actual, expected) {
   if (isCommand(expected)) {
     switch (expected.__cmd) {
-    case 'eq':  return actual === expected.v
-    case 'neq': return actual !== expected.v
-    case 'gt':  return actual >  expected.v
-    case 'gte': return actual >= expected.v
-    case 'lt':  return actual <  expected.v
-    case 'lte': return actual <= expected.v
-    case 'in':  return Array.isArray(expected.v) && expected.v.includes(actual)
-    case 'nin': return Array.isArray(expected.v) && !expected.v.includes(actual)
-    case 'exists': return (actual !== undefined) === !!expected.v
+    case 'eq':
+      return actual === expected.v
+    case 'neq':
+      return actual !== expected.v
+    case 'gt':
+      return actual > expected.v
+    case 'gte':
+      return actual >= expected.v
+    case 'lt':
+      return actual < expected.v
+    case 'lte':
+      return actual <= expected.v
+    case 'in':
+      return Array.isArray(expected.v) && expected.v.includes(actual)
+    case 'nin':
+      return Array.isArray(expected.v) && !expected.v.includes(actual)
+    case 'exists':
+      return (actual !== undefined) === !!expected.v
     case 'elemMatch':
       if (!Array.isArray(actual)) return false
-      return actual.some(item => Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k])))
-    case 'and': return expected.args.every(c => matchValue(actual, c))
-    case 'or':  return expected.args.some(c => matchValue(actual, c))
-    default: return false
+      return actual.some(item =>
+        Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k]))
+      )
+    case 'and':
+      return expected.args.every(c => matchValue(actual, c))
+    case 'or':
+      return expected.args.some(c => matchValue(actual, c))
+    default:
+      return false
     }
   }
   if (Array.isArray(expected)) return JSON.stringify(actual) === JSON.stringify(expected)
@@ -89,12 +103,25 @@ function applyUpdate(doc, update) {
         target = target[p]
       }
       switch (val.__cmd) {
-      case 'inc':    target[last] = (target[last] || 0) + val.v; break
-      case 'push':   if (!Array.isArray(target[last])) target[last] = []; target[last].push(...(Array.isArray(val.v) ? val.v : [val.v])); break
-      case 'pull':   if (Array.isArray(target[last])) target[last] = target[last].filter(x => !matchValue(x, val.v)); break
-      case 'remove': delete target[last]; break
-      case 'set':    target[last] = val.v; break
-      default: target[last] = val
+      case 'inc':
+        target[last] = (target[last] || 0) + val.v
+        break
+      case 'push':
+        if (!Array.isArray(target[last])) target[last] = []
+        target[last].push(...(Array.isArray(val.v) ? val.v : [val.v]))
+        break
+      case 'pull':
+        if (Array.isArray(target[last]))
+          target[last] = target[last].filter(x => !matchValue(x, val.v))
+        break
+      case 'remove':
+        delete target[last]
+        break
+      case 'set':
+        target[last] = val.v
+        break
+      default:
+        target[last] = val
       }
     } else if (key.includes('.')) {
       const path = key.split('.')
@@ -120,14 +147,18 @@ function createMockDb(seed) {
   }
   const meta = { MY_OPENID: seed.MY_OPENID }
 
-  const watchers = {}   // gameId 之类的 docId → [callbacks]
+  const watchers = {} // gameId 之类的 docId → [callbacks]
 
   function notify(name, docId) {
     const key = name + '/' + docId
     const cbs = watchers[key] || []
     const doc = (collections[name] || []).find(d => d._id === docId)
     cbs.forEach(cb => {
-      try { cb({ docs: doc ? [deepClone(doc)] : [], type: 'init' }) } catch (e) { console.error(e) }
+      try {
+        cb({ docs: doc ? [deepClone(doc)] : [], type: 'init' })
+      } catch (e) {
+        console.error(e)
+      }
     })
   }
 
@@ -145,11 +176,26 @@ function createMockDb(seed) {
       this._skip = 0
       this._docId = null
     }
-    doc(id) { this._docId = id; return this }
-    where(q)   { this._where = { ...this._where, ...q }; return this }
-    orderBy(f, dir = 'asc') { this._orderBy.push({ f, dir }); return this }
-    limit(n)   { this._limit = n; return this }
-    skip(n)    { this._skip = n; return this }
+    doc(id) {
+      this._docId = id
+      return this
+    }
+    where(q) {
+      this._where = { ...this._where, ...q }
+      return this
+    }
+    orderBy(f, dir = 'asc') {
+      this._orderBy.push({ f, dir })
+      return this
+    }
+    limit(n) {
+      this._limit = n
+      return this
+    }
+    skip(n) {
+      this._skip = n
+      return this
+    }
 
     _filter() {
       let list = collections[this._name] || []
@@ -160,8 +206,10 @@ function createMockDb(seed) {
       list = list.filter(d => matchDoc(d, this._where))
       this._orderBy.forEach(({ f, dir }) => {
         list = list.slice().sort((a, b) => {
-          const av = a[f], bv = b[f]
-          const cmp = av instanceof Date && bv instanceof Date ? av - bv : (av > bv ? 1 : av < bv ? -1 : 0)
+          const av = a[f],
+            bv = b[f]
+          const cmp =
+            av instanceof Date && bv instanceof Date ? av - bv : av > bv ? 1 : av < bv ? -1 : 0
           return dir === 'desc' ? -cmp : cmp
         })
       })
@@ -170,7 +218,7 @@ function createMockDb(seed) {
     }
 
     async get() {
-      await new Promise(r => setTimeout(r, 30))   // 模拟网络
+      await new Promise(r => setTimeout(r, 30)) // 模拟网络
       const list = this._filter()
       if (this._docId) {
         if (!list.length) throw new Error('document not found')
@@ -188,6 +236,21 @@ function createMockDb(seed) {
       const doc = { _id: makeId(), _openid: meta.MY_OPENID || 'mock_me', ...deepClone(data) }
       collections[this._name].push(doc)
       return { _id: doc._id }
+    }
+
+    // doc(id).set({data}) — 存在则整体覆盖，不存在则按该 _id 新建（upsert）
+    async set({ data }) {
+      if (!this._docId) throw new Error('set() requires doc(id)')
+      const list = collections[this._name]
+      const idx = list.findIndex(d => d._id === this._docId)
+      const doc = {
+        _id: this._docId,
+        _openid: meta.MY_OPENID || 'mock_me',
+        ...deepClone(data)
+      }
+      if (idx >= 0) list[idx] = doc
+      else list.push(doc)
+      return { _id: this._docId, stats: { updated: idx >= 0 ? 1 : 0, created: idx >= 0 ? 0 : 1 } }
     }
 
     async update({ data }) {

@@ -40,6 +40,47 @@ function nextTxSeq(game) {
   return Math.max(0, Number(game.txSeq) || 0) + 1
 }
 
+function receiptId(gameId, operationId) {
+  return `${gameId}:${operationId}`
+}
+
+function receiptResult(result) {
+  if (!result || typeof result !== 'object') return result
+  const clone = { ...result }
+  delete clone.game
+  return clone
+}
+
+// 持久幂等回执：有 operationId 时先查回执命中即返回；成功后写回执。
+async function readReceipt(db, gameId, operationId) {
+  if (!operationId) return null
+  const snap = await db
+    .collection('opReceipts')
+    .doc(receiptId(gameId, operationId))
+    .get()
+    .catch(() => null)
+  if (snap && snap.data && snap.data.result) {
+    return { ...snap.data.result, idempotent: true, operationId }
+  }
+  return null
+}
+
+async function writeReceipt(db, gameId, operationId, result) {
+  if (!operationId || !result || !result.ok) return
+  await db
+    .collection('opReceipts')
+    .doc(receiptId(gameId, operationId))
+    .set({
+      data: {
+        gameId,
+        operationId,
+        result: receiptResult(result),
+        createdAt: new Date()
+      }
+    })
+    .catch(() => null)
+}
+
 function mockNickname(game, openid) {
   return (game.players || []).find(p => p.openid === openid)?.nickname || ''
 }
@@ -341,7 +382,18 @@ const handlers = {
     return { ok: true, gameId: game._id, game: { ...game, ...update } }
   },
 
-  async recordTransaction({
+  async recordTransaction(event = {}) {
+    const { gameId, operationId: rawOperationId } = event
+    const operationId = normalizeOperationId(rawOperationId)
+    const db = getDb()
+    const cached = await readReceipt(db, gameId, operationId)
+    if (cached) return cached
+    const result = await this._recordTransactionCore(event)
+    await writeReceipt(db, gameId, operationId, result)
+    return result
+  },
+
+  async _recordTransactionCore({
     gameId,
     type,
     playerOpenid,
@@ -548,6 +600,16 @@ const handlers = {
   },
 
   async settleGame(event = {}) {
+    const operationId = normalizeOperationId(event.operationId)
+    const db = getDb()
+    const cached = await readReceipt(db, event.gameId, operationId)
+    if (cached) return cached
+    const result = await this._settleGameCore(event)
+    await writeReceipt(db, event.gameId, operationId, result)
+    return result
+  },
+
+  async _settleGameCore(event = {}) {
     const { gameId, finalStacks } = event
     // 与线上一致：按载荷形状推断意图，绝不按 mode 名称拒绝（契约红线）
     const hasExtraCost = event.extraCost !== undefined && event.extraCost !== null
@@ -1190,7 +1252,7 @@ function install() {
       return { result: { ok: false, error: 'NO_MOCK_HANDLER' } }
     }
     try {
-      const result = await fn(data)
+      const result = await fn.call(handlers, data)
       return { result }
     } catch (err) {
       console.error('[cloud-mock]', name, 'error', err)

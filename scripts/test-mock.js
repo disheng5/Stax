@@ -255,6 +255,39 @@ function step(name, fn) {
     )
   })
 
+  await step('持久幂等回执：内存窗口失效后重放仍零重复写入', async () => {
+    const probeGameId = 'game_live_demo'
+    const raw = cloudMock.getDb()._raw
+    const data = {
+      gameId: probeGameId,
+      type: 'rebuy',
+      playerOpenid: 'mock_me',
+      amount: 50,
+      operationId: 'receipt_probe_0001'
+    }
+    const first = await wx.cloud.callFunction({ name: 'recordTransaction', data })
+    assert.strictEqual(first.result.ok, true)
+    const receipt = raw.opReceipts.find(r => r._id === `${probeGameId}:${data.operationId}`)
+    assert.ok(receipt, '成功后应写入持久回执')
+    const txCountAfterFirst = raw.transactions.filter(
+      t => t.operationId === data.operationId
+    ).length
+    assert.strictEqual(txCountAfterFirst, 1, '首次应入账一条')
+    // 模拟弱网久离线：内存窗口已淘汰该 operationId，仅剩持久回执兜底
+    const game = raw.games.find(g => g._id === probeGameId)
+    game.recentOperationIds = (game.recentOperationIds || []).filter(id => id !== data.operationId)
+    const txSeqBeforeReplay = game.txSeq
+    const replay = await wx.cloud.callFunction({ name: 'recordTransaction', data })
+    assert.strictEqual(replay.result.idempotent, true, '窗口失效后重放仍应命中回执')
+    const gameAfter = cloudMock.getDb()._raw.games.find(g => g._id === probeGameId)
+    assert.strictEqual(gameAfter.txSeq, txSeqBeforeReplay, '重放不得再自增 txSeq')
+    assert.strictEqual(
+      cloudMock.getDb()._raw.transactions.filter(t => t.operationId === data.operationId).length,
+      1,
+      '重放不得产生重复流水'
+    )
+  })
+
   await step('踢人：从 players 移除、总池扣减、快照入 removedPlayers', async () => {
     const db = wx.cloud.database()
     const before = (await db.collection('games').doc('game_live_demo').get()).data

@@ -22,6 +22,47 @@ function operationUpdate(game, operationId) {
   return { recentOperationIds: ids.slice(-OPERATION_ID_LIMIT) }
 }
 
+function receiptId(gameId, operationId) {
+  return `${gameId}:${operationId}`
+}
+
+// 持久幂等：结果保存供重放，剔除 game 大对象。
+function receiptResult(result) {
+  if (!result || typeof result !== 'object') return result
+  const clone = { ...result }
+  delete clone.game
+  return clone
+}
+
+async function readSettleReceipt(gameId, operationId) {
+  if (!operationId) return null
+  const snap = await db
+    .collection('opReceipts')
+    .doc(receiptId(gameId, operationId))
+    .get()
+    .catch(() => null)
+  if (snap && snap.data && snap.data.result) {
+    return { ...snap.data.result, idempotent: true, operationId }
+  }
+  return null
+}
+
+async function writeSettleReceipt(gameId, operationId, result) {
+  if (!operationId || !result || !result.ok) return
+  await db
+    .collection('opReceipts')
+    .doc(receiptId(gameId, operationId))
+    .set({
+      data: {
+        gameId,
+        operationId,
+        result: receiptResult(result),
+        createdAt: new Date()
+      }
+    })
+    .catch(() => null)
+}
+
 // 结束后允许修改结算积分的时间窗（账不平可在此期间修正）
 const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
 
@@ -288,6 +329,10 @@ exports.main = async event => {
   const operationId = normalizeOperationId(event?.operationId)
 
   if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
+  if (operationId) {
+    const cached = await readSettleReceipt(gameId, operationId)
+    if (cached) return cached
+  }
   if (hasExtraCost && (!Number.isFinite(extraCost) || extraCost < 0))
     return { ok: false, error: 'INVALID_EXTRA_COST' }
 
@@ -555,7 +600,7 @@ exports.main = async event => {
     ])
   }
 
-  return {
+  const response = {
     ok: true,
     ended,
     justEnded,
@@ -566,4 +611,6 @@ exports.main = async event => {
     extraCost: update.extraCost,
     expenseMode: update.expenseMode
   }
+  await writeSettleReceipt(gameId, operationId, response)
+  return response
 }

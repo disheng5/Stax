@@ -32,6 +32,18 @@ function operationMeta(operationId) {
   return operationId ? { operationId } : {}
 }
 
+function receiptId(gameId, operationId) {
+  return `${gameId}:${operationId}`
+}
+
+// 结果裁剪：回执只保存可安全重放的业务结果，剔除 game 快照等大对象。
+function receiptResult(result) {
+  if (!result || typeof result !== 'object') return result
+  const clone = { ...result }
+  delete clone.game
+  return clone
+}
+
 function nextTxRevision(game) {
   return Math.max(0, Number(game.txRevision) || 0) + 1
 }
@@ -51,7 +63,21 @@ function resolveNickname(game, openid) {
 
 // 在事务中读取 game 文档并执行 fn；fn 返回业务结果。
 // 事务冲突由 runTransaction 自动重试（3 次），仍失败则返回 CONFLICT_RETRY。
+//
+// 持久幂等：有 operationId 时，先查 opReceipts 命中即返回原结果（idempotent:true）；
+// 事务成功后写回执。无 operationId 时保持旧行为（旧客户端不受影响）。
+// recentOperationIds 内存窗口保留作为同一 game 文档内的快速路径。
 async function withGameTxn(gameId, operationId, actorOpenid, fn) {
+  if (operationId) {
+    const receiptSnap = await db
+      .collection('opReceipts')
+      .doc(receiptId(gameId, operationId))
+      .get()
+      .catch(() => null)
+    if (receiptSnap && receiptSnap.data && receiptSnap.data.result) {
+      return { ...receiptSnap.data.result, idempotent: true, operationId }
+    }
+  }
   try {
     return await db.runTransaction(async transaction => {
       const snap = await transaction
@@ -69,7 +95,22 @@ async function withGameTxn(gameId, operationId, actorOpenid, fn) {
         return { ok: true, idempotent: true, operationId, game }
       }
       if (game.status !== 'ongoing') return { ok: false, error: 'GAME_ENDED' }
-      return await fn(transaction, game)
+      const result = await fn(transaction, game)
+      if (operationId && result && result.ok) {
+        await transaction
+          .collection('opReceipts')
+          .doc(receiptId(gameId, operationId))
+          .set({
+            data: {
+              gameId,
+              operationId,
+              result: receiptResult(result),
+              createdAt: new Date()
+            }
+          })
+          .catch(() => null)
+      }
+      return result
     }, 3)
   } catch (err) {
     console.error('[recordTransaction txn]', err)
