@@ -97,7 +97,7 @@
       <text class="tx-time">{{tx.timeStr}}</text>
       <text class="tx-sentence">
         <text wx:for="{{tx.sentenceParts}}" wx:for-item="part" wx:key="key"
-          class="tx-seg tx-seg--{{part.role}}">{{part.text}}</text>
+          class="tx-seg tx-seg--{{part.role}} {{part.gap ? 'tx-seg--gap' : ''}}">{{part.text}}</text>
         <text wx:if="{{tx.revoked}}" class="tx-seg tx-seg--revoked-suffix">已撤销</text>
       </text>
     </view>

@@ -44,7 +44,7 @@ assert.strictEqual(
     11,
     resolveName
   ),
-  'L美美补买3手共11手'
+  'L美美补买3手，共11手'
 )
 
 // === 代补买 ===
@@ -63,13 +63,13 @@ assert.strictEqual(
     11,
     resolveName
   ),
-  'eter帮L美美补买3手共11手'
+  'eter帮L美美补买3手，共11手'
 )
 
 // === 自己结算（短句） ===
 assert.strictEqual(
   transactionSentenceText({ type: 'settle', playerOpenid: 'p1', amount: 1750 }, 0, 11, resolveName),
-  'L美美结算共11手剩1750积分'
+  'L美美结算，共11手，剩1750积分'
 )
 
 // === 代结算 ===
@@ -80,7 +80,7 @@ assert.strictEqual(
     4,
     resolveName
   ),
-  'eter帮万木春结算共4手剩1485积分'
+  'eter帮万木春结算，共4手，剩1485积分'
 )
 
 // === 修改结算积分：只突出修改后的值 ===
@@ -134,7 +134,7 @@ assert.strictEqual(
     8,
     resolveName
   ),
-  'eter撤销L美美补买3手共8手'
+  'eter撤销L美美补买3手，共8手'
 )
 
 // === 移出 ===
@@ -145,7 +145,7 @@ assert.strictEqual(
     0,
     resolveName
   ),
-  'eter移出L美美扣1500积分'
+  'eter移出L美美，扣1500积分'
 )
 
 // ===== 第九节兼容测试（7条）=====
@@ -167,7 +167,7 @@ assert.strictEqual(
     11,
     resolveName
   ),
-  'L美美结算共11手剩1750积分'
+  'L美美结算，共11手，剩1750积分'
 )
 
 // (3) 历史 checkout / finalize 按结算呈现（未知 type，按载荷/mode 推断）
@@ -208,7 +208,7 @@ assert.strictEqual(
     11,
     resolveName
   ),
-  'L美美补买3手共11手'
+  'L美美补买3手，共11手'
 )
 
 // (5) 修改结算只突出修改后值（见上 modifyParts 断言）
@@ -262,6 +262,12 @@ assert.strictEqual(parts[0].role, 'operator')
 assert.strictEqual(parts[1].role, 'player')
 assert.strictEqual(parts[2].role, 'action')
 assert.strictEqual(parts[parts.length - 1].role, 'result')
+
+// === 语义间距：块尾是逗号则不留间距，否则留 ===
+// parts: eter帮 | L美美 | 补买 | 3手， | 共 | 11手
+assert.strictEqual(parts.find(p => p.text === '3手，').gap, false, '逗号结尾不应留间距')
+assert.strictEqual(parts.find(p => p.text === '补买').gap, true, '非标点边界应留间距')
+assert.strictEqual(parts[parts.length - 1].gap, false, '末块不留间距')
 
 // === handState 累计口径保持不变 ===
 const handState = transactionHandState(
