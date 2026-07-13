@@ -177,17 +177,19 @@
   word-break: break-word;
 }
 
-/* 语义块间距：只用 margin，不写真实空格；数字与单位保持连续不断行 */
+/* 语义块间距：只用 margin，不写真实空格；数字与单位同块不断行。
+   所有块统一一个极轻的语义间距，给一点呼吸感，且各处保持一致。 */
 .tx-seg {
   display: inline-block;
   white-space: nowrap;
+  margin-right: 6rpx;
 }
-.tx-seg--operator { color: #7E858E; font-weight: 400; margin-right: 4rpx; }
-.tx-seg--player { color: #3F4852; font-weight: 500; margin-right: 5rpx; }
-.tx-seg--action { color: #6D7580; font-weight: 400; margin-right: 6rpx; }
+.tx-seg--operator { color: #7E858E; font-weight: 400; }
+.tx-seg--player { color: #3F4852; font-weight: 500; }
+.tx-seg--action { color: #6D7580; font-weight: 400; }
 .tx-seg--result { color: #505A65; font-weight: 500; }
-.tx-seg--dim { color: #9AA1A9; font-weight: 400; margin-right: 4rpx; }
-.tx-seg--revoked-suffix { color: #A3A9B0; font-weight: 400; margin-left: 8rpx; }
+.tx-seg--dim { color: #9AA1A9; font-weight: 400; }
+.tx-seg--revoked-suffix { color: #A3A9B0; font-weight: 400; }
 
 .expense-block {
   padding: 6rpx 0 12rpx;

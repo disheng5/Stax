@@ -24,8 +24,10 @@ function normalizeTransactionKind(tx) {
   return type
 }
 
-// 语义块之间用 CSS margin 分隔，不写真实空格。role 决定颜色/字重与间距：
-// operator(操作人) player(目标玩家) action(动作) result(最终结果) dim(修改前值)
+// 语义块之间用 CSS margin 分隔，不写真实空格；数字与单位同处一块不断行。
+// 每块独立成 inline-block，块间统一一个极轻的语义间距，让数字两边都有呼吸感。
+// role 决定颜色/字重：operator(操作人) player(目标玩家) action(动词/连接词)
+//   result(数值：手数/积分) dim(修改前的旧值，弱化)
 function buildTransactionSentence(tx, hands, accHands, resolveName) {
   const resolve = typeof resolveName === 'function' ? resolveName : () => ''
   const player = resolve(tx.playerOpenid) || tx.meta?.nickname || '某玩家'
@@ -35,19 +37,20 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
   const isProxy = tx.operatorOpenid && tx.operatorOpenid !== tx.playerOpenid && operator
   const kind = normalizeTransactionKind(tx)
 
+  // 收集语义块，最后统一编 key（wxml wx:key 需唯一）
+  const parts = []
+  const seg = (role, text) => {
+    if (text || text === 0) parts.push({ role, text: `${text}` })
+  }
+  const withKeys = () => parts.map((p, i) => ({ key: String(i), role: p.role, text: p.text }))
+
   if (kind === 'buyIn') {
     const finalHands = hasBeforeAfter(tx.beforeHands, tx.afterHands) ? tx.afterHands : accHands
-    if (isProxy) {
-      return [
-        { key: 'op', text: `${operator}帮`, role: 'operator' },
-        { key: 'pl', text: player, role: 'player' },
-        { key: 'a1', text: `入场${finalHands}手`, role: 'action' }
-      ]
-    }
-    return [
-      { key: 'pl', text: player, role: 'player' },
-      { key: 'a1', text: `入场${finalHands}手`, role: 'action' }
-    ]
+    if (isProxy) seg('operator', `${operator}帮`)
+    seg('player', player)
+    seg('action', '入场')
+    seg('result', `${finalHands}手`)
+    return withKeys()
   }
 
   if (kind === 'rebuy' || kind === 'addOn') {
@@ -55,75 +58,50 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
     const totalAfter = hasBeforeAfter(tx.beforeHands, tx.afterHands)
       ? tx.afterHands
       : accHands || null
-    if (tx.revoked) {
-      const parts = [
-        { key: 'op', text: operator ? `${operator}撤销` : player, role: 'operator' },
-        { key: 'pl', text: player, role: 'player' },
-        { key: 'a1', text: `补买${hands}手，`, role: 'action' }
-      ]
-      if (totalAfter) parts.push({ key: 'r2', text: `共${totalAfter}手`, role: 'result' })
-      return parts
+    if (tx.revoked && operator) seg('operator', `${operator}撤销`)
+    else if (isProxy) seg('operator', `${operator}帮`)
+    seg('player', player)
+    seg('action', '补买')
+    seg('result', `${hands}手`)
+    if (totalAfter) {
+      seg('action', '共')
+      seg('result', `${totalAfter}手`)
     }
-    if (isProxy) {
-      const parts = [
-        { key: 'op', text: `${operator}帮`, role: 'operator' },
-        { key: 'pl', text: player, role: 'player' },
-        { key: 'a1', text: `补买${hands}手，`, role: 'action' }
-      ]
-      if (totalAfter) parts.push({ key: 'r2', text: `共${totalAfter}手`, role: 'result' })
-      return parts
-    }
-    const parts = [
-      { key: 'pl', text: player, role: 'player' },
-      { key: 'a1', text: `补买${hands}手，`, role: 'action' }
-    ]
-    if (totalAfter) parts.push({ key: 'r2', text: `共${totalAfter}手`, role: 'result' })
-    return parts
+    return withKeys()
   }
 
   if (kind === 'settle') {
     // 修改结算：只突出修改后的值，修改前值弱化
     if (hasBeforeAfter(tx.beforeValue, tx.afterValue)) {
-      return [
-        { key: 'op', text: operator ? `${operator}将` : player, role: 'operator' },
-        { key: 'pl', text: player, role: 'player' },
-        { key: 'a1', text: '结算从', role: 'action' },
-        { key: 'r1', text: `${tx.beforeValue}`, role: 'dim' },
-        { key: 'a2', text: '改为', role: 'action' },
-        { key: 'r2', text: `${tx.afterValue}`, role: 'result' }
-      ]
+      if (isProxy) seg('operator', `${operator}将`)
+      seg('player', player)
+      seg('action', '结算从')
+      seg('dim', `${tx.beforeValue}`)
+      seg('action', '改为')
+      seg('result', `${tx.afterValue}`)
+      return withKeys()
     }
     const totalHands = accHands || 0
-    const amount = tx.amount
-    const resultPart = { key: 'r2', text: `剩${amount}积分`, role: 'result' }
-    if (isProxy) {
-      const parts = [
-        { key: 'op', text: `${operator}帮`, role: 'operator' },
-        { key: 'pl', text: player, role: 'player' }
-      ]
-      if (totalHands) {
-        parts.push({ key: 'a1', text: '结算，', role: 'action' })
-        parts.push({ key: 'r1', text: `共${totalHands}手，`, role: 'result' })
-      } else {
-        parts.push({ key: 'a1', text: '结算，', role: 'action' })
-      }
-      parts.push(resultPart)
-      return parts
+    if (isProxy) seg('operator', `${operator}帮`)
+    seg('player', player)
+    seg('action', '结算')
+    if (totalHands) {
+      seg('action', '共')
+      seg('result', `${totalHands}手`)
     }
-    const parts = [{ key: 'pl', text: player, role: 'player' }]
-    parts.push({ key: 'a1', text: '结算，', role: 'action' })
-    if (totalHands) parts.push({ key: 'r1', text: `共${totalHands}手，`, role: 'result' })
-    parts.push(resultPart)
-    return parts
+    seg('action', '剩')
+    seg('result', `${tx.amount}积分`)
+    return withKeys()
   }
 
   if (kind === 'eliminate') {
     const removedBuyIn = Number(tx.meta?.removedBuyIn) || Math.abs(Number(tx.amount) || 0)
-    return [
-      { key: 'op', text: operator ? `${operator}移出` : '移出', role: 'operator' },
-      { key: 'pl', text: player, role: 'player' },
-      { key: 'a1', text: `，扣${removedBuyIn}积分`, role: 'action' }
-    ]
+    if (operator) seg('operator', `${operator}移出`)
+    else seg('action', '移出')
+    seg('player', player)
+    seg('action', '扣')
+    seg('result', `${removedBuyIn}积分`)
+    return withKeys()
   }
 
   // 兜底：不返回孤立"记录"，尽量保留可读信息，同时记录未知类型便于补齐兼容
@@ -131,16 +109,14 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
     console.warn('[tx-format] unknown kind', tx.type, tx.meta?.mode, tx._id)
   }
   const amount = Number(tx.amount)
+  seg('player', player)
   if (Number.isFinite(amount) && amount !== 0) {
-    return [
-      { key: 'pl', text: player, role: 'player' },
-      { key: 'a1', text: `记录${Math.abs(amount)}积分`, role: 'action' }
-    ]
+    seg('action', '记录')
+    seg('result', `${Math.abs(amount)}积分`)
+  } else {
+    seg('action', '有一条历史流水')
   }
-  return [
-    { key: 'pl', text: player, role: 'player' },
-    { key: 'a1', text: '有一条历史流水', role: 'action' }
-  ]
+  return withKeys()
 }
 
 function transactionSentenceText(tx, hands, accHands, resolveName) {
