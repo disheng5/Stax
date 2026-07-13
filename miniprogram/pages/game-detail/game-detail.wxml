@@ -80,12 +80,12 @@
   <view class="tx-list" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">
     <view class="expense-block" wx:if="{{settleResult && settleResult.expenseRows.length}}">
       <view class="expense-head">
-        <text class="expense-label">费用分摊</text>
-        <text class="expense-meta">共{{settleResult.extraCost}}积分  {{settleResult.expenseModeLabel}}  不计入娱乐积分</text>
+        <text class="expense-title">费用分摊</text>
+        <text class="expense-summary">共 {{settleResult.extraCost}} · {{settleResult.expenseModeLabel}} · 不计积分</text>
       </view>
       <view class="expense-row" wx:for="{{settleResult.expenseRows}}" wx:key="openid">
         <text class="expense-name">{{item.nickname}}</text>
-        <text class="expense-share">-{{item.share}}积分</text>
+        <text class="expense-share">-{{item.share}}</text>
       </view>
       <view class="expense-divider" wx:if="{{recentTx.length}}"></view>
     </view>
