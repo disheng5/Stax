@@ -161,6 +161,7 @@
 .tx-time {
   width: 80rpx;
   flex-shrink: 0;
+  margin-right: 14rpx;
   color: #9AA1A9;
   font-size: 25rpx;
   font-weight: 400;
@@ -176,11 +177,17 @@
   word-break: break-word;
 }
 
-.tx-seg--operator { color: #7E858E; font-weight: 400; }
-.tx-seg--player { color: #3F4852; font-weight: 500; }
+/* 语义块间距：只用 margin，不写真实空格；数字与单位保持连续不断行 */
+.tx-seg {
+  display: inline-block;
+  white-space: nowrap;
+}
+.tx-seg--operator { color: #7E858E; font-weight: 400; margin-right: 4rpx; }
+.tx-seg--player { color: #3F4852; font-weight: 500; margin-right: 5rpx; }
+.tx-seg--action { color: #6D7580; font-weight: 400; margin-right: 6rpx; }
 .tx-seg--result { color: #505A65; font-weight: 500; }
-.tx-seg--text { color: #6D7580; font-weight: 400; }
-.tx-seg--revoked-suffix { color: #A3A9B0; font-weight: 400; }
+.tx-seg--dim { color: #9AA1A9; font-weight: 400; margin-right: 4rpx; }
+.tx-seg--revoked-suffix { color: #A3A9B0; font-weight: 400; margin-left: 8rpx; }
 
 .expense-block {
   padding: 6rpx 0 12rpx;

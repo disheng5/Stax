@@ -91,14 +91,14 @@
     </view>
     <view class="tx tx-system" wx:if="{{game.status === 'ended'}}">
       <text class="tx-time">{{settleResult.endTimeStr || ''}}</text>
-      <text class="tx-sentence tx-text">所有玩家已完成结算，本次积分记录结束</text>
+      <text class="tx-sentence tx-seg--action">全员已结算，记录结束</text>
     </view>
     <view class="tx {{tx.revoked ? 'tx-revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
       <text class="tx-time">{{tx.timeStr}}</text>
       <text class="tx-sentence">
         <text wx:for="{{tx.sentenceParts}}" wx:for-item="part" wx:key="key"
           class="tx-seg tx-seg--{{part.role}}">{{part.text}}</text>
-        <text wx:if="{{tx.revoked}}" class="tx-seg tx-seg--revoked-suffix">  已撤销</text>
+        <text wx:if="{{tx.revoked}}" class="tx-seg tx-seg--revoked-suffix">已撤销</text>
       </text>
     </view>
   </view>
