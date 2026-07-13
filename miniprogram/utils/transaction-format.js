@@ -1,131 +1,134 @@
-function text(key, value) {
-  return { key, text: value, emphasis: false }
-}
-
-// 最终值（最终手数/最终积分）：最重字重
-function strong(key, value) {
-  return { key, text: String(value), emphasis: true, weight: 'strong' }
-}
-
-// 本次变化量（如 +3手 / -1手）：中等字重
-function delta(key, value) {
-  return { key, text: value, emphasis: true, weight: 'delta' }
-}
-
-// 变化前数字、箭头、单位：正常字重 + 次要颜色
-function dim(key, value) {
-  return { key, text: value, emphasis: false, dim: true }
-}
-
-// 操作人后缀（由 X 代记 / 由 X 撤销）：次要颜色，附加在行尾
-function operatorPart(prefix, nickname) {
-  return {
-    key: 'operator',
-    text: `${prefix} ${nickname}`,
-    emphasis: false,
-    dim: true,
-    operator: true
-  }
-}
-
-// 是否有可信的前后值（缺失不猜测）
 function hasBeforeAfter(before, after) {
   return before !== null && before !== undefined && after !== null && after !== undefined
 }
 
-// 按 Section 二 权威格式构建流水明细（不含最前面的玩家昵称，由页面单独渲染）。
-// 旧流水缺少 before/after/operationSequence 等新字段时按旧格式降级，不猜测。
-function transactionDetailParts(tx, hands, accHands) {
-  const currentHands = Math.max(0, accHands - hands)
+function buildTransactionSentence(tx, hands, accHands, resolveName) {
+  const resolve = typeof resolveName === 'function' ? resolveName : () => ''
+  const player = resolve(tx.playerOpenid) || tx.meta?.nickname || '某玩家'
+  const operator = tx.operatorOpenid
+    ? resolve(tx.operatorOpenid) || tx.operatorNicknameSnapshot || ''
+    : ''
+  const isProxy = tx.operatorOpenid && tx.operatorOpenid !== tx.playerOpenid && operator
 
   if (tx.type === 'buyIn') {
-    // 入场 2手
     const finalHands = hasBeforeAfter(tx.beforeHands, tx.afterHands) ? tx.afterHands : accHands
-    return [strong('entry-hands', finalHands), text('entry-unit', '手')]
+    if (isProxy) {
+      return [
+        { key: 'op', text: operator, role: 'operator' },
+        { key: 'v1', text: '帮', role: 'text' },
+        { key: 'pl', text: player, role: 'player' },
+        { key: 'v2', text: '入场，买入', role: 'text' },
+        { key: 'r1', text: `${finalHands}手`, role: 'result' }
+      ]
+    }
+    return [
+      { key: 'pl', text: player, role: 'player' },
+      { key: 'v1', text: '入场，买入', role: 'text' },
+      { key: 'r1', text: `${finalHands}手`, role: 'result' }
+    ]
   }
 
   if (tx.type === 'rebuy' || tx.type === 'addOn') {
     if (tx.revoked) {
-      // 撤销买入 -1手 · 6→5手 · 由 X 撤销
-      const parts = [delta('rv-delta', `-${hands}手`)]
-      if (hasBeforeAfter(tx.beforeHands, tx.afterHands)) {
+      const remaining = hasBeforeAfter(tx.beforeHands, tx.afterHands) ? tx.afterHands : null
+      const parts = [
+        { key: 'op', text: operator || player, role: operator ? 'operator' : 'player' },
+        { key: 'v1', text: '撤销', role: 'text' },
+        { key: 'pl', text: player, role: 'player' },
+        { key: 'v2', text: '的', role: 'text' },
+        { key: 'r1', text: `${hands}手`, role: 'result' },
+        { key: 'v3', text: '补买', role: 'text' }
+      ]
+      if (remaining !== null) {
         parts.push(
-          text('rv-sep', ' · '),
-          dim('rv-before', String(tx.beforeHands)),
-          dim('rv-arrow', '→'),
-          strong('rv-after', String(tx.afterHands)),
-          dim('rv-unit', '手')
+          { key: 'v4', text: '，共', role: 'text' },
+          { key: 'r2', text: `${remaining}手`, role: 'result' }
         )
-      } else {
-        parts.push(text('rv-note', ' · 未计入当前手数'))
       }
       return parts
     }
-    // 买入 +3手 · 2→5手
-    const parts = [delta('buy-delta', `+${hands}手`)]
-    if (hasBeforeAfter(tx.beforeHands, tx.afterHands)) {
+    const totalAfter = hasBeforeAfter(tx.beforeHands, tx.afterHands) ? tx.afterHands : null
+    if (isProxy) {
+      const parts = [
+        { key: 'op', text: operator, role: 'operator' },
+        { key: 'v1', text: '帮', role: 'text' },
+        { key: 'pl', text: player, role: 'player' },
+        { key: 'v2', text: '补买', role: 'text' },
+        { key: 'r1', text: `${hands}手`, role: 'result' }
+      ]
+      if (totalAfter !== null) {
+        parts.push(
+          { key: 'v3', text: '，共', role: 'text' },
+          { key: 'r2', text: `${totalAfter}手`, role: 'result' }
+        )
+      }
+      return parts
+    }
+    const parts = [
+      { key: 'pl', text: player, role: 'player' },
+      { key: 'v1', text: '补买', role: 'text' },
+      { key: 'r1', text: `${hands}手`, role: 'result' }
+    ]
+    if (totalAfter !== null) {
       parts.push(
-        text('buy-sep', ' · '),
-        dim('buy-before', String(tx.beforeHands)),
-        dim('buy-arrow', '→'),
-        strong('buy-after', String(tx.afterHands)),
-        dim('buy-unit', '手')
-      )
-    } else {
-      // 旧记录缺前后值：沿用可读的累计口径
-      parts.push(
-        text('buy-sep', ' · '),
-        dim('buy-before', String(currentHands)),
-        dim('buy-arrow', '→'),
-        strong('buy-after', String(accHands)),
-        dim('buy-unit', '手')
+        { key: 'v2', text: '，共', role: 'text' },
+        { key: 'r2', text: `${totalAfter}手`, role: 'result' }
       )
     }
     return parts
   }
 
   if (tx.type === 'settle' || tx.type === 'settlePartial') {
-    // 修改：580→550   /   结算：580
     if (hasBeforeAfter(tx.beforeValue, tx.afterValue)) {
       return [
-        dim('settle-before', String(tx.beforeValue)),
-        dim('settle-arrow', '→'),
-        strong('settle-after', String(tx.afterValue))
+        { key: 'op', text: operator || player, role: operator ? 'operator' : 'player' },
+        { key: 'v1', text: '将', role: 'text' },
+        { key: 'pl', text: player, role: 'player' },
+        { key: 'v2', text: '的结算积分从', role: 'text' },
+        { key: 'r1', text: `${tx.beforeValue}`, role: 'result' },
+        { key: 'v3', text: '调整为', role: 'text' },
+        { key: 'r2', text: `${tx.afterValue}`, role: 'result' }
       ]
     }
-    return [strong('settle-value', String(tx.amount))]
+    const totalHands = accHands || 0
+    const amount = tx.amount
+    if (isProxy) {
+      return [
+        { key: 'op', text: operator, role: 'operator' },
+        { key: 'v1', text: '帮', role: 'text' },
+        { key: 'pl', text: player, role: 'player' },
+        { key: 'v2', text: '结算，共买入', role: 'text' },
+        { key: 'r1', text: `${totalHands}手`, role: 'result' },
+        { key: 'v3', text: '，剩余', role: 'text' },
+        { key: 'r2', text: `${amount}积分`, role: 'result' }
+      ]
+    }
+    return [
+      { key: 'pl', text: player, role: 'player' },
+      { key: 'v1', text: '结算，共买入', role: 'text' },
+      { key: 'r1', text: `${totalHands}手`, role: 'result' },
+      { key: 'v2', text: '，剩余', role: 'text' },
+      { key: 'r2', text: `${amount}积分`, role: 'result' }
+    ]
   }
 
   if (tx.type === 'eliminate') {
     const removedBuyIn = Number(tx.meta?.removedBuyIn) || Math.abs(Number(tx.amount) || 0)
-    if (removedBuyIn <= 0) return [text('remove-only', '移出房间')]
     return [
-      text('remove-label', '移出房间，扣除 '),
-      strong('remove-value', String(removedBuyIn)),
-      text('remove-unit', ' 积分')
+      { key: 'op', text: operator || player, role: operator ? 'operator' : 'player' },
+      { key: 'v1', text: '将', role: 'text' },
+      { key: 'pl', text: player, role: 'player' },
+      { key: 'v2', text: '移出记录，扣除', role: 'text' },
+      { key: 'r1', text: `${removedBuyIn}积分`, role: 'result' }
     ]
   }
 
-  if (!Number(tx.amount)) return []
-  return [text('score-label', '积分 '), strong('score-value', String(tx.amount))]
+  return [{ key: 'fallback', text: '记录', role: 'text' }]
 }
 
-// 操作人后缀：本人操作不显示；代操作/撤销显示"由 X 代记/撤销"。
-// 展示优先用最新资料（nameMap 传入），回退到快照昵称。
-function operatorSuffixPart(tx, resolveName) {
-  if (!tx.operatorOpenid || tx.operatorOpenid === tx.playerOpenid) return null
-  const nickname =
-    (typeof resolveName === 'function' && resolveName(tx.operatorOpenid)) ||
-    tx.operatorNicknameSnapshot ||
-    ''
-  if (!nickname) return null
-  const verb = tx.type === 'rebuy' || tx.type === 'addOn' ? (tx.revoked ? '撤销' : '代记') : '代记'
-  return operatorPart('由', `${nickname} ${verb}`.trim())
-}
-
-function transactionDetailText(tx, hands, accHands) {
-  return transactionDetailParts(tx, hands, accHands)
-    .map(part => part.text)
+function transactionSentenceText(tx, hands, accHands, resolveName) {
+  return buildTransactionSentence(tx, hands, accHands, resolveName)
+    .map(p => p.text)
     .join('')
 }
 
@@ -177,25 +180,10 @@ function mergeTransactions(existing, incoming) {
   return sortTransactions([...map.values()])
 }
 
-// 按流水类型与前后值推断展示标签（Section 二）：
-// buyIn→入场; rebuy/addOn→买入(撤销时→撤销买入); settle 有前后值→修正,否则→结算; eliminate→移出
-function transactionTypeLabel(tx) {
-  if (!tx) return '记录'
-  if (tx.type === 'buyIn') return '入场'
-  if (tx.type === 'rebuy' || tx.type === 'addOn') return tx.revoked ? '撤销买入' : '买入'
-  if (tx.type === 'settle' || tx.type === 'settlePartial') {
-    return hasBeforeAfter(tx.beforeValue, tx.afterValue) ? '修正' : '结算'
-  }
-  if (tx.type === 'eliminate') return '移出'
-  return '记录'
-}
-
 module.exports = {
-  transactionDetailParts,
-  transactionDetailText,
+  buildTransactionSentence,
+  transactionSentenceText,
   transactionHandState,
-  transactionTypeLabel,
-  operatorSuffixPart,
   sortTransactions,
   mergeTransactions
 }

@@ -77,29 +77,28 @@
   </view>
 
   <view class="section-title ledger-title" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">流水记录</view>
-  <view class="card tx-list" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">
+  <view class="tx-list" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">
     <view class="expense-block" wx:if="{{settleResult && settleResult.expenseRows.length}}">
       <view class="expense-head">
-        <text class="expense-title">费用分摊</text>
-        <text class="expense-summary">共 {{settleResult.extraCost}} · {{settleResult.expenseModeLabel}} · 不计积分</text>
+        <text class="expense-label">费用分摊</text>
+        <text class="expense-meta">共{{settleResult.extraCost}}积分  {{settleResult.expenseModeLabel}}  不计入娱乐积分</text>
       </view>
       <view class="expense-row" wx:for="{{settleResult.expenseRows}}" wx:key="openid">
         <text class="expense-name">{{item.nickname}}</text>
-        <text class="expense-share">-{{item.share}}</text>
+        <text class="expense-share">-{{item.share}}积分</text>
       </view>
       <view class="expense-divider" wx:if="{{recentTx.length}}"></view>
     </view>
-    <view class="tx {{tx.revoked ? 'revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
+    <view class="tx tx-system" wx:if="{{game.status === 'ended'}}">
+      <text class="tx-time">{{settleResult.endTimeStr || ''}}</text>
+      <text class="tx-sentence tx-text">所有玩家已完成结算，本次积分记录结束</text>
+    </view>
+    <view class="tx {{tx.revoked ? 'tx-revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
       <text class="tx-time">{{tx.timeStr}}</text>
-      <text class="tx-type tx-type--{{tx.typeClass}}">{{tx.typeLabel}}</text>
-      <text class="tx-name">{{tx.nickname}}</text>
-      <text class="tx-detail">
-        <text
-          wx:for="{{tx.detailParts}}"
-          wx:for-item="part"
-          wx:key="key"
-          class="tx-part {{part.weight === 'strong' ? 'tx-strong' : ''}} {{part.weight === 'delta' ? 'tx-delta' : ''}} {{part.dim ? 'tx-dim' : ''}} {{part.operator ? 'tx-operator' : ''}}"
-        >{{part.text}}</text>
+      <text class="tx-sentence">
+        <text wx:for="{{tx.sentenceParts}}" wx:for-item="part" wx:key="key"
+          class="tx-seg tx-seg--{{part.role}}">{{part.text}}</text>
+        <text wx:if="{{tx.revoked}}" class="tx-seg tx-seg--revoked-suffix">  已撤销</text>
       </text>
     </view>
   </view>

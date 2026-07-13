@@ -13,25 +13,13 @@ const avatarCache = require('../../utils/avatar.js')
 const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 const { createOperationId } = require('../../utils/operation.js')
 const {
-  transactionDetailParts,
-  transactionDetailText,
+  buildTransactionSentence,
   transactionHandState,
-  transactionTypeLabel,
-  operatorSuffixPart,
   sortTransactions,
   mergeTransactions
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
-
-const TX_TYPE_CLASS = {
-  buyIn: 'entry',
-  rebuy: 'buy',
-  addOn: 'buy',
-  eliminate: 'remove',
-  settle: 'settle',
-  settlePartial: 'settle'
-}
 
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
@@ -565,6 +553,7 @@ Page({
     })
 
     const handState = transactionHandState(all, profiles, buyIn)
+    const resolveName = openid => nameMap[openid]
 
     const recentTx = all.map(tx => {
       const d = tx.timestamp ? new Date(tx.timestamp) : null
@@ -573,20 +562,14 @@ Page({
         : ''
       const hands = handState[tx._id]?.hands || 0
       const accHands = handState[tx._id]?.accHands || 0
-      // 操作人后缀合并进明细，本人操作不显示；展示优先用最新资料
-      const parts = transactionDetailParts(tx, hands, accHands)
-      const opPart = operatorSuffixPart(tx, openid => nameMap[openid])
-      const detailParts = opPart ? [...parts, opPart] : parts
+      const sentenceParts = buildTransactionSentence(tx, hands, accHands, resolveName)
       return {
-        ...tx,
-        nickname: nameMap[tx.playerOpenid] || tx.meta?.nickname || '某玩家',
-        hands,
-        accHands,
+        _id: tx._id,
+        playerOpenid: tx.playerOpenid,
+        type: tx.type,
+        revoked: tx.revoked,
         timeStr,
-        typeLabel: transactionTypeLabel(tx),
-        typeClass: TX_TYPE_CLASS[tx.type] || 'settle',
-        detail: transactionDetailText(tx, hands, accHands),
-        detailParts
+        sentenceParts
       }
     })
     this.setData({ recentTx })
@@ -637,14 +620,9 @@ Page({
       updated.forEach(player => {
         latestNames[player.openid] = player.nickname
       })
-      let txNamesChanged = false
-      const recentTx = (this.data.recentTx || []).map(tx => {
-        const nickname = latestNames[tx.playerOpenid] || tx.nickname
-        if (nickname === tx.nickname) return tx
-        txNamesChanged = true
-        return { ...tx, nickname }
-      })
-      if (txNamesChanged) patch.recentTx = recentTx
+      if (this._txRaw && this._txRaw.length) {
+        this._applyTransactions(this._txRaw, this._lastTxSig)
+      }
       this.setData(patch)
       cacheGame(game)
     }
@@ -1207,6 +1185,9 @@ Page({
       (Array.isArray(gameOrPlayers) ? this.data.game?.name : gameOrPlayers?.name) || 'StaxKit 牌局'
     const endedDate = new Date(rawGame?.endedAt || rawGame?.startedAt || Date.now())
     const dateStr = `${endedDate.getFullYear()}-${String(endedDate.getMonth() + 1).padStart(2, '0')}-${String(endedDate.getDate()).padStart(2, '0')}`
+    const endTimeStr = rawGame?.endedAt
+      ? `${String(new Date(rawGame.endedAt).getHours()).padStart(2, '0')}:${String(new Date(rawGame.endedAt).getMinutes()).padStart(2, '0')}`
+      : ''
     return {
       settleResult: {
         profitList,
@@ -1229,7 +1210,8 @@ Page({
         duration,
         quote,
         gameName,
-        dateStr
+        dateStr,
+        endTimeStr
       },
       settleWinnerOpenid: winner?.openid || ''
     }

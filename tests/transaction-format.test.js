@@ -1,97 +1,165 @@
 const assert = require('assert')
 const {
-  transactionDetailParts,
-  transactionDetailText,
-  transactionHandState,
-  transactionTypeLabel,
-  operatorSuffixPart
+  buildTransactionSentence,
+  transactionSentenceText,
+  transactionHandState
 } = require('../miniprogram/utils/transaction-format.js')
 
-// === 买入：+变化量 · 前→后手（Section 二 权威格式）===
-const rebuy = {
-  type: 'rebuy',
-  amount: 1500,
-  meta: { hands: 3 },
-  beforeHands: 2,
-  afterHands: 5
+const resolveName = openid => {
+  const map = { p1: 'L美美', p2: 'eter', p3: '万木春', p4: '虫子' }
+  return map[openid] || ''
 }
-assert.strictEqual(transactionDetailText(rebuy, 3, 5), '+3手 · 2→5手')
-// 最终手数(after)用最重字重 strong；变化量 +3手 用 delta 字重
-assert.deepStrictEqual(
-  transactionDetailParts(rebuy, 3, 5)
-    .filter(p => p.weight === 'strong')
-    .map(p => p.text),
-  ['5']
-)
-assert.deepStrictEqual(
-  transactionDetailParts(rebuy, 3, 5)
-    .filter(p => p.weight === 'delta')
-    .map(p => p.text),
-  ['+3手']
-)
 
-// === 买入旧记录缺前后值：降级用累计口径 ===
-const legacyRebuy = { type: 'rebuy', amount: 1500, meta: { hands: 3 } }
-assert.strictEqual(transactionDetailText(legacyRebuy, 3, 11), '+3手 · 8→11手')
-
-// === 撤销买入：-变化量 · 前→后手 ===
-const revoked = {
-  type: 'rebuy',
-  amount: 500,
-  meta: { hands: 1 },
-  revoked: true,
-  beforeHands: 6,
-  afterHands: 5
-}
-assert.strictEqual(transactionDetailText(revoked, 1, 5), '-1手 · 6→5手')
-
-// === 入场：最终手数 ===
+// === 入场：自己 ===
 assert.strictEqual(
-  transactionDetailText({ type: 'buyIn', amount: 1000, beforeHands: 0, afterHands: 2 }, 2, 2),
-  '2手'
+  transactionSentenceText(
+    {
+      type: 'buyIn',
+      playerOpenid: 'p1',
+      amount: 1500,
+      meta: { hands: 3 },
+      beforeHands: 0,
+      afterHands: 3
+    },
+    3,
+    3,
+    resolveName
+  ),
+  'L美美入场，买入3手'
 )
 
-// === 结算（无前后值）：最终积分 ===
-assert.strictEqual(transactionDetailText({ type: 'settle', amount: 1875 }, 0, 0), '1875')
-
-// === 修正（有前后值）：前→后 ===
+// === 自己补买 ===
 assert.strictEqual(
-  transactionDetailText({ type: 'settle', amount: 550, beforeValue: 580, afterValue: 550 }, 0, 0),
-  '580→550'
+  transactionSentenceText(
+    {
+      type: 'rebuy',
+      playerOpenid: 'p1',
+      amount: 1500,
+      meta: { hands: 3 },
+      beforeHands: 8,
+      afterHands: 11
+    },
+    3,
+    11,
+    resolveName
+  ),
+  'L美美补买3手，共11手'
+)
+
+// === 代补买 ===
+assert.strictEqual(
+  transactionSentenceText(
+    {
+      type: 'rebuy',
+      playerOpenid: 'p1',
+      operatorOpenid: 'p2',
+      amount: 1500,
+      meta: { hands: 3 },
+      beforeHands: 8,
+      afterHands: 11
+    },
+    3,
+    11,
+    resolveName
+  ),
+  'eter帮L美美补买3手，共11手'
+)
+
+// === 自己结算 ===
+assert.strictEqual(
+  transactionSentenceText({ type: 'settle', playerOpenid: 'p1', amount: 1750 }, 0, 11, resolveName),
+  'L美美结算，共买入11手，剩余1750积分'
+)
+
+// === 代结算 ===
+assert.strictEqual(
+  transactionSentenceText(
+    { type: 'settle', playerOpenid: 'p3', operatorOpenid: 'p2', amount: 1485 },
+    0,
+    4,
+    resolveName
+  ),
+  'eter帮万木春结算，共买入4手，剩余1485积分'
+)
+
+// === 修改结算积分 ===
+assert.strictEqual(
+  transactionSentenceText(
+    {
+      type: 'settle',
+      playerOpenid: 'p1',
+      operatorOpenid: 'p2',
+      amount: 1750,
+      beforeValue: 1800,
+      afterValue: 1750
+    },
+    0,
+    11,
+    resolveName
+  ),
+  'eter将L美美的结算积分从1800调整为1750'
+)
+
+// === 撤销 ===
+assert.strictEqual(
+  transactionSentenceText(
+    {
+      type: 'rebuy',
+      playerOpenid: 'p1',
+      operatorOpenid: 'p2',
+      amount: 1500,
+      meta: { hands: 3 },
+      revoked: true,
+      beforeHands: 11,
+      afterHands: 8
+    },
+    3,
+    8,
+    resolveName
+  ),
+  'eter撤销L美美的3手补买，共8手'
 )
 
 // === 移出 ===
 assert.strictEqual(
-  transactionDetailText({ type: 'eliminate', amount: -1500, meta: {} }, 0, 0),
-  '移出房间，扣除 1500 积分'
+  transactionSentenceText(
+    { type: 'eliminate', playerOpenid: 'p1', operatorOpenid: 'p2', amount: -1500, meta: {} },
+    0,
+    0,
+    resolveName
+  ),
+  'eter将L美美移出记录，扣除1500积分'
 )
 
-// === 类型标签推断 ===
-assert.strictEqual(transactionTypeLabel({ type: 'buyIn' }), '入场')
-assert.strictEqual(transactionTypeLabel({ type: 'rebuy' }), '买入')
-assert.strictEqual(transactionTypeLabel({ type: 'rebuy', revoked: true }), '撤销买入')
-assert.strictEqual(transactionTypeLabel({ type: 'settle' }), '结算')
+// === 旧记录（无 before/after）补买无"共X手" ===
 assert.strictEqual(
-  transactionTypeLabel({ type: 'settle', beforeValue: 580, afterValue: 550 }),
-  '修正'
+  transactionSentenceText(
+    { type: 'rebuy', playerOpenid: 'p1', amount: 1500, meta: { hands: 3 } },
+    3,
+    11,
+    resolveName
+  ),
+  'L美美补买3手'
 )
-assert.strictEqual(transactionTypeLabel({ type: 'eliminate' }), '移出')
 
-// === 操作人后缀：本人操作不显示，代操作显示 ===
-assert.strictEqual(
-  operatorSuffixPart({ type: 'rebuy', playerOpenid: 'p1', operatorOpenid: 'p1' }, () => 'X'),
-  null
+// === buildTransactionSentence 返回 parts 的 role ===
+const parts = buildTransactionSentence(
+  {
+    type: 'rebuy',
+    playerOpenid: 'p1',
+    operatorOpenid: 'p2',
+    amount: 1500,
+    meta: { hands: 3 },
+    beforeHands: 8,
+    afterHands: 11
+  },
+  3,
+  11,
+  resolveName
 )
-const proxyBuy = operatorSuffixPart(
-  { type: 'rebuy', playerOpenid: 'p1', operatorOpenid: 'p2', operatorNicknameSnapshot: '茅人及' },
-  null
-)
-assert.ok(proxyBuy && proxyBuy.text.includes('茅人及') && proxyBuy.text.includes('代记'))
-const proxyRevoke = operatorSuffixPart(
-  { type: 'rebuy', revoked: true, playerOpenid: 'p1', operatorOpenid: 'p2' },
-  () => 'eter'
-)
-assert.ok(proxyRevoke && proxyRevoke.text.includes('eter') && proxyRevoke.text.includes('撤销'))
+assert.strictEqual(parts[0].role, 'operator')
+assert.strictEqual(parts[2].role, 'player')
+assert.strictEqual(parts[4].role, 'result')
 
 // === handState 累计口径保持不变 ===
 const handState = transactionHandState(
