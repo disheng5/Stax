@@ -177,13 +177,13 @@
   word-break: break-word;
 }
 
-/* 语义块间距：只用 margin，不写真实空格；数字与单位同块不断行。
-   统一一个极轻的语义间距(仅在非标点边界处生效)，读起来更顺、看着更舒服。 */
+/* 语义块间距：只用 margin，不写真实空格；数字与单位同块不断行(如 3手/1750积分)。
+   块间留一个极轻的间距(3rpx，仅在非标点边界处生效)，与紧凑的"3手"原子协调、不突兀。 */
 .tx-seg {
   display: inline-block;
   white-space: nowrap;
 }
-.tx-seg--gap { margin-right: 6rpx; }
+.tx-seg--gap { margin-right: 3rpx; }
 .tx-seg--operator { color: #7E858E; font-weight: 400; }
 .tx-seg--player { color: #3F4852; font-weight: 500; }
 .tx-seg--action { color: #6D7580; font-weight: 400; }
