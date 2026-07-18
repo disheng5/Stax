@@ -109,9 +109,9 @@ const ongoingGame = {
   endedAt: null,
   inviteCode: 'DEMO99',
   players: [
-    { openid: MY_OPENID,    nickname: 'Demo 玩家', avatar: '', buyInCount: 1, totalBuyIn: 100, currentStack: 150, finalStack: null, profit: 0, joinedAt: new Date(NOW - 25 * 60 * 1000), eliminatedAt: null },
-    { openid: 'mock_bob',   nickname: 'Bob',       avatar: '', buyInCount: 2, totalBuyIn: 200, currentStack: 80,  finalStack: null, profit: 0, joinedAt: new Date(NOW - 24 * 60 * 1000), eliminatedAt: null },
-    { openid: 'mock_carol', nickname: 'Carol',     avatar: '', buyInCount: 1, totalBuyIn: 100, currentStack: 70,  finalStack: null, profit: 0, joinedAt: new Date(NOW - 22 * 60 * 1000), eliminatedAt: null }
+    { openid: MY_OPENID,    nickname: 'Demo 玩家', avatar: '', buyInCount: 1, totalBuyIn: 100, currentStack: 150, finalStack: null, profit: 0, joinedAt: new Date(NOW - 25 * 60 * 1000), eliminatedAt: null, seat: 3 },
+    { openid: 'mock_bob',   nickname: 'Bob',       avatar: '', buyInCount: 2, totalBuyIn: 200, currentStack: 80,  finalStack: null, profit: 0, joinedAt: new Date(NOW - 24 * 60 * 1000), eliminatedAt: null, seat: 5 },
+    { openid: 'mock_carol', nickname: 'Carol',     avatar: '', buyInCount: 1, totalBuyIn: 100, currentStack: 70,  finalStack: null, profit: 0, joinedAt: new Date(NOW - 22 * 60 * 1000), eliminatedAt: null, seat: 8 }
   ],
   totalPot: 400
 }

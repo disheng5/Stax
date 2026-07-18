@@ -108,9 +108,15 @@ exports.main = async event => {
       if ((cur.players || []).some(p => p.openid === OPENID))
         return { ok: true, alreadyJoined: true, game: cur }
       const seq = Math.max(0, Number(cur.txSeq) || 0) + 1
-      const seatedPlayer = { ...player, seat: pickSeat(cur.players) }
+      // 老局自愈：部署前创建的局没有座位，有人加入时给全部无座玩家一并补齐（字段只加不删）
+      const seated = [...(cur.players || [])]
+      for (let i = 0; i < seated.length; i++) {
+        const n = Number(seated[i].seat)
+        if (!(Number.isInteger(n) && n > 0)) seated[i] = { ...seated[i], seat: pickSeat(seated) }
+      }
+      const seatedPlayer = { ...player, seat: pickSeat(seated) }
       const update = {
-        players: [...(cur.players || []), seatedPlayer],
+        players: [...seated, seatedPlayer],
         totalPot: (Number(cur.totalPot) || 0) + amount,
         txSeq: seq,
         txRevision: Math.max(0, Number(cur.txRevision) || 0) + 1,

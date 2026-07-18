@@ -141,6 +141,39 @@ function step(name, fn) {
     assert.ok(r.data.length >= 2, '应有至少 2 局进行中（demo 局 + 新建局）')
   })
 
+  await step('老局无座位数据在新玩家加入时补齐随机座位', async () => {
+    const created = await wx.cloud.callFunction({
+      name: 'createGame',
+      data: { name: '座位自愈测试局', buyIn: 100, smallBlind: 5, bigBlind: 5 }
+    })
+    assert.strictEqual(created.result.ok, true)
+    const raw = cloudMock.getDb()._raw
+    const legacy = raw.games.find(g => g._id === created.result.gameId)
+    // 模拟部署前的老局：无人有座位，且我不在桌上（可重新加入）
+    legacy.players = [
+      {
+        openid: 'mock_legacy',
+        nickname: '老玩家',
+        totalBuyIn: 100,
+        currentStack: 100,
+        finalStack: null,
+        profit: 0
+      }
+    ]
+    const joined = await wx.cloud.callFunction({
+      name: 'joinGame',
+      data: { inviteCode: legacy.inviteCode, mode: 'player', hands: 1 }
+    })
+    assert.strictEqual(joined.result.ok, true)
+    const after = raw.games.find(g => g._id === created.result.gameId)
+    const seats = after.players.map(p => p.seat)
+    assert.ok(
+      seats.every(s => Number.isInteger(s) && s >= 1 && s <= 9),
+      `老玩家与新玩家都应获得 9 人桌座位：${JSON.stringify(seats)}`
+    )
+    assert.strictEqual(new Set(seats).size, seats.length, '座位不得重复')
+  })
+
   await step('参赛成员可代提他人结算；关闭权限共享后仅房主', async () => {
     const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
     game.hostOpenid = 'mock_host'

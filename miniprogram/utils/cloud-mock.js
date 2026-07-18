@@ -344,18 +344,22 @@ const handlers = {
     const now = new Date()
     const buyHands = Math.min(99, Math.max(1, Math.floor(Number(hands) || 1)))
     const amount = Number(game.buyIn) * buyHands
-    // 与云函数一致：9 人桌空闲座位随机，坐满顺延
-    const takenSeats = new Set(
-      (game.players || []).map(p => Number(p.seat)).filter(n => Number.isInteger(n) && n > 0)
-    )
-    const freeSeats = []
-    for (let i = 1; i <= 9; i++) if (!takenSeats.has(i)) freeSeats.push(i)
-    let seat
-    if (freeSeats.length) {
-      seat = freeSeats[Math.floor(Math.random() * freeSeats.length)]
-    } else {
-      seat = 10
-      while (takenSeats.has(seat)) seat++
+    // 与云函数一致：9 人桌空闲座位随机，坐满顺延；老局无座玩家一并补齐
+    const pickSeat = players => {
+      const taken = new Set(
+        (players || []).map(p => Number(p.seat)).filter(n => Number.isInteger(n) && n > 0)
+      )
+      const free = []
+      for (let i = 1; i <= 9; i++) if (!taken.has(i)) free.push(i)
+      if (free.length) return free[Math.floor(Math.random() * free.length)]
+      let next = 10
+      while (taken.has(next)) next++
+      return next
+    }
+    const seated = [...(game.players || [])]
+    for (let i = 0; i < seated.length; i++) {
+      const n = Number(seated[i].seat)
+      if (!(Number.isInteger(n) && n > 0)) seated[i] = { ...seated[i], seat: pickSeat(seated) }
     }
     const player = {
       openid: MY_OPENID,
@@ -368,11 +372,11 @@ const handlers = {
       profit: 0,
       joinedAt: now,
       eliminatedAt: null,
-      seat
+      seat: pickSeat(seated)
     }
     const seq = nextTxSeq(game)
     const update = {
-      players: [...game.players, player],
+      players: [...seated, player],
       totalPot: game.totalPot + amount,
       txSeq: seq,
       txRevision: nextTxRevision(game),
