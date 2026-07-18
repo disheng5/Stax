@@ -303,7 +303,8 @@ const handlers = {
           finalStack: null,
           profit: 0,
           joinedAt: now,
-          eliminatedAt: null
+          eliminatedAt: null,
+          seat: 1 + Math.floor(Math.random() * 9)
         }
       ],
       totalPot: buyIn
@@ -343,6 +344,19 @@ const handlers = {
     const now = new Date()
     const buyHands = Math.min(99, Math.max(1, Math.floor(Number(hands) || 1)))
     const amount = Number(game.buyIn) * buyHands
+    // 与云函数一致：9 人桌空闲座位随机，坐满顺延
+    const takenSeats = new Set(
+      (game.players || []).map(p => Number(p.seat)).filter(n => Number.isInteger(n) && n > 0)
+    )
+    const freeSeats = []
+    for (let i = 1; i <= 9; i++) if (!takenSeats.has(i)) freeSeats.push(i)
+    let seat
+    if (freeSeats.length) {
+      seat = freeSeats[Math.floor(Math.random() * freeSeats.length)]
+    } else {
+      seat = 10
+      while (takenSeats.has(seat)) seat++
+    }
     const player = {
       openid: MY_OPENID,
       nickname: profile.nickname,
@@ -353,7 +367,8 @@ const handlers = {
       finalStack: null,
       profit: 0,
       joinedAt: now,
-      eliminatedAt: null
+      eliminatedAt: null,
+      seat
     }
     const seq = nextTxSeq(game)
     const update = {
@@ -690,6 +705,17 @@ const handlers = {
         ? normalizeExpenseMode(game.expenseMode || game.aaMode)
         : 'winner'
 
+    // 与云函数一致：费用留痕门控（显式携带费用参数且实际变化才记流水）
+    const prevExtraCost = Number(game.extraCost) || 0
+    const prevExpenseMode =
+      game.expenseMode || game.aaMode
+        ? normalizeExpenseMode(game.expenseMode || game.aaMode)
+        : null
+    const expenseChanged =
+      (hasExtraCost || hasExpenseMode) &&
+      (effExtraCost !== prevExtraCost ||
+        (effExtraCost > 0 && effExpenseMode !== prevExpenseMode))
+
     let players = game.players.map(p => {
       if (!submittedOpenids.includes(p.openid)) return p
       const finalStack = normalizedStacks[p.openid]
@@ -733,13 +759,12 @@ const handlers = {
     const settledAll = players.filter(
       p => p.finalStack !== null && p.finalStack !== undefined
     ).length
-    const writesTransactions = submittedOpenids.length > 0
-    const emitsTransactions = writesTransactions
+    const txCount = submittedOpenids.length + (expenseChanged ? 1 : 0)
+    const emitsTransactions = txCount > 0
     const prevPlayers = game.players || []
     const seqBase = Math.max(0, Number(game.txSeq) || 0)
     let seqCursor = seqBase
     const operatorNickname = mockNickname(game, MY_OPENID)
-    const txCount = submittedOpenids.length
     const update = {
       players,
       extraCost: effExtraCost,
@@ -783,7 +808,34 @@ const handlers = {
         }
       })
     }
-    // 费用分摊只在费用块呈现，不在流水另记一条（与线上一致）。
+    // 费用变更留痕（与云函数一致）：谁、何时、从多少改成多少、什么方式
+    if (expenseChanged) {
+      seqCursor++
+      await db.collection('transactions').add({
+        data: {
+          gameId,
+          type: 'expense',
+          playerOpenid: MY_OPENID,
+          amount: effExtraCost,
+          operatorOpenid: MY_OPENID,
+          operatorNicknameSnapshot: operatorNickname,
+          byHost: game.hostOpenid === MY_OPENID,
+          revoked: false,
+          timestamp: now,
+          operationSequence: seqCursor,
+          beforeValue: prevExtraCost,
+          afterValue: effExtraCost,
+          meta: {
+            mode: 'expense',
+            expenseMode: effExpenseMode,
+            prevExpenseMode,
+            extraCost: effExtraCost,
+            edited: wasEnded
+          },
+          ...(operationId ? { operationId } : {})
+        }
+      })
+    }
     return {
       ok: true,
       ended,

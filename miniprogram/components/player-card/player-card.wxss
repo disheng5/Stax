@@ -40,7 +40,7 @@
 
 .main-row {
   display: grid;
-  grid-template-columns: 1fr 80rpx 120rpx 120rpx;
+  grid-template-columns: 1fr 64rpx 80rpx 120rpx 120rpx;
   align-items: center;
   gap: 8rpx;
 }

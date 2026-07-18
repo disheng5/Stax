@@ -1033,8 +1033,12 @@ Page({
   onHandsConfirm() {
     const { openid, type, hands } = this.data.handsPicker
     const n = Math.max(1, Math.floor(Number(hands) || 1))
-    const buyIn = Number(this.data.game.buyIn || 0)
     this.setData({ 'handsPicker.show': false })
+    if (type === 'join') {
+      this._joinWithHands(n)
+      return
+    }
+    const buyIn = Number(this.data.game.buyIn || 0)
     this._record(type, openid, n * buyIn, { hands: n })
   },
 
@@ -1243,59 +1247,53 @@ Page({
       wx.showToast({ title: '邀请信息已失效，请让好友重新分享', icon: 'none' })
       return
     }
-    wx.showModal({
-      title: '上桌几手？',
-      editable: true,
-      placeholderText: '1',
-      content: `每手 ${this.data.game.buyIn} 筹码`,
-      confirmText: '上桌',
-      success: async r => {
-        if (!r.confirm) return
-        const hands = Math.max(1, Math.floor(Number(r.content || 1) || 1))
-        this.setData({ joining: true })
-        wx.showLoading({ title: '上桌中…' })
-        try {
-          const res = await wx.cloud.callFunction({
-            name: 'joinGame',
-            data: {
-              inviteCode: code,
-              nickname: profile.nickname || '玩家',
-              avatar: profile.avatar || '',
-              mode: 'player',
-              hands
-            }
-          })
-          wx.hideLoading()
-          const { ok, error, alreadyJoined, game } = res.result || {}
-          if (!ok) {
-            const msg =
-              {
-                GAME_NOT_FOUND: '牌局已结束',
-                PROFILE_REQUIRED: '请先完善真实昵称',
-                CONFLICT_RETRY: '操作冲突，请重试'
-              }[error] ||
-              error ||
-              '上桌失败'
-            wx.showToast({ title: msg, icon: 'none' })
-            return
-          }
-          if (alreadyJoined) wx.showToast({ title: '你已经在桌上', icon: 'none' })
-          markGamesChanged()
-          if (game) this._applyGame(game)
-          this.setData({ viewerMode: false })
-        } catch (err) {
-          wx.hideLoading()
-          console.error(err)
-          wx.showToast({ title: '网络异常', icon: 'none' })
-        } finally {
-          this.setData({ joining: false })
-        }
-      }
+    // 与常规买入同一套手数选择器（+/- 或直接输入），openid 无意义占位
+    this.setData({
+      handsPicker: { show: true, title: '上桌', openid: '', type: 'join', hands: 1 }
     })
   },
 
-  onShare() {
-    wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
+  async _joinWithHands(hands) {
+    const code = this.data.inviteCode || this.data.game?.inviteCode
+    const profile = readLocalProfile(app.globalData.openid) || {}
+    this.setData({ joining: true })
+    wx.showLoading({ title: '上桌中…' })
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'joinGame',
+        data: {
+          inviteCode: code,
+          nickname: profile.nickname || '玩家',
+          avatar: profile.avatar || '',
+          mode: 'player',
+          hands
+        }
+      })
+      wx.hideLoading()
+      const { ok, error, alreadyJoined, game } = res.result || {}
+      if (!ok) {
+        const msg =
+          {
+            GAME_NOT_FOUND: '牌局已结束',
+            PROFILE_REQUIRED: '请先完善真实昵称',
+            CONFLICT_RETRY: '操作冲突，请重试'
+          }[error] ||
+          error ||
+          '上桌失败'
+        wx.showToast({ title: msg, icon: 'none' })
+        return
+      }
+      if (alreadyJoined) wx.showToast({ title: '你已经在桌上', icon: 'none' })
+      markGamesChanged()
+      if (game) this._applyGame(game)
+      this.setData({ viewerMode: false })
+    } catch (err) {
+      wx.hideLoading()
+      console.error(err)
+      wx.showToast({ title: '网络异常', icon: 'none' })
+    } finally {
+      this.setData({ joining: false })
+    }
   },
 
   onShareAppMessage() {

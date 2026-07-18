@@ -79,6 +79,20 @@ exports.main = async event => {
     eliminatedAt: null
   }
 
+  // 标准 9 人桌：在空闲座位中随机分配；坐满则顺延（10 号位起）。
+  // 必须基于事务内最新 players 计算，避免并发加入抢到同一座位。
+  function pickSeat(players) {
+    const taken = new Set(
+      (players || []).map(p => Number(p.seat)).filter(n => Number.isInteger(n) && n > 0)
+    )
+    const free = []
+    for (let i = 1; i <= 9; i++) if (!taken.has(i)) free.push(i)
+    if (free.length) return free[Math.floor(Math.random() * free.length)]
+    let next = 10
+    while (taken.has(next)) next++
+    return next
+  }
+
   // 事务内查重 + 写入，避免同一用户双端并发加入产生重复玩家
   let txn
   try {
@@ -94,8 +108,9 @@ exports.main = async event => {
       if ((cur.players || []).some(p => p.openid === OPENID))
         return { ok: true, alreadyJoined: true, game: cur }
       const seq = Math.max(0, Number(cur.txSeq) || 0) + 1
+      const seatedPlayer = { ...player, seat: pickSeat(cur.players) }
       const update = {
-        players: [...(cur.players || []), player],
+        players: [...(cur.players || []), seatedPlayer],
         totalPot: (Number(cur.totalPot) || 0) + amount,
         txSeq: seq,
         txRevision: Math.max(0, Number(cur.txRevision) || 0) + 1,

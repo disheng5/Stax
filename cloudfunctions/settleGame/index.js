@@ -420,6 +420,18 @@ exports.main = async event => {
           ? normalizeExpenseMode(game.expenseMode || game.aaMode)
           : 'winner'
 
+      // 费用留痕门控：仅当本次调用显式携带费用参数、且与库存值实际变化时记一条流水；
+      // 重复保存同值不产生噪音（线上已有 expense 留痕行为，只加不删）
+      const prevExtraCost = Number(game.extraCost) || 0
+      const prevExpenseMode =
+        game.expenseMode || game.aaMode
+          ? normalizeExpenseMode(game.expenseMode || game.aaMode)
+          : null
+      const expenseChanged =
+        (hasExtraCost || hasExpenseMode) &&
+        (effExtraCost !== prevExtraCost ||
+          (effExtraCost > 0 && effExpenseMode !== prevExpenseMode))
+
       const prevPlayers = game.players || []
       let players = prevPlayers.map(p => {
         if (!submittedOpenids.includes(p.openid)) return p
@@ -472,13 +484,12 @@ exports.main = async event => {
       const settledAll = players.filter(
         p => p.finalStack !== null && p.finalStack !== undefined
       ).length
-      const writesTransactions = submittedOpenids.length > 0
-      // 费用变更不再生成流水，仅结算会写流水；纯费用变更只推进 stateRevision。
-      const emitsTransactions = writesTransactions
+      // 结算行 + 费用变更留痕行；txSeq/txRevision 按实际写入的流水条数推进
+      const txCount = submittedOpenids.length + (expenseChanged ? 1 : 0)
+      const emitsTransactions = txCount > 0
       const seqBase = Math.max(0, Number(game.txSeq) || 0)
       let seqCursor = seqBase
       const operatorNickname = (game.players || []).find(p => p.openid === OPENID)?.nickname || ''
-      const txCount = submittedOpenids.length
       const update = {
         players,
         extraCost: effExtraCost,
@@ -529,7 +540,34 @@ exports.main = async event => {
           }
         })
       }
-      // 费用分摊只在"费用分摊信息块"呈现，不在流水里另记一条，避免与费用块重复。
+      // 费用变更留痕：谁、何时、从多少改成多少、什么方式（前端按 type='expense' 渲染）
+      if (expenseChanged) {
+        seqCursor++
+        await transaction.collection('transactions').add({
+          data: {
+            gameId,
+            type: 'expense',
+            playerOpenid: OPENID,
+            amount: effExtraCost,
+            operatorOpenid: OPENID,
+            operatorNicknameSnapshot: operatorNickname,
+            byHost: isHost,
+            revoked: false,
+            timestamp: now,
+            operationSequence: seqCursor,
+            beforeValue: prevExtraCost,
+            afterValue: effExtraCost,
+            meta: {
+              mode: 'expense',
+              expenseMode: effExpenseMode,
+              prevExpenseMode,
+              extraCost: effExtraCost,
+              edited: wasEnded
+            },
+            ...(operationId ? { operationId } : {})
+          }
+        })
+      }
       // active 与结算数学同源返回，后续统计不再各自过滤（避免口径漂移）
       const activeFinal = players.filter(p => !p.eliminatedAt)
       return {

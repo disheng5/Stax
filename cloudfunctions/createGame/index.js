@@ -279,7 +279,9 @@ exports.main = async event => {
         finalStack: null,
         profit: 0,
         joinedAt: now,
-        eliminatedAt: null
+        eliminatedAt: null,
+        // 标准 9 人桌随机座位；后续加入者在剩余空位中随机（joinGame）
+        seat: 1 + Math.floor(Math.random() * 9)
       }
     ],
     totalPot: normalizedBuyIn

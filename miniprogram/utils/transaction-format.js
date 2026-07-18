@@ -12,6 +12,9 @@ function normalizeTransactionKind(tx) {
   if (type === 'rebuy' || type === 'addon') return tx.type === 'addOn' ? 'addOn' : 'rebuy'
   if (type === 'eliminate') return 'eliminate'
   if (type === 'settle' || type === 'settlepartial') return 'settle'
+  // 费用留痕必须先于形状推断：它也带 beforeValue/afterValue，
+  // 落入下方推断会被误判成结算修正（曾显示"结算从0改为561"）
+  if (type === 'expense' || mode === 'expense') return 'expense'
 
   // 载荷形状推断：带结算/收局语义，或带结算前后值 → 归一为结算
   if (
@@ -22,6 +25,13 @@ function normalizeTransactionKind(tx) {
     return 'settle'
   }
   return type
+}
+
+const EXPENSE_MODE_TEXT = {
+  all: '全员平均',
+  winner: '水上比例',
+  winnerEven: '水上平均',
+  mvp: 'MVP买单'
 }
 
 // 语义块之间用 CSS margin 分隔，不写真实空格；数字与单位同处一块不断行。
@@ -107,6 +117,26 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
     }
     seg('action', '剩')
     seg('result', `${tx.amount}积分`)
+    return withKeys()
+  }
+
+  if (kind === 'expense') {
+    // 留痕的增量信息是「谁、何时、改成了什么」；金额与方式保留（历史演变可追溯），
+    // 与费用块重复的合规注释（不计积分）不再重复出现。playerOpenid 即执行人。
+    const modeLabel = EXPENSE_MODE_TEXT[tx.meta?.expenseMode] || ''
+    const before = Number(tx.beforeValue)
+    const after = hasBeforeAfter(tx.beforeValue, tx.afterValue) ? tx.afterValue : tx.amount
+    seg('player', player)
+    if (hasBeforeAfter(tx.beforeValue, tx.afterValue) && before > 0 && Number(after) !== before) {
+      seg('action', '把费用分摊从')
+      seg('dim', `${tx.beforeValue}`)
+      seg('action', '改为')
+      seg('result', modeLabel ? `${after}，` : `${after}`)
+    } else {
+      seg('action', '设置费用分摊')
+      seg('result', modeLabel ? `${after}，` : `${after}`)
+    }
+    if (modeLabel) seg('dim', modeLabel)
     return withKeys()
   }
 

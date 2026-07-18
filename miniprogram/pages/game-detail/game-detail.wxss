@@ -30,6 +30,18 @@
   line-height: 60rpx;
 }
 
+/* 分享必须用 button[open-type=share] 才能拉起面板；抹掉原生 button 样式与 share-btn 对齐 */
+button.share-btn {
+  width: auto;
+  margin: 0;
+  border: none;
+  box-sizing: border-box;
+}
+
+button.share-btn::after {
+  border: none;
+}
+
 .notice {
   margin-bottom: 20rpx;
   padding: 18rpx 24rpx;
@@ -93,7 +105,7 @@
 
 .table-head {
   display: grid;
-  grid-template-columns: 1fr 80rpx 120rpx 120rpx;
+  grid-template-columns: 1fr 64rpx 80rpx 120rpx 120rpx;
   gap: 8rpx;
   padding: 0 24rpx 12rpx;
   color: var(--text-sub);

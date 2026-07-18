@@ -111,6 +111,10 @@ function step(name, fn) {
     gameId = r.result.gameId
     const game = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
     assert.strictEqual(game.players[0].nickname, 'Demo 玩家', '云端资料应优先于本地快照')
+    assert.ok(
+      game.players[0].seat >= 1 && game.players[0].seat <= 9,
+      '房主应随机分到 9 人桌座位'
+    )
     assert.strictEqual(game.name, 'Mock 创建测试局', '记录名按原样保存，不再追加合规后缀')
     assert.strictEqual(game.txRevision, 1)
     assert.strictEqual(r.result.game._id, gameId, '创建响应应携带可直接上屏的权威快照')
@@ -359,14 +363,11 @@ function step(name, fn) {
     assert.strictEqual(r.result.game.status, 'ended')
   })
 
-  await step('费用分摊：expense 模式（MVP 买单）与保留已存设置', async () => {
+  await step('费用分摊：expense 模式（MVP 买单）+ 变更留痕，同值重存不产生噪音', async () => {
     // 设置费用：MVP 买单 → 唯一赢家 me 承担全部
     const beforeGame = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
     const beforeStateRevision = beforeGame.stateRevision
     const beforeSeq = beforeGame.txSeq || 0
-    const beforeTxCount = cloudMock
-      .getDb()
-      ._raw.transactions.filter(t => t.gameId === gameId).length
     const r = await wx.cloud.callFunction({
       name: 'settleGame',
       data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
@@ -374,20 +375,50 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true)
     assert.strictEqual(r.result.game.expenseMode, 'mvp')
     assert.strictEqual(r.result.game.players[0].share, 30)
-    // 纯费用变更不再生成流水，也不占用流水顺序号，仅推进 stateRevision
-    assert.strictEqual(r.result.game.txSeq, beforeSeq, '纯费用变更不应占用流水顺序号')
+    // 费用变更写一条 expense 留痕（线上既有行为，只加不删），占用一个流水顺序号
+    assert.strictEqual(r.result.game.txSeq, beforeSeq + 1, '费用变更留痕应占用一个流水顺序号')
     assert.strictEqual(
       r.result.game.stateRevision,
       beforeStateRevision + 1,
       '费用修改应推进房间状态版本，确保多端按顺序校准'
     )
-    const afterTxCount = cloudMock.getDb()._raw.transactions.filter(t => t.gameId === gameId).length
-    assert.strictEqual(afterTxCount, beforeTxCount, '费用变更不得新增任何流水')
     const expenseTx = cloudMock
       .getDb()
       ._raw.transactions.filter(t => t.gameId === gameId && t.type === 'expense')
-    assert.strictEqual(expenseTx.length, 0, '费用修改不应生成 expense 流水')
-    // 之后的 checkout 不带费用参数，不应把费用清零
+    assert.strictEqual(expenseTx.length, 1, '费用变更应生成一条 expense 留痕')
+    assert.strictEqual(expenseTx[0].beforeValue, 0)
+    assert.strictEqual(expenseTx[0].afterValue, 30)
+    assert.strictEqual(expenseTx[0].playerOpenid, 'mock_me', '留痕主体是执行人')
+    assert.strictEqual(expenseTx[0].meta.expenseMode, 'mvp')
+    // 同值重复保存：不新增留痕（无噪音）
+    const same = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'expense', extraCost: 30, expenseMode: 'mvp' }
+    })
+    assert.strictEqual(same.result.ok, true)
+    assert.strictEqual(
+      cloudMock.getDb()._raw.transactions.filter(t => t.gameId === gameId && t.type === 'expense')
+        .length,
+      1,
+      '同值重存不得新增留痕'
+    )
+    // 渲染：expense 留痕不得被形状推断误判为结算修正（曾显示"结算从0改为561"）
+    const txFormat = require(path.join(utilsRoot, 'transaction-format.js'))
+    assert.strictEqual(txFormat.normalizeTransactionKind(expenseTx[0]), 'expense')
+    assert.strictEqual(
+      txFormat.transactionSentenceText(expenseTx[0], 0, 0, () => 'L美美'),
+      'L美美设置费用分摊30，MVP买单'
+    )
+    assert.strictEqual(
+      txFormat.transactionSentenceText(
+        { type: 'expense', beforeValue: 30, afterValue: 45, meta: { expenseMode: 'winner' } },
+        0,
+        0,
+        () => 'L美美'
+      ),
+      'L美美把费用分摊从30改为45，水上比例'
+    )
+    // 之后的 checkout 不带费用参数，不应把费用清零、也不应追加费用留痕
     const edit = await wx.cloud.callFunction({
       name: 'settleGame',
       data: { gameId, mode: 'checkout', finalStacks: { mock_me: 150 } }
@@ -397,6 +428,12 @@ function step(name, fn) {
     assert.strictEqual(edit.result.game.expenseMode, 'mvp')
     // profit 归 0 后无赢家 → MVP 退化为全员均摊（单人局仍是他承担）
     assert.strictEqual(edit.result.game.players[0].share, 30)
+    assert.strictEqual(
+      cloudMock.getDb()._raw.transactions.filter(t => t.gameId === gameId && t.type === 'expense')
+        .length,
+      1,
+      '不带费用参数的结算不得追加费用留痕'
+    )
   })
 
   await step('结束后 finalize 应拒绝（自动收局已替代手动结束）', async () => {

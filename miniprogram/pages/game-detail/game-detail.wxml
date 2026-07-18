@@ -2,7 +2,7 @@
   <view class="game-info">
     <text class="info-text">{{game.name || 'StaxKit 记录'}}</text>
     <view class="info-actions">
-      <view class="share-btn" bindtap="onShare">{{game.status === 'ongoing' ? '邀请' : '分享'}}</view>
+      <button class="share-btn" open-type="share">{{game.status === 'ongoing' ? '邀请' : '分享'}}</button>
       <view class="share-btn" wx:if="{{isPlayer && !viewerMode}}" bindtap="onOpenExpense">费用分摊</view>
     </view>
   </view>
@@ -45,6 +45,7 @@
 
   <view class="table-head">
     <text>成员</text>
+    <text>位置</text>
     <text>手数</text>
     <text>剩余积分</text>
     <text>盈亏</text>

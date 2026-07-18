@@ -9,6 +9,8 @@
         <view class="nickname">{{player.nickname}}<text class="me-tag" wx:if="{{isSelf}}">我</text></view>
       </view>
     </view>
+    <view class="metric" wx:if="{{player.seat}}">{{player.seat}}号</view>
+    <view class="metric text-sub" wx:else>--</view>
     <view class="metric">{{player.buyInCount}}</view>
     <view class="metric" wx:if="{{player.finalStack !== null && player.finalStack !== undefined}}">{{player.finalStack}}</view>
     <view class="metric text-sub" wx:else>--</view>
