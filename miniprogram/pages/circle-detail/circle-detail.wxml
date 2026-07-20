@@ -29,7 +29,7 @@
         <view class="season-name">{{season.seasonName}}</view>
         <view class="season-remain text-sub">剩 {{daysLeft}} 天</view>
       </view>
-      <view class="season-history" wx:if="{{season.seasonNo > 1}}" bindtap="onHistory">前贤录 ›</view>
+      <view class="season-history" bindtap="onHistory">往季记录 ›</view>
     </view>
 
     <view class="block-divider"></view>
@@ -66,12 +66,12 @@
             <view class="my-season-label text-sub">场次</view>
           </view>
           <view class="my-season-cell">
-            <view class="my-season-num">{{me.winRate}}%</view>
-            <view class="my-season-label text-sub">胜率</view>
-          </view>
-          <view class="my-season-cell">
             <view class="my-season-num {{me.rawProfit > 0 ? 'text-gain' : me.rawProfit < 0 ? 'text-loss' : ''}}">{{me.rawProfit > 0 ? '+' : ''}}{{me.rawProfit}}</view>
             <view class="my-season-label text-sub">累计盈亏</view>
+          </view>
+          <view class="my-season-cell">
+            <view class="my-season-num">{{me.winRate}}%</view>
+            <view class="my-season-label text-sub">胜率</view>
           </view>
         </view>
       </view>
