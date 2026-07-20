@@ -58,7 +58,7 @@ Page({
         this.setData({ loading: false })
         return
       }
-      // 圈子基础信息（名称/成员数/邀请码/owner 判定）仍需 circle 文档
+      // 积分榜基础信息（名称/成员数/邀请码/owner 判定）仍需 circle 文档
       const db = wx.cloud.database()
       const got = await db
         .collection('circles')
@@ -324,7 +324,7 @@ Page({
 
   onLeave() {
     wx.showModal({
-      title: '退出圈子',
+      title: '退出积分榜',
       content: '退出后不再参与排名，已有积分保留。',
       confirmText: '退出',
       confirmColor: '#C8102E',
@@ -387,8 +387,8 @@ Page({
 
   onDissolve() {
     wx.showModal({
-      title: '解散圈子',
-      content: '解散后所有成员将无法查看此圈子。',
+      title: '解散积分榜',
+      content: '解散后所有成员将无法查看此积分榜。',
       confirmText: '解散',
       confirmColor: '#C8102E',
       success: async r => {

@@ -35,7 +35,7 @@ Page({
   async onCreate() {
     const name = (this.data.name || '').trim()
     if (!name || name.length > 12) {
-      wx.showToast({ title: '圈名 1-12 个字', icon: 'none' })
+      wx.showToast({ title: '积分榜名称 1-12 个字', icon: 'none' })
       return
     }
     this.setData({ submitting: true })

@@ -1,6 +1,6 @@
 <view class="container">
   <view class="card">
-    <view class="label">圈名</view>
+    <view class="label">积分榜名称</view>
     <input class="name-input" placeholder="取个响亮的名字（≤12字）" maxlength="12" value="{{name}}" bindinput="onNameInput" />
   </view>
   <button class="btn btn--primary btn--block" bindtap="onCreate" disabled="{{submitting || !name}}">创建</button>
