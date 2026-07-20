@@ -10,7 +10,6 @@
     "pages/game-join/game-join",
     "pages/game-detail/game-detail",
     "pages/game-settle/game-settle",
-    "pages/game-review/game-review",
     "pages/history/history",
     "pages/stats/stats",
     "pages/profile/profile"

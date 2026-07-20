@@ -125,10 +125,6 @@
   white-space: nowrap;
 }
 
-.ai-btn {
-  margin-top: 24rpx;
-}
-
 .muted-card {
   opacity: 0.72;
 }
