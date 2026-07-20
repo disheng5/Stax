@@ -32,7 +32,7 @@
 
     <view class="my-line" wx:if="{{item.me}}">
       <text class="my-line-label">我的</text>
-      <text class="my-line-text">第 {{item.me.rank}} 名 · {{item.me.games}} 局 · 胜率 {{item.me.winRate}}%</text>
+      <text class="my-line-text">第 {{item.me.rank}} 名 · {{item.me.games}} 局 · 胜率 {{item.me.winRate}}%<text wx:if="{{item.me.profitStr}}"> · 盈亏 </text><text wx:if="{{item.me.profitStr}}" class="{{item.me.profit > 0 ? 'text-gain' : item.me.profit < 0 ? 'text-loss' : ''}}">{{item.me.profitStr}}</text></text>
     </view>
   </view>
 </view>

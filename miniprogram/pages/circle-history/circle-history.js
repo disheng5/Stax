@@ -72,7 +72,13 @@ Page({
           winRate:
             typeof myRow.winRate === 'number'
               ? myRow.winRate
-              : Math.round(((myRow.wins || 0) * 1000) / myRow.games) / 10
+              : Math.round(((myRow.wins || 0) * 1000) / myRow.games) / 10,
+          // 与「我的记录」每局盈亏同口径（finalProfit 累加）；老数据缺字段时不显示
+          profit: typeof myRow.rawProfit === 'number' ? myRow.rawProfit : null,
+          profitStr:
+            typeof myRow.rawProfit === 'number'
+              ? `${myRow.rawProfit > 0 ? '+' : ''}${myRow.rawProfit}`
+              : ''
         }
         : null
     return {

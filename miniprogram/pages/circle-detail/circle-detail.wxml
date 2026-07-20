@@ -69,6 +69,10 @@
             <view class="my-season-num">{{me.winRate}}%</view>
             <view class="my-season-label text-sub">胜率</view>
           </view>
+          <view class="my-season-cell">
+            <view class="my-season-num {{me.rawProfit > 0 ? 'text-gain' : me.rawProfit < 0 ? 'text-loss' : ''}}">{{me.rawProfit > 0 ? '+' : ''}}{{me.rawProfit}}</view>
+            <view class="my-season-label text-sub">累计盈亏</view>
+          </view>
         </view>
       </view>
     </view>
