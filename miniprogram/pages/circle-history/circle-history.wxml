@@ -29,5 +29,10 @@
     </view>
 
     <view class="text-sub" wx:if="{{!item.champion}}" style="font-size:22rpx;">无上榜</view>
+
+    <view class="my-line" wx:if="{{item.me}}">
+      <text class="my-line-label">我的</text>
+      <text class="my-line-text">第 {{item.me.rank}} 名 · {{item.me.games}} 局 · 胜率 {{item.me.winRate}}%</text>
+    </view>
   </view>
 </view>

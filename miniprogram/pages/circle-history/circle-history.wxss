@@ -30,3 +30,8 @@
 .rank-3 { background: #C97835; color: #6d330d; }
 .honor-avatar { width: 44rpx; height: 44rpx; border-radius: 50%; background: var(--border); flex-shrink: 0; }
 .honor-name { font-size: 24rpx; }
+
+/* 我的赛季战绩：仅本人可见自己的行 */
+.my-line { display: flex; align-items: center; gap: 12rpx; margin-top: 14rpx; padding-top: 14rpx; border-top: 1rpx solid var(--border); }
+.my-line-label { flex-shrink: 0; padding: 1rpx 10rpx; border-radius: 6rpx; background: rgba(43, 108, 176, 0.10); color: var(--table-green); font-size: 20rpx; font-weight: 600; }
+.my-line-text { font-size: 24rpx; color: var(--text-sub); }

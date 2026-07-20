@@ -1,4 +1,5 @@
 const avatarCache = require('../../utils/avatar.js')
+const app = getApp()
 
 Page({
   data: { circleId: '', seasons: [], loading: true },
@@ -60,13 +61,28 @@ Page({
     const gamesCount = Array.isArray(s.gameSummaries)
       ? s.gameSummaries.filter(g => !g.excluded).length
       : Number(s.calculationMeta?.qualifiedCount) || 0
+    // 我在该赛季的战绩（只取本人行，与「我的赛季」同口径）
+    const myOpenid = app.globalData.openid || wx.getStorageSync('last_openid') || ''
+    const myRow = myOpenid ? (s.rankings || []).find(r => r.openid === myOpenid) : null
+    const me =
+      myRow && (myRow.games || 0) > 0
+        ? {
+          rank: myRow.rank,
+          games: myRow.games,
+          winRate:
+            typeof myRow.winRate === 'number'
+              ? myRow.winRate
+              : Math.round(((myRow.wins || 0) * 1000) / myRow.games) / 10
+        }
+        : null
     return {
       _id: s._id,
       seasonName: s.seasonName,
       champion: top3.find(r => r.rank === 1) || null,
       runners: top3.filter(r => r.rank > 1),
       dateRange: s.startAt && s.endAt ? `${fmt(s.startAt)} - ${fmt(s.endAt)}` : '',
-      gamesCount
+      gamesCount,
+      me
     }
   },
 
