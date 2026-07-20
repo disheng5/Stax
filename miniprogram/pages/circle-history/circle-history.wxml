@@ -16,13 +16,13 @@
       </view>
       <view class="champion-info">
         <view class="champion-name">{{item.champion.nickname}}</view>
-        <view class="champion-title">当朝魁首</view>
+        <view class="champion-title">冠军</view>
       </view>
     </view>
 
     <view class="honors-row" wx:if="{{item.runners.length}}">
       <view class="honor-chip" wx:for="{{item.runners}}" wx:for-item="h" wx:key="rank">
-        <view class="honor-rank rank-{{h.rank}}">{{h.rank}}</view>
+        <view class="honor-rank rank-{{h.rank}}">{{h.rank === 2 ? '亚' : '季'}}</view>
         <image class="honor-avatar" src="{{h.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
         <text class="honor-name">{{h.nickname}}</text>
       </view>

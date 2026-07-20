@@ -41,7 +41,7 @@ function getSeasonName(date, seasonNo) {
 }
 
 function getTitles() {
-  return { 1: '当朝魁首', 2: '榜眼', 3: '探花' }
+  return { 1: '冠军', 2: '亚军', 3: '季军' }
 }
 
 async function getCurrentSeason(circle) {

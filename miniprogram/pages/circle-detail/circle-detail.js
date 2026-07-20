@@ -414,7 +414,7 @@ Page({
   onShareAppMessage() {
     const c = this.data.circle
     return {
-      title: `来「${c.name}」一起切磋，看看谁是魁首`,
+      title: `来「${c.name}」一起切磋，看看谁是冠军`,
       path: `/pages/circle-join/circle-join?code=${c.inviteCode}`
     }
   }
