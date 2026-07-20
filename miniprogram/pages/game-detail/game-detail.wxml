@@ -77,6 +77,8 @@
     <text class="bar-item text-warning" wx:if="{{settleResult.aboveTotal + settleResult.belowTotal !== 0}}">账差: {{settleResult.aboveTotal + settleResult.belowTotal > 0 ? '+' : ''}}{{settleResult.aboveTotal + settleResult.belowTotal}}</text>
   </view>
 
+  <button class="btn btn--ghost btn--block review-entry" wx:if="{{game.status === 'ended' && settleResult && isPlayer}}" bindtap="onOpenReview">数据小结</button>
+
   <view class="section-title ledger-title" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">流水记录</view>
   <view class="tx-list" wx:if="{{recentTx.length || (settleResult && settleResult.expenseRows.length)}}">
     <view class="expense-block" wx:if="{{settleResult && settleResult.expenseRows.length}}">

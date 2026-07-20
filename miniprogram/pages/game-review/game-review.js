@@ -23,7 +23,7 @@ Page({
       wx.hideLoading()
       const r = res.result || {}
       if (!r.ok) {
-        wx.showToast({ title: r.error || '生成失败', icon: 'none' })
+        wx.showToast({ title: '暂时无法获取，请稍后重试', icon: 'none' })
         this.setData({ loading: false })
         return
       }
