@@ -42,10 +42,6 @@ button.share-btn::after {
   border: none;
 }
 
-.review-entry {
-  margin: 4rpx 0 24rpx;
-}
-
 .notice {
   margin-bottom: 20rpx;
   padding: 18rpx 24rpx;

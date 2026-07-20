@@ -1296,10 +1296,6 @@ Page({
     }
   },
 
-  onOpenReview() {
-    wx.navigateTo({ url: '/pages/game-review/game-review?id=' + this.data.gameId })
-  },
-
   onShareAppMessage() {
     const g = this.data.game
     const playerN = g?.players?.length || 0
