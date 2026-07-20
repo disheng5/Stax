@@ -236,7 +236,7 @@ Page({
     }
   },
 
-  onAIReview() {
+  onOpenReview() {
     wx.navigateTo({ url: '/pages/game-review/game-review?id=' + this.data.gameId })
   },
 

@@ -1,13 +1,13 @@
 <view class="container">
   <view wx:if="{{loading}}" class="loading-state">
     <view class="brain">🧠</view>
-    <view class="text-sub">AI 正在梳理这一晚的节奏…</view>
+    <view class="text-sub">正在梳理这一晚的节奏…</view>
   </view>
 
   <block wx:elif="{{review}}">
     <view class="card hero">
       <view class="header">
-        <text class="ai-tag">🤖 AI 点评</text>
+        <text class="ai-tag">📋 牌局点评</text>
         <text class="provider text-sub" wx:if="{{provider !== 'template'}}">by {{provider}}</text>
         <text class="provider text-sub" wx:else>规则版</text>
       </view>
@@ -29,6 +29,6 @@
       <button class="btn btn--primary" open-type="share">分享好友</button>
     </view>
 
-    <view class="text-sub disclaimer">AI 点评仅供娱乐参考，不构成牌技指导建议。</view>
+    <view class="text-sub disclaimer">点评由数据规则自动生成，仅供娱乐参考，不构成牌技指导建议。</view>
   </block>
 </view>

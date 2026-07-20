@@ -1,4 +1,4 @@
-// pages/game-review/game-review.js — AI 复盘
+// pages/game-review/game-review.js — 牌局复盘（数据规则生成）
 Page({
   data: {
     gameId: '',
@@ -14,7 +14,7 @@ Page({
   },
 
   async _fetch() {
-    wx.showLoading({ title: 'AI 思考中…' })
+    wx.showLoading({ title: '整理中…' })
     try {
       const res = await wx.cloud.callFunction({
         name: 'aiReview',
@@ -54,12 +54,12 @@ Page({
 
   onShareAppMessage() {
     const f = this.data.facts || {}
-    let title = 'StaxKit AI 复盘，看看这一晚的节奏'
+    let title = 'StaxKit 牌局复盘，看看这一晚的节奏'
     if (f.bigWinner) {
-      title = `今晚状态最好的是 ${f.bigWinner.nickname} —— StaxKit AI 复盘`
+      title = `今晚状态最好的是 ${f.bigWinner.nickname} —— StaxKit 牌局复盘`
     } else if (f.me && f.me.profit !== undefined) {
       const v = f.me.profit
-      title = v >= 0 ? `我今晚 +${v}，来看 AI 的复盘` : '我今晚的复盘，AI 怎么说'
+      title = v >= 0 ? `我今晚 +${v}，来看牌局复盘` : '看看我今晚的牌局复盘'
     }
     return { title, path: '/pages/index/index' }
   }

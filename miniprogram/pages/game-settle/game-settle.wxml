@@ -73,7 +73,7 @@
     </button>
   </view>
 
-  <button wx:if="{{submitted}}" class="btn btn--ghost btn--block ai-btn" bindtap="onAIReview">AI点评</button>
+  <button wx:if="{{submitted}}" class="btn btn--ghost btn--block ai-btn" bindtap="onOpenReview">牌局复盘</button>
 </view>
 
 <canvas type="2d" id="settle-canvas" style="width:360px;height:900px;position:fixed;left:-9999px;top:0;"></canvas>

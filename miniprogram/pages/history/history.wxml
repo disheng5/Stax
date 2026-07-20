@@ -73,7 +73,7 @@
 
     <view class="card ai-card" bindtap="onToggleAi">
       <view class="ai-head">
-        <view class="section-title">AI 趋势分析</view>
+        <view class="section-title">趋势解读</view>
         <view class="text-sub">{{aiExpanded ? '收起' : '展开'}}</view>
       </view>
       <view class="ai-body" wx:if="{{aiExpanded && aiSummary.length}}">
