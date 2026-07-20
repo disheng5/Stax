@@ -1,0 +1,34 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading-state">
+    <view class="brain">🧠</view>
+    <view class="text-sub">正在梳理这一晚的节奏…</view>
+  </view>
+
+  <block wx:elif="{{review}}">
+    <view class="card hero">
+      <view class="header">
+        <text class="ai-tag">📋 数据小结</text>
+        <text class="provider text-sub" wx:if="{{provider !== 'template'}}">by {{provider}}</text>
+        <text class="provider text-sub" wx:else>规则版</text>
+      </view>
+      <view class="review">{{review}}</view>
+    </view>
+
+    <view class="card facts" wx:if="{{facts}}">
+      <view class="title">本局事实</view>
+      <view class="fact-row"><text class="text-sub">玩家数</text><text>{{facts.playerCount}} 人</text></view>
+      <view class="fact-row"><text class="text-sub">时长</text><text>{{facts.durationMin}} 分钟</text></view>
+      <view class="fact-row"><text class="text-sub">总池</text><text class="text-gold">{{facts.totalPot}}</text></view>
+      <view class="fact-row"><text class="text-sub">买入次数</text><text>{{facts.totalRebuys}}</text></view>
+      <view class="fact-row" wx:if="{{facts.bigWinner}}"><text class="text-sub">状态最好</text><text class="text-gain">{{facts.bigWinner.nickname}}</text></view>
+    </view>
+
+    <view class="actions">
+      <button class="btn btn--ghost"   bindtap="onCopy">复制点评</button>
+      <button class="btn btn--ghost"   bindtap="onRetry">换一段</button>
+      <button class="btn btn--primary" open-type="share">分享好友</button>
+    </view>
+
+    <view class="text-sub disclaimer">以上内容基于本局数据整理，仅供娱乐参考，不构成牌技指导建议。</view>
+  </block>
+</view>

@@ -236,6 +236,10 @@ Page({
     }
   },
 
+  onOpenReview() {
+    wx.navigateTo({ url: '/pages/game-review/game-review?id=' + this.data.gameId })
+  },
+
   async _createSettleImage() {
     return new Promise((resolve, reject) => {
       const query = wx.createSelectorQuery()
