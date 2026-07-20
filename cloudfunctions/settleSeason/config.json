@@ -1,0 +1,10 @@
+{
+  "permissions": { "openapi": [] },
+  "triggers": [
+    {
+      "name": "settleExpiredSeasons",
+      "type": "timer",
+      "config": "0 0 4 * * * *"
+    }
+  ]
+}
