@@ -69,7 +69,7 @@ Page({
       if (circle) {
         this.setData({ circle, isOwner: circle.ownerOpenid === app.globalData.openid })
       }
-      this._applyView(view)
+      this._applyView(view, { fromServer: true })
       this._persistSnapshot(circle, view)
       this._startSeasonWatch(view.season)
     } catch (err) {
@@ -89,7 +89,7 @@ Page({
     } catch (_) {}
   },
 
-  _applyView(view) {
+  _applyView(view, options = {}) {
     if (!view) {
       this.setData({ loading: false })
       return
@@ -100,10 +100,20 @@ Page({
       const now = new Date()
       daysLeft = Math.max(0, Math.ceil((new Date(season.endAt) - now) / (24 * 60 * 60 * 1000)))
     }
-    // 荣誉前三 / 成员：只有头像与昵称（+名次），做本地资料兜底与缓存优先
-    avatarCache.putProfiles([...(view.honors || []), ...(view.members || [])], {
-      source: 'snapshot'
-    })
+    // members 来自 getSeasonView 直读 users 表（权威）→ 按 server 来源写缓存。
+    // 曾按 snapshot 来源写入被版本守卫拦下，旧缓存常驻导致头像不自动刷新
+    //（下方 fill 是缓存优先渲染），只有比赛页的强制刷新能治好它。
+    // honors 来自 season.rankings 快照，仍按 snapshot 只补空。
+    if (options.fromServer) {
+      avatarCache.putProfiles(view.members || [], { source: 'server', authoritative: true })
+      avatarCache.putProfiles(view.honors || [], { source: 'snapshot' })
+    } else {
+      avatarCache.putProfiles([...(view.honors || []), ...(view.members || [])], {
+        source: 'snapshot'
+      })
+    }
+    const championCounts = view.championCounts || this._championCounts || {}
+    this._championCounts = championCounts
     const fill = r => {
       const cached = avatarCache.cached(r.openid) || {}
       const avatar = cached.avatar || r.avatar || ''
@@ -116,6 +126,7 @@ Page({
         ...r,
         nickname,
         avatar,
+        championCount: championCounts[r.openid] || 0,
         displayAvatar:
           avatarCache.displayCached(avatar) ||
           (avatar && !avatar.startsWith('cloud://') ? avatar : '')
@@ -254,46 +265,6 @@ Page({
       durationStr: h > 0 ? `${h}h ${m}` : `${m}m`,
       counted: g.counted !== false
     }
-  },
-
-  onOpenGame(e) {
-    wx.navigateTo({ url: '/pages/game-detail/game-detail?id=' + e.currentTarget.dataset.id })
-  },
-
-  // 赛季比赛列表直读 season.gameSummaries（calcSeasonScore 结算时写入），
-  // 不再在客户端扫描 games 集合（也绕开了客户端单次 20 条上限）。
-  // 老赛季文档没有摘要字段时触发一次重算回填。
-  async _loadSeasonGames(circle, season) {
-    if (!season) {
-      this._setSeasonGames([])
-      return
-    }
-    if (Array.isArray(season.gameSummaries)) {
-      this._setSeasonGames(season.gameSummaries)
-      return
-    }
-    try {
-      await wx.cloud.callFunction({
-        name: 'calcSeasonScore',
-        data: { circleId: circle._id }
-      })
-      const db = wx.cloud.database()
-      const s = await db
-        .collection('seasons')
-        .doc(season._id)
-        .get()
-        .catch(() => null)
-      if (s && s.data) {
-        this._applySeason(s.data)
-        if (Array.isArray(s.data.gameSummaries)) {
-          this._setSeasonGames(s.data.gameSummaries)
-          return
-        }
-      }
-    } catch (err) {
-      console.error('[loadSeasonGames backfill]', err)
-    }
-    this._setSeasonGames([])
   },
 
   onOpenGame(e) {

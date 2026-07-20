@@ -117,10 +117,28 @@ exports.main = async event => {
     if (seasonGot && seasonGot.data) season = seasonGot.data
   }
 
-  const [memberProfiles, myGames] = await Promise.all([
+  const [memberProfiles, myGames, settledSeasons] = await Promise.all([
     fetchMemberProfiles(memberOpenids),
-    fetchMyGames(OPENID, season)
+    fetchMyGames(OPENID, season),
+    db
+      .collection('seasons')
+      .where({ circleId, status: 'settled' })
+      .field({ championOpenid: true })
+      .limit(1000)
+      .get()
+      .catch(() => ({ data: [] }))
   ])
 
-  return buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: OPENID })
+  const view = buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: OPENID })
+  // 冠军荣誉出口：本榜历届夺冠次数（字段只加，老前端自动忽略）
+  if (view && view.isMember) {
+    const championCounts = {}
+    ;(settledSeasons.data || []).forEach(s => {
+      if (s.championOpenid) {
+        championCounts[s.championOpenid] = (championCounts[s.championOpenid] || 0) + 1
+      }
+    })
+    view.championCounts = championCounts
+  }
+  return view
 }

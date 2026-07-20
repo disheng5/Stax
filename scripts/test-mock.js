@@ -717,6 +717,57 @@ function step(name, fn) {
     assert.strictEqual(gvViewer.result.canJoin, true, '进行中局受分享人可加入')
   })
 
+  await step('到期赛季自动结账：冠军荣誉入档 + 新一季开启 + 结账幂等', async () => {
+    const raw = cloudMock.getDb()._raw
+    const circle = raw.circles.find(c => c.name === 'Mock 积分榜')
+    const oldSeasonId = circle.currentSeasonId
+    const oldSeason = raw.seasons.find(s => s._id === oldSeasonId)
+    // 构造确定的赛季窗口：赛季 1 小时前开始、1 分钟前到期，合规局都在窗口内
+    const base = Date.now()
+    oldSeason.startAt = new Date(base - 3600 * 1000)
+    oldSeason.endAt = new Date(base - 60 * 1000)
+    raw.games
+      .filter(g => g._id.startsWith('rank_game_'))
+      .forEach((g, i) => {
+        g.endedAt = new Date(base - (30 - i) * 60 * 1000)
+        g.startedAt = new Date(new Date(g.endedAt).getTime() - 90 * 60000)
+      })
+    const r = await wx.cloud.callFunction({
+      name: 'calcSeasonScore',
+      data: { circleId: circle._id }
+    })
+    assert.strictEqual(r.result.ok, true)
+    assert.strictEqual(oldSeason.status, 'settled', '过期赛季应自动结账')
+    assert.strictEqual(oldSeason.championOpenid, 'mock_me', '冠军应为最终校准后的第一名')
+    assert.ok(oldSeason.settledAt, '应记录结账时间')
+    assert.notStrictEqual(circle.currentSeasonId, oldSeasonId, '应开启新一季')
+    const newSeason = raw.seasons.find(s => s._id === circle.currentSeasonId)
+    assert.strictEqual(newSeason.status, 'ongoing')
+    assert.ok(newSeason.seasonNo > oldSeason.seasonNo, '新一季季号应递增')
+    const meUser = raw.users.find(u => u._openid === 'mock_me')
+    assert.strictEqual(meUser.honors.totalChampionCount, 1, '冠军荣誉应入用户档案')
+    assert.strictEqual(meUser.honors.championships[0].seasonName, oldSeason.seasonName)
+    // 视图返回历届夺冠次数（供积分榜冠字徽章），且往季查询能看到已结账赛季
+    const view = await wx.cloud.callFunction({
+      name: 'getSeasonView',
+      data: { circleId: circle._id }
+    })
+    assert.strictEqual(view.result.ok, true)
+    assert.strictEqual(view.result.championCounts.mock_me, 1)
+    const settledList = raw.seasons.filter(
+      s => s.circleId === circle._id && s.status === 'settled'
+    )
+    assert.strictEqual(settledList.length, 1, '往季记录应能查到已结账赛季')
+    // 结账幂等：再次重算不得重复结账、不得重复记荣誉
+    await wx.cloud.callFunction({ name: 'calcSeasonScore', data: { circleId: circle._id } })
+    assert.strictEqual(meUser.honors.totalChampionCount, 1, '重复重算不得重复记荣誉')
+    assert.strictEqual(
+      raw.seasons.filter(s => s.circleId === circle._id && s.status === 'ongoing').length,
+      1,
+      '只允许存在一个进行中赛季'
+    )
+  })
+
   await step('数据库 watch 能收到推送', async () => {
     const db = wx.cloud.database()
     const livedoc = (await db.collection('games').where({ inviteCode: 'DEMO99' }).limit(1).get())

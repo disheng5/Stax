@@ -1008,34 +1008,68 @@ const handlers = {
     return { ok: true, circleId: res._id, inviteCode }
   },
 
-  async calcSeasonScore({ circleId }) {
+  async calcSeasonScore({ circleId, seasonId }) {
     if (!circleId) return { ok: false, error: 'INVALID_PARAMS' }
     const db = getDb()
     const raw = db._raw
     const circle = (raw.circles || []).find(c => c._id === circleId)
     if (!circle || circle.status !== 'active') return { ok: false, error: 'CIRCLE_NOT_ACTIVE' }
 
-    let season = circle.currentSeasonId
-      ? (raw.seasons || []).find(s => s._id === circle.currentSeasonId)
-      : null
-    if (!season) {
-      const now = new Date()
-      const created = await db.collection('seasons').add({
-        data: {
-          circleId,
-          seasonNo: 1,
-          seasonName: `${now.getFullYear()} · 测试赛季 · 第1回`,
-          startAt: now,
-          endAt: new Date(now.getTime() + 42 * 24 * 3600 * 1000),
-          status: 'ongoing',
-          rankings: [],
-          excludedGameIds: [],
-          exclusionScopeVersion: 1,
-          exclusionRevision: 0
+    let season
+    if (seasonId) {
+      // 指定赛季重算（到期赛季最终校准路径，与云函数一致）：不滚季、不建新季
+      season = (raw.seasons || []).find(s => s._id === seasonId) || null
+      if (!season || season.status !== 'ongoing') return { ok: false, error: 'NO_ACTIVE_SEASON' }
+    } else {
+      season = circle.currentSeasonId
+        ? (raw.seasons || []).find(s => s._id === circle.currentSeasonId)
+        : null
+      const rollNow = new Date()
+      if (season && season.status === 'ongoing' && rollNow >= new Date(season.endAt)) {
+        // 与云函数一致：到期赛季 lazy 结账——最终校准 → settled+冠军荣誉 → 开新一季
+        await handlers.calcSeasonScore({ circleId, seasonId: season._id })
+        const champion = (season.rankings || []).find(r => r.rank === 1) || null
+        season.status = 'settled'
+        season.championOpenid = champion ? champion.openid : null
+        season.settledAt = rollNow
+        db._notify('seasons', season._id)
+        if (champion) {
+          const user = (raw.users || []).find(u => u._openid === champion.openid)
+          if (user) {
+            user.honors = user.honors || { championships: [], totalChampionCount: 0 }
+            user.honors.championships.push({
+              circleName: circle.name || '',
+              seasonName: season.seasonName,
+              profitBB: champion.profitBB,
+              achievedAt: rollNow
+            })
+            user.honors.totalChampionCount = (user.honors.totalChampionCount || 0) + 1
+          }
         }
-      })
-      circle.currentSeasonId = created._id
-      season = (raw.seasons || []).find(s => s._id === created._id)
+        season = null
+      }
+      if (!season || season.status !== 'ongoing') {
+        const now = new Date()
+        const seasonNo = (raw.seasons || []).filter(s => s.circleId === circleId).length + 1
+        const created = await db.collection('seasons').add({
+          data: {
+            circleId,
+            seasonNo,
+            seasonName: `${now.getFullYear()} · 测试赛季 · 第${seasonNo}回`,
+            startAt: now,
+            endAt: new Date(now.getTime() + 42 * 24 * 3600 * 1000),
+            status: 'ongoing',
+            rankings: [],
+            excludedGameIds: [],
+            exclusionScopeVersion: 1,
+            exclusionRevision: 0,
+            championOpenid: null,
+            settledAt: null
+          }
+        })
+        circle.currentSeasonId = created._id
+        season = (raw.seasons || []).find(s => s._id === created._id)
+      }
     }
 
     const members = circle.memberOpenids || []
@@ -1275,7 +1309,18 @@ const handlers = {
           counted: !excluded.has(g._id) && !g.excludeFromSeason
         }
       })
-    return buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: MY_OPENID })
+    const view = buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: MY_OPENID })
+    // 与云函数一致：本榜历届夺冠次数（字段只加，老前端自动忽略）
+    if (view && view.isMember) {
+      const championCounts = {}
+      ;(raw.seasons || [])
+        .filter(s => s.circleId === circleId && s.status === 'settled' && s.championOpenid)
+        .forEach(s => {
+          championCounts[s.championOpenid] = (championCounts[s.championOpenid] || 0) + 1
+        })
+      view.championCounts = championCounts
+    }
+    return view
   },
 
   async getMyAnalytics() {

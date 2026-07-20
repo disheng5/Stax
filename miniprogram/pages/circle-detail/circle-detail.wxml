@@ -43,7 +43,7 @@
           <image class="rank-avatar" src="{{item.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
         </view>
         <view class="rank-info">
-          <view class="rank-name rank-name-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.nickname}}</view>
+          <view class="rank-name rank-name-{{item.rank <= 3 ? item.rank : 'n'}}">{{item.nickname}}<text class="champ-badge" wx:if="{{item.championCount > 0}}">{{item.championCount}}冠</text></view>
         </view>
       </view>
     </view>
@@ -83,6 +83,7 @@
         <view class="member-chip" wx:for="{{members}}" wx:key="openid" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onRankTap">
           <image class="member-avatar" src="{{item.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
           <text class="member-name">{{item.nickname}}</text>
+          <text class="champ-badge" wx:if="{{item.championCount > 0}}">{{item.championCount}}冠</text>
         </view>
       </view>
     </view>

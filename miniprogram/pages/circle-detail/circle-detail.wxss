@@ -98,3 +98,17 @@
 /* 我的记录盈亏：与全局语义色统一——盈利(水上)红 --gain / 亏损(水下)绿 --loss */
 .profit-up { color: var(--gain); font-weight: 600; font-size: 26rpx; }
 .profit-down { color: var(--loss); font-weight: 600; font-size: 26rpx; }
+
+/* 历届冠军次数徽章：金色小标，跟在昵称后 */
+.champ-badge {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  padding: 1rpx 8rpx;
+  border-radius: 6rpx;
+  background: rgba(242, 194, 51, 0.16);
+  color: #a87b12;
+  font-size: 18rpx;
+  font-weight: 700;
+  vertical-align: middle;
+}

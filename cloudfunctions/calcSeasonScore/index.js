@@ -44,17 +44,31 @@ function getTitles() {
   return { 1: '当朝魁首', 2: '榜眼', 3: '探花' }
 }
 
-async function ensureSeason(circle) {
-  if (circle.currentSeasonId) {
+async function getCurrentSeason(circle) {
+  if (!circle.currentSeasonId) return null
+  const s = await db
+    .collection('seasons')
+    .doc(circle.currentSeasonId)
+    .get()
+    .catch(() => null)
+  return s && s.data ? s.data : null
+}
+
+async function createSeason(circle) {
+  // 并发滚季守卫：后到者复用先到者刚建的新赛季，避免开出两个赛季
+  const latest = await db
+    .collection('circles')
+    .doc(circle._id)
+    .get()
+    .catch(() => null)
+  const currentId = latest?.data?.currentSeasonId
+  if (currentId && currentId !== circle.currentSeasonId) {
     const s = await db
       .collection('seasons')
-      .doc(circle.currentSeasonId)
+      .doc(currentId)
       .get()
       .catch(() => null)
-    if (s && s.data && s.data.status === 'ongoing') {
-      const now = new Date()
-      if (now < new Date(s.data.endAt)) return s.data
-    }
+    if (s?.data?.status === 'ongoing' && new Date() < new Date(s.data.endAt)) return s.data
   }
   const now = new Date()
   const startAt = now
@@ -98,6 +112,83 @@ async function ensureSeason(circle) {
     exclusionScopeVersion: EXCLUSION_SCOPE_VERSION,
     exclusionRevision: 0
   }
+}
+
+// 冠军荣誉写入用户档案；荣誉是附加信息，失败不阻塞赛季状态机（与 settleSeason 同源逻辑）
+async function recordChampionHonor(season, champion, now) {
+  if (!champion) return
+  try {
+    const [userQ, circleQ] = await Promise.all([
+      db.collection('users').where({ _openid: champion.openid }).limit(100).get(),
+      db
+        .collection('circles')
+        .doc(season.circleId)
+        .get()
+        .catch(() => null)
+    ])
+    if (!(userQ.data || []).length) return
+    const user = userQ.data
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(!!b.nickname) - Number(!!a.nickname) ||
+          Number(!!b.avatar) - Number(!!a.avatar)
+      )[0]
+    await db
+      .collection('users')
+      .doc(user._id)
+      .update({
+        data: {
+          'honors.championships': _.push([
+            {
+              circleName: circleQ?.data?.name || '',
+              seasonName: season.seasonName,
+              profitBB: champion.profitBB,
+              achievedAt: now
+            }
+          ]),
+          'honors.totalChampionCount': _.inc(1)
+        }
+      })
+  } catch (err) {
+    console.error('[calcSeasonScore honor]', season._id, err)
+  }
+}
+
+// 到期赛季结账：状态机置 settled + 记冠军；事务内校验 status 防并发重复结账/重复荣誉。
+// 不清 currentSeasonId：createSeason 随后覆盖；若开新季失败，视图仍能展示已结账赛季。
+async function settleExpiredSeason(seasonId, now) {
+  let champion = null
+  let seasonDoc = null
+  let settledNow = false
+  try {
+    await db.runTransaction(async transaction => {
+      const got = await transaction
+        .collection('seasons')
+        .doc(seasonId)
+        .get()
+        .catch(() => null)
+      if (!got || !got.data || got.data.status !== 'ongoing') return
+      seasonDoc = got.data
+      champion = (got.data.rankings || []).find(r => r.rank === 1) || null
+      await transaction
+        .collection('seasons')
+        .doc(seasonId)
+        .update({
+          data: {
+            status: 'settled',
+            championOpenid: champion ? champion.openid : null,
+            settledAt: now
+          }
+        })
+      settledNow = true
+    }, 3)
+  } catch (err) {
+    console.error('[calcSeasonScore settle]', seasonId, err)
+    return { settledNow: false }
+  }
+  if (settledNow && seasonDoc) await recordChampionHonor(seasonDoc, champion, now)
+  return { settledNow }
 }
 
 function endedGamesQuery(queryStart, seasonEnd, memberBatch) {
@@ -195,7 +286,7 @@ async function fetchActiveCircles() {
   return out
 }
 
-async function calcForCircle(circleId) {
+async function calcForCircle(circleId, opts = {}) {
   const got = await db
     .collection('circles')
     .doc(circleId)
@@ -206,7 +297,30 @@ async function calcForCircle(circleId) {
   }
 
   const circle = got.data
-  const season = await ensureSeason(circle)
+  let season
+  if (opts.seasonId) {
+    // 指定赛季重算（到期赛季的最终校准路径）：不滚季、不建新季
+    const s = await db
+      .collection('seasons')
+      .doc(opts.seasonId)
+      .get()
+      .catch(() => null)
+    season = s && s.data ? s.data : null
+  } else {
+    season = await getCurrentSeason(circle)
+    const now = new Date()
+    if (season && season.status === 'ongoing' && now >= new Date(season.endAt)) {
+      // 赛季到期 lazy 结账（settleSeason 无触发器，结账在此完成）：
+      // 1) 最终校准——把窗口内最新数据（含 3 小时窗内的赛后修正）写入 rankings
+      // 2) 状态机置 settled + 记冠军荣誉  3) 开新一季继续本次重算
+      await calcForCircle(circleId, { seasonId: season._id })
+      await settleExpiredSeason(season._id, now)
+      season = null
+    }
+    if (!season || season.status !== 'ongoing') {
+      season = await createSeason(circle)
+    }
+  }
   if (!season || season.status !== 'ongoing') return { ok: false, error: 'NO_ACTIVE_SEASON' }
 
   const seasonStart = new Date(season.startAt)
@@ -454,7 +568,7 @@ async function calcForCircle(circleId) {
   const stale = needsLegacyMigration
     ? updateResult?.stale
     : Number(updateResult?.stats?.updated || 0) === 0
-  if (stale) return await calcForCircle(circleId)
+  if (stale) return await calcForCircle(circleId, opts)
 
   return {
     ok: true,

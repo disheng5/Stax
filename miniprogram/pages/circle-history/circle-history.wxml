@@ -4,13 +4,30 @@
   <view wx:elif="{{!seasons.length}}" class="text-sub" style="text-align:center;padding:60rpx 0;">暂无往季记录</view>
 
   <view class="card season-item" wx:for="{{seasons}}" wx:key="_id">
-    <view class="season-name">{{item.seasonName}}</view>
-    <view class="honors-row" wx:if="{{item.honors.length}}">
-      <view class="honor-chip" wx:for="{{item.honors}}" wx:for-item="h" wx:key="rank">
-        <view class="honor-rank rank-{{h.rank <= 3 ? h.rank : 'n'}}">{{h.rank}}</view>
+    <view class="season-head">
+      <view class="season-name">{{item.seasonName}}</view>
+      <view class="season-meta text-sub">{{item.dateRange}}<text wx:if="{{item.gamesCount}}"> · 共 {{item.gamesCount}} 局</text></view>
+    </view>
+
+    <view class="champion-row" wx:if="{{item.champion}}">
+      <view class="champion-avatar-wrap">
+        <view class="champion-crown"></view>
+        <image class="champion-avatar" src="{{item.champion.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
+      </view>
+      <view class="champion-info">
+        <view class="champion-name">{{item.champion.nickname}}</view>
+        <view class="champion-title">当朝魁首</view>
+      </view>
+    </view>
+
+    <view class="honors-row" wx:if="{{item.runners.length}}">
+      <view class="honor-chip" wx:for="{{item.runners}}" wx:for-item="h" wx:key="rank">
+        <view class="honor-rank rank-{{h.rank}}">{{h.rank}}</view>
+        <image class="honor-avatar" src="{{h.displayAvatar || '/images/default-avatar.png'}}" mode="aspectFill" fade-in="{{false}}" />
         <text class="honor-name">{{h.nickname}}</text>
       </view>
     </view>
-    <view class="text-sub" wx:else style="font-size:22rpx;">无上榜</view>
+
+    <view class="text-sub" wx:if="{{!item.champion}}" style="font-size:22rpx;">无上榜</view>
   </view>
 </view>
