@@ -74,7 +74,12 @@ Page({
       const db = wx.cloud.database()
       const _ = db.command
       const cachedEnded = getCachedGames(openid)
-      if (cachedEnded.length) this._applyRecent([], cachedEnded)
+      // 中间态用已结束局缓存补首屏，但进行中局不在该缓存里，必须保留当前已展示的进行中局，
+      // 否则会出现"先只剩已结束、网络返回后进行中再插回顶部"的两段闪刷（每次进首页都触发）。
+      if (cachedEnded.length) {
+        const shownOngoing = (this.data.recentGames || []).filter(g => g._status === 'ongoing')
+        this._applyRecent(shownOngoing, cachedEnded)
+      }
       // 已结束的局走共享缓存（与历史/我的 同源），战绩随结算实时更新
       const [ongoingRes, endedAll] = await Promise.all([
         db
@@ -112,11 +117,13 @@ Page({
       }
     })
     const stats = computeGameStats(endedAll || [], openid)
-    this.setData({
-      recentGames: [...ongoing, ...ended].slice(0, 5),
-      myStats: stats.totalGames > 0 ? stats : null,
-      loading: false
-    })
+    const recentGames = [...ongoing, ...ended].slice(0, 5)
+    const myStats = stats.totalGames > 0 ? stats : null
+    // 内容签名去重：中间态与网络回包内容一致时不再重复 setData，杜绝无谓的二次渲染
+    const sig = JSON.stringify({ recentGames, myStats })
+    if (sig === this._recentSig && !this.data.loading) return
+    this._recentSig = sig
+    this.setData({ recentGames, myStats, loading: false })
   },
 
   onCreate() {
