@@ -197,7 +197,7 @@ function main() {
   const real = ended.filter(
     g => active(g).length >= 4 && toTime(g.endedAt) - toTime(g.startedAt) >= 20 * 60000
   )
-  console.log('\n──────── 真实牌局（≥4人 且 ≥20分钟，积分榜计入口径）────────\n')
+  console.log('\n──────── 真实牌局（≥4人 且 ≥20分钟，并排除各自已删除的场次）────────\n')
   console.log(`  ${real.length} 场 / 共 ${ended.length} 场已结束`)
   const realDur = real.map(g => toTime(g.endedAt) - toTime(g.startedAt))
   if (realDur.length) {
@@ -206,8 +206,13 @@ function main() {
   const RU = new Map()
   real.forEach(g => {
     const at = toTime(g.endedAt)
+    const hidden = Array.isArray(g.hiddenForOpenids) ? g.hiddenForOpenids : []
     active(g).forEach(p => {
       if (!p.openid) return
+      // 谁删了就不计入谁的统计（删除即"这是测试局/不算数"的意思表示）。
+      // 注意：线上积分榜 calcSeasonScore 不做此过滤（个人删除不应能改共享榜单，
+      // 否则删掉输的局就能刷排名）；共享口径由榜主的 excludeGame 控制。
+      if (hidden.includes(p.openid)) return
       if (!RU.has(p.openid)) RU.set(p.openid, { n: '', t: -1, gs: [] })
       const u = RU.get(p.openid)
       u.gs.push(g)
