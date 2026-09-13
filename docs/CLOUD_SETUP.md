@@ -1,414 +1,126 @@
-# Stax 云开发部署清单
+# 云资源与兼容边界
 
-> 目标：把当前代码从本地 Demo 模式切到真实云开发模式，让朋友可以通过微信分享加入同一局并实时同步。
->
-> 当前已配置环境 ID：`cloud1-d7gykoaktfc01fbf0`
+核对日期：2026-09-13；依据本地代码 `e722a8f`。本文不证明生产规则、索引和部署版本已与仓库一致。
 
----
+## 环境
 
-## 0. 先确认项目已切到真实云
-
-打开 `miniprogram/app.js`，确认有这一行：
+`miniprogram/app.js` 当前配置：
 
 ```js
 const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 ```
 
-如果是这个值，说明不会再进入 Demo 模式，会直接连你的微信云开发环境。
+这是共享生产环境，不是测试环境。普通本地开发、真机预览都可能读写真实数据；云函数部署立即影响所有线上客户端。任何部署、初始化、重算和权限变更都需单独确认范围。
 
----
+导入包含 `project.config.json` 的仓库根目录，确认 AppID 与环境归属。只有 `ENV_ID` 为 `STAX_REPLACE_ME_BEFORE_DEPLOY` 才启用内存 Mock，详见 [演示说明](DEMO.md)。
 
-## 1. 打开云开发控制台
+## 集合与职责
 
-1. 打开微信开发者工具
-2. 导入本仓库根目录（包含 `project.config.json`）
-3. 顶部点 **云开发**
-4. 确认左上角环境为：`cloud1-d7gykoaktfc01fbf0`
+当前代码使用八个集合。已有环境先核对，不重复初始化或清空。
 
----
+| 集合 | 用途 | 写入责任 |
+| --- | --- | --- |
+| `users` | 身份、昵称头像、派生统计、统计计算令牌 | 用户及结算相关云函数 |
+| `games` | 房间配置、成员、座位、结算、版本与待补算标记 | 创建、加入、记账、结算等云函数 |
+| `transactions` | 买入、结算、费用、修正及撤销元数据 | 记账与结算云函数 |
+| `circles` | 积分榜、成员和当前赛季 | 积分榜管理云函数 |
+| `seasons` | 赛季结果、比赛摘要、计算版本 | 赛季计算与管理云函数 |
+| `opReceipts` | 持久化操作回执 | 记账与结算云函数 |
+| `terms` | 术语种子内容 | `seedTerms` |
+| `handRanks` | 起手参考种子内容 | `seedTerms` |
 
-## 2. 创建数据库集合
+## 数据权限：不要照抄旧规则
 
-云开发控制台 → 左侧 **数据库** → **集合管理** → **新建集合**，依次创建 8 个集合：
+**当前仓库没有一份经过生产核验、可直接套用的完整安全规则。** 旧文档曾把“登录用户可读整个集合”列为推荐设置；那只能解释历史兼容需求，不能作为隐私保证或本次变更指令。
 
-```text
-users
-games
-transactions
-terms
-handRanks
-circles
-seasons
-opReceipts
-```
+- 业务写入走云函数鉴权，不开放前端直接写入。
+- `opReceipts` 仅云函数读写，前端不可读写。
+- 详情仍直接读取 `games/transactions`；部分积分榜页面仍有集合直读依赖。
+- 当前积分榜详情通过 `getSeasonView` 获取裁剪视图，且校验赛季所属积分榜；这不能替代底层规则。
+- 详情与积分榜有成员资料订阅需求。若现有 `users` 规则只允许本人读取，这些订阅可能受限；不能直接开放整份用户文档来换取同步。
+- 不能一刀切收紧集合读权限，否则可能打断源码未完整留存的已发布客户端；也不能为排障盲目扩大权限。
 
-不要漏，名字必须完全一致，大小写也要一致。
+权限迁移应先盘点实际部署规则、旧客户端请求和公开资料字段，再逐步切换受控读取及最小变更信号。详见 [修复边界](TRUST_SYNC_FIXES_2026-09-13.md#仍需明确的边界)。
 
----
+## 索引核对
 
-## 3. 配置数据库权限
+以下是当前代码的查询形状，需结合云控制台查询计划和缺索引提示核实。不是“一张表照填后就已验证”的生产索引清单；不要删除已有索引。
 
-进入每个集合 → **权限设置 / 安全规则** → 选择 **自定义安全规则**。
+| 集合 | 过滤与排序 | 对应路径 |
+| --- | --- | --- |
+| `games` | 本人成员、已结束、本人可见；按结束时间分页 | 战绩、个人聚合 |
+| `games` | 本人成员；`startedAt` 降序 | 可见页面近期记录订阅 |
+| `games` | `status`、`players.openid`；`_id` 升序 | 派生个人统计重算 |
+| `games` | `derivedPending`、`derivedRetryAfter` | 失败补算任务 |
+| `games` | 已结束与赛季时间窗 | 赛季计分 |
+| `games/circles` | `inviteCode` 与状态 | 分享加入及旧调用兼容 |
+| `transactions` | `gameId`；`timestamp` 降序、`_id` 降序 | 全部流水稳定分页 |
+| `users` | `_openid` | 身份、资料和统计查询 |
+| `circles` | 活跃状态、成员；部分查询按 `_id` 分页 | 相关积分榜重算 |
+| `seasons` | `circleId`、赛季状态与时间 | 赛季读取和结账 |
+| `opReceipts` | `_id` | 操作回执查询 |
 
-### 3.1 users
+数组字段和多条件查询能否使用某个组合索引，以实际云环境验证为准。
 
-```json
-{
-  "read": "doc._openid == auth.openid",
-  "write": false
-}
-```
+## 云函数目录
 
-说明：用户资料由云函数 `whoami` 写入，前端只读自己的资料。
+当前共 22 个，不代表本次要重新部署全部函数。
 
-### 3.2 games
+| 职责 | 函数 |
+| --- | --- |
+| 用户与资料 | `whoami`、`getAvatars` |
+| 积分记录 | `createGame`、`joinGame`、`recordTransaction`、`settleGame`、`deleteGameRecord` |
+| 积分榜管理 | `createCircle`、`joinCircle`、`leaveCircle`、`dissolveCircle`、`removeCircleMember` |
+| 赛季计算 | `calcSeasonScore`、`settleSeason`、`resetSeason`、`excludeGame` |
+| 受控读取与聚合 | `getSeasonView`、`getMyAnalytics`、`getGameView` |
+| 内容与兼容能力 | `seedTerms`、`aiReview`、`termAi` |
 
-```json
-{
-  "read": "auth.openid != null",
-  "write": false
-}
-```
+`getGameView` 已存在，但详情页尚未全部迁移到该入口。趋势解读当前本地同步生成；`getMyAnalytics` 保留云端镜像与旧返回字段。
 
-说明：前端需要读取进行中牌局、历史牌局、详情页实时同步；写入都走云函数。
+`aiReview/termAi` 默认使用规则模板；混元和 CloudBase AI 分支仍是抛错后回退的占位实现，设置环境变量不会自动完成大模型接入。
 
-### 3.3 transactions
+## 本轮部署依赖
 
-```json
-{
-  "read": "auth.openid != null",
-  "write": false
-}
-```
+只有确认要部署后才执行；常规流程见 [部署指南](DEPLOY.md)。
 
-说明：详情页先展示最新流水，再分页补齐整场记录用于对账；写入、撤销都走云函数。
+1. 运行 `npm run check`、`npm run lint`、`git diff --check`。
+2. 对照各函数实际“上次部署的 commit”检查差异；不能把本轮开发基线当作已知生产基线。
+3. 本轮先部署 `calcSeasonScore`，再部署 `recordTransaction`、`getSeasonView`、`getMyAnalytics`、`settleGame`。
+4. 上传完整函数目录并云端安装依赖。`settleGame` 不可漏 `derived-stats.js/config.json`，`getMyAnalytics` 不可漏 `analytics.js/stats.js/trend-note.js`。
+5. 验证旧前端费用、加入、结算和修正，再上传新前端。保留旧字段和按载荷形状兼容 mode 的逻辑。
 
-### 3.4 terms
+## 定时器与补算
 
-```json
-{
-  "read": true,
-  "write": false
-}
-```
+| 函数 | 仓库配置 | 启用后职责 |
+| --- | --- | --- |
+| `settleGame` | `retryDerivedStats`，每分钟 | 每轮最多处理一场到期的待补算记录 |
+| `settleSeason` | `settleExpiredSeasons`，cron 为 `0 0 4 * * * *` | 检查到期赛季并结账 |
 
-### 3.5 handRanks
+必须在控制台核实触发器是否启用、时区、超时和执行日志，不能根据文件存在就认定定时任务已运行。
 
-```json
-{
-  "read": true,
-  "write": false
-}
-```
+结算事务登记 `derivedPending/derivedVersion/derivedRetryAfter`。新前端先接收已确认结果，再调用 `syncDerived`；失败标记保留，供重试和定时器接续。此机制修复派生统计，不猜测或改写玩家填错的剩余积分，也不自动扫描所有历史数据。
 
-说明：术语词典和起手牌表所有用户可读；初始化数据通过 `seedTerms` 云函数写入。
+## 种子数据
 
-### 3.6 circles
+`seedTerms` 默认 `reset: true`：会清空所选内容集合后重建。**不要作为每次发版或排障的固定步骤。**
 
-```json
-{
-  "read": "auth.openid != null",
-  "write": false
-}
-```
-
-说明：圈子列表/详情前端直读；创建、加入、退出、解散都走云函数。
-
-### 3.7 seasons
+仅对空环境初始化或经明确确认的内容重建执行，先备份现有内容。例如分开调用：
 
 ```json
-{
-  "read": "auth.openid != null",
-  "write": false
-}
+{ "reset": true, "only": "terms" }
 ```
-
-说明：赛季排名与比赛摘要（`gameSummaries`）前端直读；计算与写入只走 `calcSeasonScore` / `settleSeason`。
-
-### 3.8 opReceipts
 
 ```json
-{
-  "read": false,
-  "write": false
-}
+{ "reset": true, "only": "handRanks" }
 ```
 
-说明：持久幂等回执集合，仅云函数读写（前端完全不可访问）。文档结构 `{ _id: '<gameId>:<operationId>', gameId, operationId, result, createdAt }`。`recordTransaction` / `settleGame` 有 `operationId` 时先查回执命中即返回原结果，事务成功后写回执，保证弱网久离线重放零重复写入。
-
----
-
-## 3.5 创建数据库索引（性能必做）
-
-云数据库默认只有 `_id` 索引，以下高频查询必须建索引，否则数据量上来后全是集合扫描。
-控制台 → 数据库 → 选中集合 → **索引管理** → 新建：
-
-| 集合         | 索引字段                                               | 用途                    |
-| ------------ | ------------------------------------------------------ | ----------------------- |
-| games        | `inviteCode` 升序 + `status` 升序                      | 邀请码加入牌局          |
-| games        | `status` 升序 + `players.openid` 升序 + `endedAt` 降序 | 首页/历史「我参与的局」 |
-| games        | `status` 升序 + `endedAt` 升序 + `startedAt` 升序      | 赛季计分时间窗查询      |
-| transactions | `gameId` 升序 + `timestamp` 降序                       | 牌局流水                |
-| users        | `_openid` 升序                                         | 按 openid 查用户        |
-| circles      | `status` 升序 + `memberOpenids` 升序                   | 结算后触发赛季计分      |
-| circles      | `inviteCode` 升序 + `status` 升序                      | 邀请码加入圈子          |
-| seasons      | `circleId` 升序                                        | 圈子赛季查询            |
-| opReceipts   | `_id`（默认，形如 `<gameId>:<operationId>`）           | 幂等回执命中查询        |
-
-> `players.openid` / `memberOpenids` 是数组字段，云数据库（MongoDB）会自动建多键索引，直接按上表填写即可。
-
----
-
-## 4. 部署云函数
-
-在微信开发者工具左侧文件树里找到 `cloudfunctions/`，对下面每个目录执行同样操作：
-
-右键目录 → **上传并部署：云端安装依赖**
-
-全部 22 个都需要部署：
-
-```text
-whoami          createGame      joinGame
-recordTransaction settleGame    seedTerms
-aiReview        termAi          getAvatars
-createCircle    joinCircle      leaveCircle
-dissolveCircle  calcSeasonScore settleSeason
-resetSeason     excludeGame     deleteGameRecord
-removeCircleMember
-getSeasonView   getMyAnalytics  getGameView
-```
-
-建议顺序：先 `whoami`，再牌局链路（createGame → joinGame → recordTransaction → settleGame），再圈子链路（createCircle → joinCircle → calcSeasonScore → …），再只读聚合（getSeasonView / getMyAnalytics / getGameView），最后其余。
-
-每个部署完成后，控制台应该显示上传成功。
-
-> 代码更新后只需重新部署改动过的函数；改动记录见 git log 中各云函数目录的提交。
-
----
-
-## 5. 初始化术语和起手牌数据
-
-1. 云开发控制台 → 左侧 **云函数**
-2. 找到 `seedTerms`
-3. 点 **云端测试**
-
-为了避免云端测试 3 秒超时，建议分两次执行。
-
-### 5.1 先初始化术语
-
-入参：
-
-```json
-{
-  "reset": true,
-  "only": "terms"
-}
-```
-
-成功返回应类似：
-
-```json
-{
-  "ok": true,
-  "mode": "terms",
-  "termsCleared": 0,
-  "termsInserted": 50
-}
-```
-
-### 5.2 再初始化起手牌表
-
-入参：
-
-```json
-{
-  "reset": true,
-  "only": "handRanks"
-}
-```
-
-成功返回应类似：
-
-```json
-{
-  "ok": true,
-  "mode": "handRanks",
-  "handRanksCleared": 0,
-  "handRanksInserted": 169
-}
-```
-
-也可以一次性跑：
-
-```json
-{
-  "reset": true,
-  "only": "all"
-}
-```
-
-但如果遇到 3 秒超时，就按上面分两次跑。
-
-然后去数据库里确认：
-
-- `terms` 有 50 条
-- `handRanks` 有 169 条
-
----
-
-## 6. 快速验证云函数
-
-### 6.1 测 whoami
-
-云函数 → `whoami` → 云端测试 → 入参：
-
-```json
-{}
-```
-
-成功返回：
-
-```json
-{
-  "ok": true,
-  "openid": "...",
-  "user": {
-    "nickname": "玩家"
-  }
-}
-```
-
-### 6.2 测 aiReview / termAi
-
-`aiReview` 需要已结算牌局才有结果，所以先不用测。
-
-可以先测 `termAi`：
-
-入参：
-
-```json
-{
-  "termEn": "Button"
-}
-```
-
-成功返回：
-
-```json
-{
-  "ok": true,
-  "aiText": "..."
-}
-```
-
----
-
-## 7. 在小程序里跑一遍真实流程
-
-微信开发者工具点 **编译**。
-
-### 7.1 预期启动状态
-
-- 不应该出现「Demo 模式」金色横幅
-- 控制台不应该出现 `[cloud-mock] installed`
-- 首页可以正常打开
-
-### 7.2 完整流程
-
-1. 「我的」→ 设置头像和昵称 → 保存
-2. 「首页」→ 创建牌局
-3. 进入牌局详情页，看到邀请码
-4. 用另一个微信号扫码/输入邀请码加入
-5. 参与人点「我要补码」
-6. 房主看到完整流水，可撤销
-7. 房主点「结束并结算」
-8. 输入最终筹码，确保 `Σ profit = 0`
-9. 输入额外费用，例如 `60`，选择「赢家按比例」
-10. 提交结算
-11. 点「AI 点评」
-12. 回到「我的」→「数据看板」，确认有战绩
-
----
-
-## 8. 常见问题
-
-### 问题 1：启动报 `env not found`
-
-检查 `miniprogram/app.js`：
-
-```js
-const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
-```
-
-以及开发者工具当前登录的小程序 AppID 是否和这个云环境属于同一个小程序。
-
-### 问题 2：`cloud.callFunction:fail function not found`
-
-说明对应云函数没部署。
-
-解决：右键该云函数目录 → **上传并部署：云端安装依赖**。
-
-### 问题 3：术语词典为空
-
-说明没执行 `seedTerms`。
-
-解决：云函数 `seedTerms` → 云端测试：
-
-```json
-{
-  "reset": true
-}
-```
-
-### 问题 4：加入牌局后看不到实时更新
-
-优先检查 `games` 集合权限是不是：
-
-```json
-{
-  "read": "auth.openid != null",
-  "write": false
-}
-```
-
-如果权限过严，参与人读不到牌局文档。
-
-### 问题 5：房主操作返回 `NOT_HOST`
-
-说明当前微信号不是创建牌局的微信号。
-
-只有创建牌局的人是房主，可以：
-
-- 淘汰玩家
-- 暂停/恢复
-- 手动升盲
-- 结束结算
-- 撤销补码流水
-
-参与人只能给自己补码。
-
-### 问题 6：AI 点评不是大模型输出
-
-当前 `aiReview` 和 `termAi` 默认走规则模板，已经可用、零成本。
-
-之后如果要接腾讯混元/云开发 AI，只需要配置云函数环境变量：
-
-```text
-STAX_AI_PROVIDER=hunyuan
-```
-
-再补齐混元 Secret 配置即可。当前阶段不用管。
-
----
-
-## 9. 最小成功标准
-
-做到下面 5 个，就说明云开发已经部署成功：
-
-- [ ] `whoami` 云端测试返回 openid
-- [ ] `seedTerms` 返回 `termsInserted: 50` 和 `handRanksInserted: 169`
-- [ ] 小程序能创建牌局并生成邀请码
-- [ ] 第二个微信号能加入同一局
-- [ ] 房主结算后，数据看板能看到新增战绩
-
-完成这 5 个之后，就可以继续真机体验和准备提审截图。
+种子数量以 `cloudfunctions/seedTerms/seed/` 中 JSON 数组为准。`reset: false` 是追加，不保证防重复。不得对业务集合用类似方式“初始化”。
+
+## 排障顺序
+
+- 环境错误：核对实际 AppID、环境 ID 与登录权限，不反复改配置试错。
+- 函数不存在：核对函数名称、实际部署目录和依赖；仅部署已确认范围。
+- 同步异常：查网络、watch 错误、权限和索引，验证断线恢复；不要简单改成全员可读。
+- 新用户加入失败：检查原地资料弹框、`whoami` 和 `joinGame` 的实际云端版本。
+- 流水不完整：核对分页失败日志、完整快照版本和复合排序；不要降低为只显示最近二十条。
+- 结算后榜单未更新：检查待补算标记、函数超时、赛季计算和定时触发器；不要重复提交一笔新结算来“催更新”。
