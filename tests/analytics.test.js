@@ -29,6 +29,9 @@ const games = [
   makeGame(80)
 ]
 const result = computeAnalytics(games, 'me')
+const { formatDimensionKey } = require('../miniprogram/utils/format.js')
+assert.deepStrictEqual(result.dimensions.rebuys.map(r => formatDimensionKey(r.key, 'rebuys')), ['1 手', '2 手', '3+ 手'])
+assert.strictEqual(formatDimensionKey('2 号', 'position'), '2 号')
 const excluded = [makeGame(999), makeGame(999), makeGame(999)]
 excluded[0].deletedAt = new Date()
 excluded[1].hiddenForOpenids = ['me']

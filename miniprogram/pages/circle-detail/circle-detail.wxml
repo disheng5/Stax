@@ -121,7 +121,7 @@
   <view class="footer-actions">
     <view class="footer-link" wx:if="{{!isOwner}}" bindtap="onLeave">退出积分榜</view>
     <view wx:if="{{isOwner}}" class="owner-actions">
-      <view class="footer-link" wx:if="{{season}}" bindtap="onResetSeason">重置本季积分</view>
+      <view class="footer-link" wx:if="{{season}}" bindtap="onResetSeason">重新计算本季积分</view>
       <view class="footer-link danger" bindtap="onDissolve">解散积分榜</view>
     </view>
   </view>

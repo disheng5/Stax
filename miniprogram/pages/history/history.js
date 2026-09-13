@@ -1,4 +1,4 @@
-const { formatDate, formatDuration, formatProfit } = require('../../utils/format.js')
+const { formatDate, formatDuration, formatProfit, formatDimensionKey } = require('../../utils/format.js')
 const {
   fetchAllGames,
   getCachedGames,
@@ -117,6 +117,7 @@ Page(require('../../utils/live-view.js').liveGamesPage({
     this.setData({
       dimData: rows.map(g => ({
         ...g,
+        displayKey: formatDimensionKey(g.key, this.data.dim),
         avg: g.games ? Math.round((g.profit || 0) / g.games) : 0,
         winRate: g.games ? Math.round(((g.wins || 0) * 1000) / g.games) / 10 : 0,
         profitStr: formatProfit(g.profit || 0)
@@ -208,6 +209,7 @@ Page(require('../../utils/live-view.js').liveGamesPage({
     const dimData = sortDimensionRows(
       Object.values(groups).map(g => ({
         ...g,
+        displayKey: formatDimensionKey(g.key, this.data.dim),
         avg: g.games ? Math.round(g.profit / g.games) : 0,
         winRate: g.games ? Math.round((g.wins * 1000) / g.games) / 10 : 0,
         profitStr: formatProfit(g.profit)

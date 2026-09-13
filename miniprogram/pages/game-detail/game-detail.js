@@ -16,7 +16,7 @@ const {
   transactionHandState,
   sortTransactions,
   mergeTransactions,
-  expandRevocations
+  buildLedgerEvents
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
@@ -575,7 +575,7 @@ Page({
 
   _applyTransactions(transactions, signature, game = this.data.game) {
     this._txRaw = sortTransactions(mergeTransactions([], transactions))
-    const all = expandRevocations(this._txRaw)
+    const all = buildLedgerEvents(this._txRaw, game)
     const nameMap = {}
     const buyIn = Number(game?.buyIn || 0)
     const profiles = [...(game?.players || []), ...(game?.removedPlayers || [])]
@@ -814,9 +814,9 @@ Page({
     // 结束后 3 小时内仍可修改结算积分；超时后锁定
     if (!canEditSettle(game)) return
     const ongoing = game.status === 'ongoing'
-    // 朋友局：参赛成员可代提他人结算；房间关闭「权限共享」时仅房主可操作
-    const canOperateOthers = this.data.isHost || game.playerOpsShared !== false
-    if (!isSelf && !canOperateOthers) return
+    // 共享开启时成员可互相代买/代结算；关闭后仅房主可操作。
+    const canOperate = this.data.isHost || game.playerOpsShared !== false
+    if (!canOperate) return
 
     const settled = player.finalStack !== null && player.finalStack !== undefined
     const items = []
@@ -829,7 +829,7 @@ Page({
         items.push('结算')
         actions.push('settle')
       } else if (ongoing) {
-        items.push('改码')
+        items.push('修改结算')
         actions.push('settle')
         items.push('买入')
         actions.push('selfrebuy')
@@ -844,7 +844,7 @@ Page({
         items.push('帮他结算')
         actions.push('settle')
       } else if (ongoing) {
-        items.push('帮他改码')
+        items.push('帮他修改结算')
         actions.push('settle')
         items.push('帮他买入')
         actions.push('rebuy')
@@ -853,7 +853,7 @@ Page({
         actions.push('settle')
       }
       if (ongoing && this.data.isHost) {
-        items.push('踢人')
+        items.push('移出记录')
         actions.push('eliminate')
       }
     }

@@ -1,5 +1,5 @@
 const app = getApp()
-const { formatProfit } = require('../../utils/format.js')
+const { formatProfit, formatDimensionKey } = require('../../utils/format.js')
 const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/game-data.js')
 const { computeAnalytics } = require('../../utils/analytics.js')
 const { changedPatch } = require('../../utils/render.js')
@@ -36,6 +36,7 @@ Page(require('../../utils/live-view.js').liveGamesPage({
     const patch = changedPatch(this.data, {
       dim, loading: false,
       dimData: rows.map(g => ({
+        displayKey: formatDimensionKey(g.key, dim),
         ...g, avg: g.games ? Math.round((g.profit || 0) / g.games) : 0,
         winRate: g.games ? Math.round(((g.wins || 0) * 1000) / g.games) / 10 : 0,
         profitFormatted: formatProfit(g.profit || 0)

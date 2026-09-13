@@ -91,10 +91,6 @@
       </view>
       <view class="expense-divider" wx:if="{{recentTx.length}}"></view>
     </view>
-    <view class="tx tx-system" wx:if="{{game.status === 'ended'}}">
-      <text class="tx-time">{{settleResult.endTimeStr || ''}}</text>
-      <text class="tx-sentence tx-seg--action">全员已结算，记录结束</text>
-    </view>
     <view class="tx {{tx.revoked ? 'tx-revoked' : ''}}" wx:for="{{recentTx}}" wx:for-item="tx" wx:key="_id">
       <text class="tx-time">{{tx.timeStr}}</text>
       <text class="tx-sentence">
@@ -114,7 +110,7 @@
     <button class="btn btn--primary" bindtap="onRetryLoad">重新加载</button>
   </view>
 </view>
-<empty-state wx:else title="房间不存在或已结束" />
+<empty-state wx:else title="记录不存在或暂不可查看" />
 
 <profile-sheet id="join-profile" />
 <view class="hands-mask" wx:if="{{handsPicker.show}}" bindtap="onHandsClose">

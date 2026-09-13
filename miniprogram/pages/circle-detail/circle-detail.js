@@ -367,13 +367,12 @@ Page({
 
   onResetSeason() {
     wx.showModal({
-      title: '重置本季积分',
-      content: '将清空当前赛季所有积分并重新计算，确定吗？',
-      confirmText: '重置',
-      confirmColor: '#C8102E',
+      title: '重新计算本季积分',
+      content: '按本季有效记录重新计算，原始记录和排除设置保留。',
+      confirmText: '重新计算',
       success: async r => {
         if (!r.confirm) return
-        wx.showLoading({ title: '重置中…' })
+        wx.showLoading({ title: '计算中…' })
         try {
           const res = await wx.cloud.callFunction({
             name: 'resetSeason',

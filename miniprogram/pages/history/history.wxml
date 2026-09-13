@@ -52,9 +52,9 @@
       <view class="section-title" style="margin-bottom:16rpx;">维度分析</view>
       <scroll-view scroll-x class="dim-tabs">
         <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
-        <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">买入次数</view>
+        <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">累计手数</view>
         <view class="dim-tab {{dim === 'weekday' ? 'active' : ''}}"   data-k="weekday"   bindtap="onDimChange">星期</view>
-        <view class="dim-tab {{dim === 'position' ? 'active' : ''}}" data-k="position" bindtap="onDimChange">位置</view>
+        <view class="dim-tab {{dim === 'position' ? 'active' : ''}}" data-k="position" bindtap="onDimChange">座位</view>
       </scroll-view>
       <view class="dim-head text-sub">
         <view class="col-key">分组</view>
@@ -64,7 +64,7 @@
         <view class="col">胜率</view>
       </view>
       <view class="dim-row" wx:for="{{dimData}}" wx:key="key">
-        <view class="col-key">{{item.key}}</view>
+        <view class="col-key">{{item.displayKey}}</view>
         <view class="col">{{item.games}}</view>
         <view class="col {{item.profit >= 0 ? 'text-gain' : 'text-loss'}}">{{item.profitStr}}</view>
         <view class="col {{item.avg >= 0 ? 'text-gain' : 'text-loss'}}">{{item.avg}}</view>

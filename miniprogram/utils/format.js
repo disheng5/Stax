@@ -25,4 +25,9 @@ function formatProfit(n) {
   return '' + n
 }
 
-module.exports = { formatDate, formatDateTime, formatDuration, formatProfit }
+function formatDimensionKey(key, dimension) {
+  // 保留服务端旧 key 和分桶，仅纠正显示单位：buyInCount 累计的是手数。
+  return dimension === 'rebuys' ? String(key).replace(/次$/, '手') : key
+}
+
+module.exports = { formatDate, formatDateTime, formatDuration, formatProfit, formatDimensionKey }

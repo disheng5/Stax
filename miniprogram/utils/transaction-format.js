@@ -67,6 +67,11 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
       }
     })
 
+  if (kind === 'recordended') {
+    seg('action', '本次积分记录已结束')
+    return withKeys()
+  }
+
   if (kind === 'buyIn') {
     const finalHands = hasBeforeAfter(tx.beforeHands, tx.afterHands) ? tx.afterHands : accHands
     if (isProxy) seg('operator', `${operator}帮`)
@@ -256,6 +261,23 @@ function expandRevocations(transactions) {
   return sortTransactions(out)
 }
 
+function buildLedgerEvents(transactions, game) {
+  const events = expandRevocations(transactions)
+  const endedAt = game?.endedAt && +new Date(game.endedAt)
+  if (game?.status !== 'ended' || !Number.isFinite(endedAt)) return events
+  if (events.some(tx => normalizeTransactionKind(tx) === 'recordended')) return events
+  // 旧数据的结束时间在 game 上。只生成展示事件，不回写流水或修改原始顺序号。
+  const closingSequence = events.reduce((max, tx) => {
+    if (+new Date(tx.timestamp) !== endedAt || normalizeTransactionKind(tx) !== 'settle' ||
+      hasBeforeAfter(tx.beforeValue, tx.afterValue)) return max
+    return Math.max(max, Number(tx.operationSequence) || 0)
+  }, 0)
+  return sortTransactions(events.concat({
+    _id: `${game._id}:record-ended`, type: 'recordEnded', timestamp: game.endedAt,
+    operationSequence: closingSequence + 0.5
+  }))
+}
+
 module.exports = {
   buildTransactionSentence,
   transactionSentenceText,
@@ -263,5 +285,6 @@ module.exports = {
   transactionHandState,
   sortTransactions,
   mergeTransactions,
-  expandRevocations
+  expandRevocations,
+  buildLedgerEvents
 }
