@@ -75,7 +75,8 @@ Page({
     expenseModeOptions: EXPENSE_MODE_OPTIONS,
     settleResult: null,
     settleWinnerOpenid: '',
-    pendingCount: 0
+    pendingCount: 0,
+    legacyPendingCount: 0
   },
 
   async onLoad(options) {
@@ -142,8 +143,10 @@ Page({
 
   // 弱网待提交队列：按 operationId 去重，网络恢复/回前台重放。
   _pendingQueue() {
-    if (!this._queue) {
-      const key = `stax_pending_${this.data.gameId}`
+    const owner = app.globalData.openid || ''
+    if (!this._queue || this._queueOwner !== owner) {
+      this._queueOwner = owner
+      const key = `stax_pending_${this.data.gameId}_${owner}`
       this._queue = createPendingQueue({
         load: () => {
           try {
@@ -172,7 +175,10 @@ Page({
 
   async _flushPending() {
     if (!this.data.gameId || this._flushing) return
+    await app.globalData.openidReady
+    if (!app.globalData.openid || this._unloaded || this._flushing) return
     const queue = this._pendingQueue()
+    this._syncPendingBadge()
     if (!queue.list().length) return
     this._flushing = true
     try {
@@ -196,6 +202,42 @@ Page({
   _syncPendingBadge() {
     const count = this._queue ? this._queue.list().length : 0
     if (this.data.pendingCount !== count) this.setData({ pendingCount: count })
+    try {
+      const legacy = wx.getStorageSync(`stax_pending_${this.data.gameId}`) || []
+      const legacyCount = Array.isArray(legacy) ? legacy.length : 0
+      if (this.data.legacyPendingCount !== legacyCount) this.setData({ legacyPendingCount: legacyCount })
+    } catch (err) {
+      console.warn('[pending storage]', err)
+    }
+  },
+
+  async onRecoverPending() {
+    if (this._recoveringPending) return
+    this._recoveringPending = true
+    try {
+      await app.globalData.openidReady
+      if (!app.globalData.openid) return
+      const key = `stax_pending_${this.data.gameId}`
+      const entries = wx.getStorageSync(key) || []
+      if (!Array.isArray(entries) || !entries.length) return
+      const confirmed = await new Promise(resolve => wx.showModal({
+        title: '恢复待提交记录',
+        content: `旧版留下了 ${entries.length} 笔待提交操作。确认这些操作由你发起后，将继续同步；已成功的操作不会重复计入。`,
+        confirmText: '确认恢复', success: r => resolve(r.confirm), fail: () => resolve(false)
+      }))
+      if (!confirmed || this._unloaded) return
+      const queue = this._pendingQueue()
+      for (const op of entries) queue.enqueue(op)
+      const savedIds = new Set(queue.list().map(op => op.operationId))
+      wx.setStorageSync(key, (wx.getStorageSync(key) || []).filter(op => !savedIds.has(op.operationId)))
+      await this._flushPending()
+    } catch (err) {
+      console.warn('[pending recovery]', err)
+      if (!this._unloaded) wx.showToast({ title: '暂时无法恢复，请稍后重试', icon: 'none' })
+    } finally {
+      this._recoveringPending = false
+      if (!this._unloaded) this._syncPendingBadge()
+    }
   },
 
   // openid 晚于牌局数据到位时，重算我在本局的身份
@@ -373,6 +415,7 @@ Page({
     })
     this._completeFailures = 0
     this._startProfileWatch(snapshot.game.players || [])
+    if (snapshot.game.derivedPending && this.data.isPlayer) this._syncDerived()
   },
 
   _startProfileWatch(players) {
@@ -502,6 +545,15 @@ Page({
 
   async _fetchGameOnce() {
     return this._loadComplete()
+  },
+
+  _syncDerived() {
+    if (this._derivedTask) return this._derivedTask
+    // A separate cloud invocation survives page navigation; the durable server task is the fallback.
+    this._derivedTask = wx.cloud.callFunction({ name: 'settleGame', data: {
+      gameId: this.data.gameId, syncDerived: true
+    } }).catch(err => console.warn('[derived sync]', err)).finally(() => { this._derivedTask = null })
+    return this._derivedTask
   },
 
   onRetryLoad() {
@@ -850,6 +902,7 @@ Page({
             data: {
               gameId: this.data.gameId,
               mode: 'checkout',
+              deferDerived: true,
               operationId: createOperationId('checkout'),
               finalStacks: { [openid]: finalStack }
             }
@@ -870,6 +923,7 @@ Page({
           }
           if (res.result.game) this._applyGame(res.result.game)
           else this._fetchGameOnce()
+          if (res.result.derivedPending) this._syncDerived()
           wx.showToast({
             title: res.result.justEnded ? '全员结算完成，已收局' : '已记录',
             icon: 'success'
@@ -1071,6 +1125,7 @@ Page({
         data: {
           gameId: this.data.gameId,
           mode: 'expense',
+          deferDerived: true,
           operationId: createOperationId('expense'),
           extraCost,
           expenseMode: this.data.expensePanel.expenseMode
@@ -1090,6 +1145,7 @@ Page({
         return
       }
       this.setData({ 'expensePanel.show': false })
+      if (res.result.derivedPending) this._syncDerived()
       wx.showToast({ title: '已保存', icon: 'success' })
       if (res.result.game) this._applyGame(res.result.game)
       else this._fetchGameOnce()

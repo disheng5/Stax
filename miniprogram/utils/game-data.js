@@ -214,8 +214,9 @@ async function readAllGames(openid, opts = {}) {
     }
   }
 
-  const filtered = all.filter(
-    g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
+  const filtered = [...new Map(all.map(g => [g._id, g])).values()].filter(
+    g => !g.deletedAt && !(g.hiddenForOpenids || []).includes(openid) &&
+      (g.players || []).some(p => p.openid === openid && !p.eliminatedAt)
   )
 
   if (version !== _version) return readAllGames(openid, { force: true })

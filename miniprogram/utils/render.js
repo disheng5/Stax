@@ -15,7 +15,11 @@ function batchRender(page, render) {
   const original = page.setData
   const combined = {}
   page.setData = patch => Object.assign(combined, patch)
-  try { render() } finally { page.setData = original }
+  try {
+    render()
+  } finally {
+    page.setData = original
+  }
   const patch = changedPatch(page.data, combined)
   if (Object.keys(patch).length) original.call(page, patch)
 }

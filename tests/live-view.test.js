@@ -1,12 +1,36 @@
 const assert = require('assert')
 const { observe } = require('../miniprogram/utils/live-view.js')
 const handlers = []
-let closed = 0, network, refreshes = 0
-global.wx = { onNetworkStatusChange(fn) { network = fn }, offNetworkStatusChange(fn) { assert.strictEqual(fn, network) } }
-const query = () => ({ watch(h) { handlers.push(h); return { close() { closed++ } } } })
+let closed = 0,
+  network,
+  refreshes = 0
+global.wx = {
+  onNetworkStatusChange(fn) {
+    network = fn
+  },
+  offNetworkStatusChange(fn) {
+    assert.strictEqual(fn, network)
+  }
+}
+const query = () => ({
+  watch(h) {
+    handlers.push(h)
+    return {
+      close() {
+        closed++
+      }
+    }
+  }
+})
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 ;(async () => {
-  const stop = observe([query], async () => { refreshes++ }, { fallbackMs: 100 })
+  const stop = observe(
+    [query],
+    async () => {
+      refreshes++
+    },
+    { fallbackMs: 100 }
+  )
   handlers[0].onChange({ docs: [{ revision: 1 }] })
   await wait(100)
   assert.strictEqual(refreshes, 0, 'initial subscription does not duplicate page fetch')
@@ -26,4 +50,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
   assert.strictEqual(refreshes, before, 'hidden page and stale watch callbacks cannot refresh')
   assert(closed >= 2)
   console.log('live-view.test.js passed')
-})().catch(err => { console.error(err); process.exitCode = 1 })
+})().catch(err => {
+  console.error(err)
+  process.exitCode = 1
+})

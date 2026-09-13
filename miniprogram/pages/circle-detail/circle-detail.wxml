@@ -12,6 +12,10 @@
     </view>
   </view>
 </view>
+<view class="container" wx:if="{{!loading && !circle}}" style="text-align:center;padding-top:80rpx;">
+  <view class="text-sub">暂时无法查看积分榜</view>
+  <button class="btn" bindtap="onRetryLoad" style="margin-top:24rpx;">重试</button>
+</view>
 <view class="container" wx:if="{{circle}}">
   <view class="header card">
     <view class="header-top">

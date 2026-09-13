@@ -24,5 +24,7 @@ const messages = {
   NOT_AUTHORIZED: '暂无查看权限',
   OWNER_CANNOT_REMOVE: '榜主不能移出自己'
 }
-function errorMessage(code) { return messages[code] || '操作失败，请稍后重试' }
+function errorMessage(code) {
+  return messages[code] || '操作失败，请稍后重试'
+}
 module.exports = { errorMessage }

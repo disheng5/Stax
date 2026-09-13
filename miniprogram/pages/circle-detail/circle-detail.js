@@ -50,6 +50,8 @@ Page({
 
   onHide() { this._visible = false; this._closeSeasonWatch() },
 
+  onRetryLoad() { this.setData({ loading: true }); return this._fetch() },
+
   // 服务端最小视图：不再在客户端直读全量 rankings；隐私裁剪由 getSeasonView 完成。
   async _fetch() {
     if (!this.data.circleId || this._unloaded) return
@@ -71,6 +73,12 @@ Page({
       })
       const view = res && res.result
       if (!view || !view.ok) {
+        if (['NOT_MEMBER', 'CIRCLE_NOT_FOUND', 'SEASON_NOT_FOUND'].includes(view?.error)) {
+          this._closeSeasonWatch()
+          wx.removeStorageSync(`stax_circle_${this.data.circleId}`)
+          this.setData({ circle: null, season: null, honors: [], members: [], me: null, myGames: [], isOwner: false })
+          wx.showToast({ title: require('../../utils/errors.js').errorMessage(view.error), icon: 'none' })
+        }
         this.setData({ loading: false })
         return
       }
@@ -177,16 +185,17 @@ Page({
       this._closeSeasonWatch()
       return
     }
-    if (this._stopSeasonLive && this._seasonWatchId === season.seasonId) return
+    const ids = (this.data.members || []).map(p => p.openid).filter(Boolean).sort()
+    const key = season.seasonId + ':' + ids.join(',')
+    if (this._stopSeasonLive && this._seasonWatchId === key) return
     this._closeSeasonWatch()
-    this._seasonWatchId = season.seasonId
+    this._seasonWatchId = key
     const db = wx.cloud.database()
     const queries = [
       () => db.collection('seasons').where({ _id: season.seasonId })
         .field({ _id: true, calculatedAt: true, status: true, exclusionRevision: true }).limit(1),
       () => db.collection('circles').doc(this.data.circleId)
     ]
-    const ids = (this.data.members || []).map(p => p.openid).filter(Boolean)
     for (let start = 0; start < ids.length; start += 20) {
       const batch = ids.slice(start, start + 20)
       queries.push(() => db.collection('users').where({ _openid: db.command.in(batch) })
