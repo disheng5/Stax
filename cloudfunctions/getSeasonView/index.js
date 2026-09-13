@@ -65,19 +65,36 @@ async function fetchMyGames(viewerOpenid, season) {
     // 已删除（对本人隐藏）的记录不出现在任何列表里
     { hiddenForOpenids: _.nin([viewerOpenid]) }
   ]
-  const res = await db
-    .collection('games')
-    .where(_.and(conditions))
-    .field({ players: true, name: true, startedAt: true, endedAt: true, excludeFromSeason: true })
-    .orderBy('endedAt', 'desc')
-    .limit(100)
-    .get()
-    .catch(() => ({ data: [] }))
+  const games = []
+  for (let skip = 0; ; skip += 100) {
+    const res = await db
+      .collection('games')
+      .where(_.and(conditions))
+      .field({
+        players: true,
+        name: true,
+        startedAt: true,
+        endedAt: true,
+        excludeFromSeason: true,
+        scoreRatio: true
+      })
+      .orderBy('endedAt', 'desc')
+      .limit(100)
+      .skip(skip)
+      .get()
+    games.push(...(res.data || []))
+    if ((res.data || []).length < 100) break
+  }
   const excluded = new Set(season.excludedGameIds || [])
-  return (res.data || []).map(g => {
+  return [...new Map(games.map(g => [g._id, g])).values()].map(g => {
     const active = (g.players || []).filter(p => !p.eliminatedAt)
     const me = active.find(p => p.openid === viewerOpenid)
-    const myProfit = me ? Number(me.finalProfit ?? me.profit) || 0 : 0
+    const myProfit = me
+      ? Math.round(
+        (Number(me.finalProfit ?? me.profit) || 0) /
+            (Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1)
+      )
+      : 0
     return {
       _id: g._id,
       name: g.name || '',
@@ -85,7 +102,12 @@ async function fetchMyGames(viewerOpenid, season) {
       startedAt: g.startedAt,
       endedAt: g.endedAt,
       myProfit,
-      counted: !excluded.has(g._id) && !g.excludeFromSeason
+      counted:
+        !!me &&
+        active.length >= 4 &&
+        new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60000 &&
+        !excluded.has(g._id) &&
+        (season.exclusionScopeVersion === 1 || !g.excludeFromSeason)
     }
   })
 }
@@ -115,6 +137,7 @@ exports.main = async event => {
       .get()
       .catch(() => null)
     if (seasonGot && seasonGot.data) season = seasonGot.data
+    if (season && season.circleId !== circleId) return { ok: false, error: 'SEASON_NOT_FOUND' }
   }
 
   const [memberProfiles, myGames, settledSeasons] = await Promise.all([
@@ -130,6 +153,14 @@ exports.main = async event => {
   ])
 
   const view = buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: OPENID })
+  view.circle = {
+    _id: circle._id,
+    name: circle.name,
+    ownerOpenid: circle.ownerOpenid,
+    memberOpenids,
+    inviteCode: circle.inviteCode,
+    status: circle.status
+  }
   // 冠军荣誉出口：本榜历届夺冠次数（字段只加，老前端自动忽略）
   if (view && view.isMember) {
     const championCounts = {}

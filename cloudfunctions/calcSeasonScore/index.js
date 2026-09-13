@@ -131,8 +131,7 @@ async function recordChampionHonor(season, champion, now) {
       .slice()
       .sort(
         (a, b) =>
-          Number(!!b.nickname) - Number(!!a.nickname) ||
-          Number(!!b.avatar) - Number(!!a.avatar)
+          Number(!!b.nickname) - Number(!!a.nickname) || Number(!!b.avatar) - Number(!!a.avatar)
       )[0]
     await db
       .collection('users')
@@ -323,13 +322,26 @@ async function calcForCircle(circleId, opts = {}) {
   }
   if (!season || season.status !== 'ongoing') return { ok: false, error: 'NO_ACTIVE_SEASON' }
 
+  // Claim a generation before reading inputs; an older computation cannot publish later.
+  const calculationRevision = await db.runTransaction(async transaction => {
+    const got = await transaction.collection('seasons').doc(season._id).get()
+    if (got.data.status !== 'ongoing') return null
+    const revision = (Number(got.data.calculationRevision) || 0) + 1
+    await transaction
+      .collection('seasons')
+      .doc(season._id)
+      .update({ data: { calculationRevision: revision } })
+    return revision
+  }, 3)
+  if (calculationRevision === null) return { ok: true, superseded: true }
+
   const seasonStart = new Date(season.startAt)
   const seasonEnd = new Date(season.endAt)
   const members = circle.memberOpenids || []
   if (!members.length) {
     await db
       .collection('seasons')
-      .doc(season._id)
+      .where({ _id: season._id, calculationRevision, status: 'ongoing' })
       .update({
         data: {
           rankings: [],
@@ -515,6 +527,7 @@ async function calcForCircle(circleId, opts = {}) {
           .catch(() => null)
         if (!latestGot?.data || latestGot.data.status !== 'ongoing') return { stale: true }
         const latest = latestGot.data
+        if (latest.calculationRevision !== calculationRevision) return { superseded: true }
         if (latest.exclusionScopeVersion === EXCLUSION_SCOPE_VERSION) return { stale: true }
         const latestRevision = Math.max(0, Number(latest.exclusionRevision) || 0)
         if (latestRevision !== exclusionRevision) return { stale: true }
@@ -548,7 +561,7 @@ async function calcForCircle(circleId, opts = {}) {
   } else {
     updateResult = await db
       .collection('seasons')
-      .where({ _id: season._id, exclusionRevision })
+      .where({ _id: season._id, exclusionRevision, calculationRevision, status: 'ongoing' })
       .update({
         data: {
           rankings: [...rankings, ...unranked],
@@ -565,10 +578,20 @@ async function calcForCircle(circleId, opts = {}) {
         }
       })
   }
+  if (updateResult?.superseded) return { ok: true, superseded: true, seasonId: season._id }
   const stale = needsLegacyMigration
     ? updateResult?.stale
     : Number(updateResult?.stats?.updated || 0) === 0
-  if (stale) return await calcForCircle(circleId, opts)
+  if (stale) {
+    const latest = await db.collection('seasons').doc(season._id).get()
+    if (
+      latest.data.calculationRevision !== calculationRevision ||
+      latest.data.status !== 'ongoing'
+    ) {
+      return { ok: true, superseded: true, seasonId: season._id }
+    }
+    return await calcForCircle(circleId, opts)
+  }
 
   return {
     ok: true,

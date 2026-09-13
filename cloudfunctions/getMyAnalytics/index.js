@@ -20,48 +20,27 @@ async function fetchMyEndedGames(openid) {
         ])
       )
   const out = []
-  try {
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const page = await query()
-        .field({
-          players: true,
-          scoreRatio: true,
-          bigBlind: true,
-          status: true,
-          startedAt: true,
-          endedAt: true
-        })
-        .orderBy('endedAt', 'asc')
-        .skip(skip)
-        .limit(PAGE_SIZE)
-        .get()
-      out.push(...(page.data || []))
-      if ((page.data || []).length < PAGE_SIZE) break
-    }
-  } catch (err) {
-    // 老环境可能无 hiddenForOpenids 字段/索引，退化为不过滤（前端本已可见这些记录）
-    console.warn('[getMyAnalytics fallback]', err)
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const page = await db
-        .collection('games')
-        .where(_.and([{ status: 'ended' }, { players: _.elemMatch({ openid }) }]))
-        .field({
-          players: true,
-          scoreRatio: true,
-          bigBlind: true,
-          status: true,
-          startedAt: true,
-          endedAt: true
-        })
-        .orderBy('endedAt', 'asc')
-        .skip(skip)
-        .limit(PAGE_SIZE)
-        .get()
-      out.push(...(page.data || []))
-      if ((page.data || []).length < PAGE_SIZE) break
-    }
+  for (let skip = 0; ; skip += PAGE_SIZE) {
+    const page = await query()
+      .field({
+        players: true,
+        scoreRatio: true,
+        bigBlind: true,
+        status: true,
+        startedAt: true,
+        endedAt: true,
+        hiddenForOpenids: true
+      })
+      .orderBy('endedAt', 'asc')
+      .skip(skip)
+      .limit(PAGE_SIZE)
+      .get()
+    out.push(...(page.data || []))
+    if ((page.data || []).length < PAGE_SIZE) break
   }
-  return out
+  return [...new Map(out.map(game => [game._id, game])).values()].filter(
+    game => !(game.hiddenForOpenids || []).includes(openid)
+  )
 }
 
 // 趋势信号：按结束时间排序取本人每局积分，最近 5 场与前 5 场对比。

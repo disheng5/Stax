@@ -74,8 +74,108 @@ async function revokedSettlement() {
   assert.strictEqual(db._raw.games[0].players[1].finalProfit, 800)
 }
 
+async function analyticsFailure() {
+  const games = Array.from({ length: 101 }, (_, i) => ({
+    _id: `g${i}`,
+    status: 'ended',
+    hiddenForOpenids: i === 100 ? ['host'] : [],
+    endedAt: new Date(i),
+    players: [{ openid: 'host', finalProfit: 10, buyInCount: 1 }]
+  }))
+  const db = createMockDb({ games })
+  const collection = db.collection
+  let fail = true
+  db.collection = name => {
+    const q = collection(name)
+    const get = q.get.bind(q)
+    q.get = async () => {
+      if (name === 'games' && q._skip === 100 && fail) {
+        fail = false
+        throw new Error('page unavailable')
+      }
+      return get()
+    }
+    return q
+  }
+  const call = loadHandler('getMyAnalytics', db)
+  await assert.rejects(call(), /page unavailable/)
+  const result = await call()
+  assert.strictEqual(result.stats.totalGames, 100)
+  assert.strictEqual(result.stats.totalProfit, 1000)
+}
+
+async function seasonIsolationAndConcurrency() {
+  const season = {
+    _id: 's',
+    circleId: 'c',
+    status: 'ongoing',
+    seasonNo: 2,
+    startAt: new Date('2020-01-01'),
+    endAt: new Date('2100-01-01'),
+    exclusionScopeVersion: 1,
+    exclusionRevision: 0
+  }
+  const game = {
+    _id: 'g',
+    name: 'Game',
+    status: 'ended',
+    bigBlind: 5,
+    startedAt: new Date('2026-01-01T10:00:00Z'),
+    endedAt: new Date('2026-01-01T14:00:00Z'),
+    players: ['host', 'a', 'b', 'c'].map(openid => ({ openid, nickname: openid, finalProfit: 100 }))
+  }
+  const db = createMockDb({
+    games: [game],
+    seasons: [season, { ...season, _id: 'foreign', circleId: 'foreign' }],
+    circles: [
+      {
+        _id: 'c',
+        status: 'active',
+        memberOpenids: ['host'],
+        ownerOpenid: 'host',
+        currentSeasonId: 's'
+      }
+    ]
+  })
+  const denied = await loadHandler('getSeasonView', db)({ circleId: 'c', seasonId: 'foreign' })
+  assert.strictEqual(denied.ok, false)
+  const collection = db.collection
+  let release,
+    reached,
+    block = true
+  const ready = new Promise(resolve => {
+    reached = resolve
+  })
+  const gate = new Promise(resolve => {
+    release = resolve
+  })
+  db.collection = name => {
+    const q = collection(name)
+    const get = q.get.bind(q)
+    q.get = async () => {
+      if (name === 'users' && block) {
+        block = false
+        reached()
+        await gate
+      }
+      return get()
+    }
+    return q
+  }
+  const calc = loadHandler('calcSeasonScore', db)
+  const old = calc({ circleId: 'c' })
+  await ready
+  db._raw.games[0].players[0].finalProfit = 200
+  assert((await calc({ circleId: 'c' })).ok)
+  release()
+  await old
+  assert.strictEqual(db._raw.seasons[0].rankings[0].rawProfit, 200)
+}
+
 ;(async () => {
   await revokedSettlement()
+  await analyticsFailure()
+  await seasonIsolationAndConcurrency()
   console.log('trust-regressions.test.js passed')
 })().catch(err => {
   console.error(err)

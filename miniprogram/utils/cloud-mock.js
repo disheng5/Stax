@@ -532,11 +532,11 @@ const handlers = {
           : Math.max(0, (beforePlayer.currentStack || 0) - tx.amount),
         ...(settled
           ? {
-              profit: Number(beforePlayer.finalStack) - totalBuyIn,
-              ...(beforePlayer.finalProfit != null
-                ? { finalProfit: Number(beforePlayer.finalStack) - totalBuyIn }
-                : {})
-            }
+            profit: Number(beforePlayer.finalStack) - totalBuyIn,
+            ...(beforePlayer.finalProfit != null
+              ? { finalProfit: Number(beforePlayer.finalStack) - totalBuyIn }
+              : {})
+          }
           : {})
       }
       const update = {
@@ -1186,6 +1186,7 @@ const handlers = {
         })
       })
 
+    season.calculationRevision = (Number(season.calculationRevision) || 0) + 1
     season.rankings = rankings
     season.excludedGameIds = [...excludedGameIds]
     season.exclusionScopeVersion = 1
@@ -1287,6 +1288,7 @@ const handlers = {
     if (!memberOpenids.includes(MY_OPENID)) return { ok: false, error: 'NOT_MEMBER' }
     const seasonId = event.seasonId || circle.currentSeasonId
     const season = seasonId ? (raw.seasons || []).find(s => s._id === seasonId) || null : null
+    if (season && season.circleId !== circleId) return { ok: false, error: 'SEASON_NOT_FOUND' }
     const memberProfiles = memberOpenids.map(openid => {
       const u = (raw.users || []).find(x => x._openid === openid) || {}
       return {
@@ -1321,8 +1323,8 @@ const handlers = {
           playerCount: active.length,
           startedAt: g.startedAt,
           endedAt: g.endedAt,
-          myProfit: me ? Number(me.finalProfit ?? me.profit) || 0 : 0,
-          counted: !excluded.has(g._id) && !g.excludeFromSeason
+          myProfit: me ? Math.round((Number(me.finalProfit ?? me.profit) || 0) / (Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1)) : 0,
+          counted: !!me && active.length >= 4 && new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60000 && !excluded.has(g._id) && (season?.exclusionScopeVersion === 1 || !g.excludeFromSeason)
         }
       })
     const view = buildSeasonView({
@@ -1332,6 +1334,7 @@ const handlers = {
       myGames,
       viewerOpenid: MY_OPENID
     })
+    view.circle = { _id: circle._id, name: circle.name, ownerOpenid: circle.ownerOpenid, memberOpenids, inviteCode: circle.inviteCode, status: circle.status }
     // 与云函数一致：本榜历届夺冠次数（字段只加，老前端自动忽略）
     if (view && view.isMember) {
       const championCounts = {}
