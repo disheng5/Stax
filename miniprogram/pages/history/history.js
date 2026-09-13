@@ -9,6 +9,7 @@ const {
 const { computeGameStats, gameScore, sortDimensionRows } = require('../../utils/stats.js')
 const { buildTrendNote } = require('../../utils/analytics.js')
 const app = getApp()
+const { batchRender } = require('../../utils/render.js')
 
 Page({
   data: {
@@ -53,7 +54,6 @@ Page({
       if (cached.length) this._applyGames(openid, cached)
       const filtered = await fetchAllGames(openid, { force })
       this._applyGames(openid, filtered)
-      this._fetchAnalytics()
       this._lastFetch = Date.now()
     } catch (err) {
       console.error(err)
@@ -62,6 +62,10 @@ Page({
   },
 
   _applyGames(openid, filtered) {
+    batchRender(this, () => this._renderGames(openid, filtered))
+  },
+
+  _renderGames(openid, filtered) {
     // 只保留列表渲染需要的字段，避免把完整 players 数组塞进 setData
     const games = filtered.map(g => {
       const dur = g.endedAt && g.startedAt ? new Date(g.endedAt) - new Date(g.startedAt) : 0
@@ -81,12 +85,10 @@ Page({
     this._rawGames = filtered
     this.setData({ games, loading: false })
     this._computeChart(openid, filtered)
-    // 统计、维度、趋势札记优先由 getMyAnalytics 提供（服务端聚合），仅做本地兜底
-    if (!this._analyticsApplied) {
-      this._computeStats(openid, filtered)
-      this._computeDim(openid)
-      this._computeAiSummary(filtered, openid)
-    }
+    // The complete source snapshot drives every section in the same render.
+    this._computeStats(openid, filtered)
+    this._computeDim(openid)
+    this._computeAiSummary(filtered, openid)
   },
 
   // 服务端聚合：stats/dimensions/trend/note 由 getMyAnalytics 一次性返回
@@ -153,7 +155,10 @@ Page({
       return { x: formatDate(g.endedAt || g.startedAt).slice(5), y: cum, delta: score }
     })
     this.setData({ points })
-    if (points.length > 0) this.setData({ showChart: true })
+    if (this._chartInitialized !== true) {
+      this._chartInitialized = true
+      if (points.length > 0) this.setData({ showChart: true })
+    }
   },
 
   onChartRangeChange(e) {

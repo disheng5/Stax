@@ -1,6 +1,7 @@
 const app = getApp()
 const { formatProfit, formatDate } = require('../../utils/format.js')
 const SUNZI = require('../../utils/sunzi.js')
+const { warmRecentGames } = require('../../utils/game-view.js')
 const { getDailyWord } = require('../../utils/dailyWord.js')
 const {
   fetchAllGames,
@@ -91,6 +92,7 @@ Page({
         fetchAllGames(openid)
       ])
       this._applyRecent(ongoingRes.data, endedAll, openid)
+      warmRecentGames([...(ongoingRes.data || []), ...endedAll])
       // 回写快照供下次冷启动秒开
       try {
         wx.setStorageSync(`snap_recent_${openid}`, {

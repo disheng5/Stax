@@ -6,7 +6,6 @@ const {
   invalidateGamesCache,
   markGamesChanged,
   cacheGame,
-  getCachedGameEntry,
   removeCachedGame
 } = require('../../utils/game-data.js')
 const avatarCache = require('../../utils/avatar.js')
@@ -21,6 +20,8 @@ const {
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
+const { txSignature, getCompleteGame, fetchCompleteGame, rememberCompleteGame, removeCompleteGame } = require('../../utils/game-view.js')
+const { batchRender, changedPatch } = require('../../utils/render.js')
 
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
@@ -87,11 +88,11 @@ Page({
       this.setData({ loading: false, notFound: true })
       return
     }
-    const cached = getCachedGameEntry(gameId)
-    if (cached?.game) this._applyGame(cached.game, { cached: true })
+    const cached = getCompleteGame(gameId)
+    if (cached) this._applyCompleteGame(cached)
     // 刚由创建/加入响应写入的快照可直接消费；普通历史快照仍并行校验，避免陈旧数据。
     this._watchDelivered = false
-    if (!cached || cached.age > 2000) this._fetchGameOnce({ deferToWatch: true })
+    if (!cached || Date.now() - cached.ts > 2000) this._fetchGameOnce()
     this._startWatch()
     await this._ensureOpenid()
     this._recomputeIdentity()
@@ -107,6 +108,8 @@ Page({
   },
 
   onUnload() {
+    this._unloaded = true
+    clearTimeout(this._completeRetry)
     clearTimeout(this._watchRetryTimer)
     this._stopPolling()
     if (this._netListener) {
@@ -270,6 +273,11 @@ Page({
 
   // watch、HTTP 与本地快照共用的落地逻辑。
   _applyGame(game, options = {}) {
+    if (this._unloaded) return
+    if (!options.complete && !options.optimistic && txSignature(game) !== this._lastTxSig) {
+      this._loadComplete(game)
+      return
+    }
     const current = this.data.game
     const incomingRevision = Number(game.stateRevision ?? game.txRevision) || 0
     const currentRevision = Number(current?.stateRevision ?? current?.txRevision) || 0
@@ -330,17 +338,64 @@ Page({
     }
     if (g.status === 'ended') Object.assign(patch, this._createSettleResult(g))
     if (myOpenid && myOpenid !== this.data.myOpenid) patch.myOpenid = myOpenid
-    this.setData(patch)
+    const changed = changedPatch(this.data, patch)
+    if (Object.keys(changed).length) this.setData(changed)
     if (!options.optimistic) {
       cacheGame(g)
       this._resolveAvatars(players)
       this._resolveDisplayAvatars(players)
-      this._fetchRecentTx()
+    }
+  },
+
+  _applyCompleteGame(snapshot) {
+    if (this._unloaded) return
+    const current = Number(this.data.game?.stateRevision ?? this.data.game?.txRevision) || 0
+    const incoming = Number(snapshot.game.stateRevision ?? snapshot.game.txRevision) || 0
+    if (incoming < current) return
+    batchRender(this, () => {
+      // Build the ledger against this exact player snapshot, before committing one patch.
+      this._applyTransactions(snapshot.transactions, snapshot.signature, snapshot.game)
+      this._applyGame(snapshot.game, { complete: true, cached: true })
+    })
+    this._completeFailures = 0
+  },
+
+  async _loadComplete(game) {
+    if (this._unloaded) return
+    if (this._completeLoading) { this._completeQueued = game || this._completeQueued; return }
+    this._completeLoading = true
+    try {
+      const snapshot = await fetchCompleteGame(this.data.gameId, game)
+      this._applyCompleteGame(snapshot)
+      if (game && (Number(game.stateRevision) || 0) > (Number(snapshot.game.stateRevision) || 0)) this._completeQueued = game
+    } catch (err) {
+      if (err.message === 'GAME_NOT_FOUND') {
+        removeCachedGame(this.data.gameId)
+        removeCompleteGame(this.data.gameId)
+        clearTimeout(this._completeRetry)
+        if (!this._unloaded) this.setData({ game: null, recentTx: [], loading: false, notFound: true })
+        return
+      }
+      if (!this.data.game && !this._unloaded) this.setData({ loading: false, loadError: true })
+      if (!this._unloaded) {
+        clearTimeout(this._completeRetry)
+        this._completeFailures = (this._completeFailures || 0) + 1
+        this._completeRetry = setTimeout(() => this._loadComplete(), Math.min(30000, 1000 * 2 ** this._completeFailures))
+      }
+    } finally {
+      this._completeLoading = false
+      if (this._completeQueued) {
+        const latest = this._completeQueued
+        this._completeQueued = null
+        if (txSignature(latest) !== this._lastTxSig) this._loadComplete(latest)
+        else this._applyGame(latest)
+      }
     }
   },
 
   _startWatch() {
-    if (!this.data.gameId) return
+    if (!this.data.gameId || this._unloaded) return
+    clearTimeout(this._watchRetryTimer)
     const db = wx.cloud.database()
     if (this.watcher) {
       try {
@@ -355,6 +410,7 @@ Page({
         .doc(this.data.gameId)
         .watch({
           onChange: snapshot => {
+            if (this._unloaded) return
             this._watchRetries = 0
             this._watchDelivered = true // 标记：初次直拉可作废，避免重复渲染
             this._stopPolling() // 实时通道可用，停掉兜底轮询
@@ -363,10 +419,12 @@ Page({
             } else {
               // watch 正常回调但查无此文档，才是真的不存在/已删除
               removeCachedGame(this.data.gameId)
+              removeCompleteGame(this.data.gameId)
               this.setData({ game: null, loading: false, notFound: true })
             }
           },
           onError: err => {
+            if (this._unloaded) return
             // 实时通道失败 ≠ 牌局不存在。部分设备/网络（代理、企业 Wi-Fi、
             // 旧基础库）websocket 不可用，但普通 HTTP 读库是通的——
             // 此处绝不能进入"不存在"空态，改走单次拉取 + 轮询兜底。
@@ -396,17 +454,10 @@ Page({
   // 实时通道不可用时的兜底：HTTP 轮询，watch 恢复后自动停止
   _startPolling() {
     if (this._pollTimer) return
-    if (!this._pollToastShown && this.data.game) {
-      this._pollToastShown = true
-      wx.showToast({ title: '实时同步不可用，已切换为自动刷新', icon: 'none', duration: 2500 })
-    }
     this._fetchGameOnce()
     this._pollTimer = setInterval(() => {
-      if (this.data.game && this.data.game.status === 'ended') {
-        this._stopPolling()
-        return
-      }
       this._fetchGameOnce()
+      if (!this.watcher) this._startWatch()
     }, 8000)
   },
 
@@ -417,35 +468,8 @@ Page({
     }
   },
 
-  async _fetchGameOnce(opts = {}) {
-    if (!this.data.gameId || this._fetching) return
-    this._fetching = true
-    try {
-      const db = wx.cloud.database()
-      const got = await db.collection('games').doc(this.data.gameId).get()
-      // 初次直拉：若 watch 已抢先渲染权威数据，丢弃本次结果（省一次 setData/头像/流水）
-      if (opts.deferToWatch && this._watchDelivered) return
-      if (got && got.data) {
-        this._applyGame(got.data)
-      } else {
-        removeCachedGame(this.data.gameId)
-        this.setData({ game: null, loading: false, notFound: true })
-      }
-    } catch (err) {
-      console.error('[fetchGameOnce]', err)
-      const msg = (err && (err.errMsg || err.message)) || ''
-      if (/not.?exist|non.?exist|不存在|-502004/i.test(msg)) {
-        // 确证文档不存在
-        removeCachedGame(this.data.gameId)
-        this.setData({ game: null, loading: false, notFound: true })
-      } else if (!this.data.game) {
-        // 网络/权限等失败且手上没有任何数据：如实展示加载失败，可重试，
-        // 不能谎报"牌局不存在或已结束"
-        this.setData({ loading: false, loadError: true })
-      }
-    } finally {
-      this._fetching = false
-    }
+  async _fetchGameOnce() {
+    return this._loadComplete()
   },
 
   onRetryLoad() {
@@ -458,97 +482,19 @@ Page({
   // 用 game 文档中与流水相关的字段构造签名：
   // 状态版本不进入签名，盲注升级、暂停和费用修改不会触发流水重拉。
   _txSignature(game) {
-    if (!game) return ''
-    const players = game.players || []
-    let buySum = 0
-    let finalSum = 0
-    let checked = 0
-    let elim = 0
-    players.forEach(p => {
-      buySum += Number(p.totalBuyIn) || 0
-      if (p.finalStack !== null && p.finalStack !== undefined) {
-        checked++
-        finalSum += Number(p.finalStack) || 0
-      }
-      if (p.eliminatedAt) elim++
-    })
-    return [
-      game.txRevision || 0,
-      game.totalPot || 0,
-      players.length,
-      buySum,
-      checked,
-      finalSum,
-      elim,
-      game.status
-    ].join('|')
+    return txSignature(game)
   },
 
-  async _fetchRecentTx(force = false) {
-    if (!this.data.gameId) return
-    if (this._txFetching) {
-      this._txRefreshQueued = this._txRefreshQueued || force
-      return
-    }
-    const sig = this._txSignature(this.data.game)
-    if (!force && sig && sig === this._lastTxSig) return
-    this._txFetching = true
-    try {
-      const db = wx.cloud.database()
-      const query = () => db.collection('transactions').where({ gameId: this.data.gameId })
-      // 流水是对账依据：版本变化后总是按最旧到最新完整校准，避免迟提交记录被时间增量漏掉。
-      const first = await query().orderBy('timestamp', 'desc').limit(20).get()
-      let all = first.data || []
-      this._applyTransactions(all, sig)
-      if (all.length === 20) {
-        const countRes = await query()
-          .count()
-          .catch(() => null)
-        if (countRes && typeof countRes.total === 'number') {
-          const total = countRes.total || all.length
-          const complete = []
-          for (let skip = 0; skip < total; skip += 100) {
-            const pages = []
-            for (let offset = skip; offset < Math.min(skip + 100, total); offset += 20) {
-              pages.push(query().orderBy('timestamp', 'asc').skip(offset).limit(20).get())
-            }
-            const results = await Promise.all(pages)
-            results.forEach(result => {
-              complete.push(...(result.data || []))
-            })
-          }
-          all = complete
-        } else {
-          const complete = []
-          for (let skip = 0; ; skip += 20) {
-            const page = await query().orderBy('timestamp', 'asc').skip(skip).limit(20).get()
-            complete.push(...(page.data || []))
-            if ((page.data || []).length < 20) break
-          }
-          all = complete
-        }
-      }
-      this._applyTransactions(all, sig)
-      const latestSig = this._txSignature(this.data.game)
-      if (latestSig && latestSig !== sig) this._txRefreshQueued = true
-    } catch (err) {
-      console.error(err)
-    } finally {
-      this._txFetching = false
-      if (this._txRefreshQueued !== undefined) {
-        const queuedForce = this._txRefreshQueued
-        delete this._txRefreshQueued
-        setTimeout(() => this._fetchRecentTx(queuedForce), 0)
-      }
-    }
+  async _fetchRecentTx() {
+    return this._loadComplete()
   },
 
-  _applyTransactions(transactions, signature) {
+  _applyTransactions(transactions, signature, game = this.data.game) {
     this._txRaw = sortTransactions(mergeTransactions([], transactions))
     const all = expandRevocations(this._txRaw)
     const nameMap = {}
-    const buyIn = Number(this.data.game?.buyIn || 0)
-    const profiles = [...(this.data.game?.players || []), ...(this.data.game?.removedPlayers || [])]
+    const buyIn = Number(game?.buyIn || 0)
+    const profiles = [...(game?.players || []), ...(game?.removedPlayers || [])]
     profiles.forEach(player => {
       if (!nameMap[player.openid]) nameMap[player.openid] = player.nickname
     })
@@ -573,7 +519,7 @@ Page({
         sentenceParts
       }
     })
-    this.setData({ recentTx })
+    if (JSON.stringify(recentTx) !== JSON.stringify(this.data.recentTx)) this.setData({ recentTx })
     this._lastTxSig = signature
   },
 
@@ -622,10 +568,11 @@ Page({
         latestNames[player.openid] = player.nickname
       })
       if (this._txRaw && this._txRaw.length) {
-        this._applyTransactions(this._txRaw, this._lastTxSig)
+        this._applyTransactions(this._txRaw, this._lastTxSig, game)
       }
       this.setData(patch)
       cacheGame(game)
+      if (this._txRaw) rememberCompleteGame(game, this._txRaw)
     }
     this._resolveDisplayAvatars(updated)
   },

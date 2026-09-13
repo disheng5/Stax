@@ -7,6 +7,7 @@ const {
 } = require('../../utils/game-data.js')
 const { computeGameStats } = require('../../utils/stats.js')
 const avatarCache = require('../../utils/avatar.js')
+const { clearCompleteGames } = require('../../utils/game-view.js')
 const {
   isMeaningfulNickname,
   readLocalProfile,
@@ -234,13 +235,14 @@ Page({
     try {
       const info = wx.getStorageInfoSync()
       ;(info.keys || []).forEach(key => {
-        if (!keep.has(key)) wx.removeStorageSync(key)
+        if (!keep.has(key) && !key.startsWith('stax_pending_')) wx.removeStorageSync(key)
       })
     } catch (err) {
       console.warn('[clear cache]', err)
     }
     avatarCache.clear()
     clearGamesCache()
+    clearCompleteGames()
     wx.showToast({ title: '缓存已清理，资料已保留', icon: 'none' })
     this._lastFetch = 0
     this.setData({ avatarUrl: DEFAULT_AVATAR, avatarDisplayUrl: DEFAULT_AVATAR })

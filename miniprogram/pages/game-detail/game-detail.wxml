@@ -106,16 +106,7 @@
 
 </view>
 
-<view wx:elif="{{loading}}" class="container">
-  <view class="sk sk-line sk-w-60" style="height: 40rpx; margin: 8rpx 0 32rpx;"></view>
-  <view class="sk-card sk-row" wx:for="{{[1, 2, 3, 4]}}" wx:key="*this">
-    <view class="sk sk-avatar"></view>
-    <view class="sk-flex">
-      <view class="sk sk-line sk-w-40"></view>
-      <view class="sk sk-line sk-w-80"></view>
-    </view>
-  </view>
-</view>
+<view wx:elif="{{loading}}" class="container text-sub" style="text-align:center;padding-top:80rpx;">加载中</view>
 <view wx:elif="{{loadError}}" class="container">
   <view class="card" style="text-align: center; padding: 64rpx 32rpx;">
     <view style="margin-bottom: 32rpx;">加载失败，请检查网络后重试</view>

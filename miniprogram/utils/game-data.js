@@ -2,6 +2,8 @@ let _cache = null
 let _cacheTime = 0
 let _cacheOpenid = ''
 let _version = 0
+let _invalidated = false
+const _inFlight = new Map()
 const CACHE_TTL = 30000
 const STALE_CACHE_TTL = 10 * 60 * 1000
 const SNAPSHOT_STORE_KEY = 'stax_game_snapshots_v1'
@@ -60,17 +62,19 @@ function _scheduleSnapshotSave() {
 function cacheGame(game) {
   if (!game || !game._id) return
   const snapshots = _loadSnapshots()
+  const previous = snapshots[game._id]
+  if (previous && Number(previous.game.stateRevision || 0) > Number(game.stateRevision || 0)) return
   snapshots[game._id] = { ts: Date.now(), game }
   _scheduleSnapshotSave()
 }
 
 function getCachedGameEntry(gameId, maxAge = SNAPSHOT_TTL) {
   if (!gameId) return null
-  if (_cache) {
-    const inHistory = _cache.find(game => game._id === gameId)
-    if (inHistory) return { game: inHistory, age: Math.max(0, Date.now() - _cacheTime) }
-  }
   const item = _loadSnapshots()[gameId]
+  const inHistory = _cache && _cache.find(game => game._id === gameId)
+  if (inHistory && Date.now() - _cacheTime <= maxAge && (!item || Number(inHistory.stateRevision || 0) > Number(item.game.stateRevision || 0))) {
+    return { game: inHistory, age: Math.max(0, Date.now() - _cacheTime) }
+  }
   if (!item || !item.game || Date.now() - (item.ts || 0) > maxAge) return null
   return { game: item.game, age: Math.max(0, Date.now() - (item.ts || 0)) }
 }
@@ -132,19 +136,8 @@ function _hydrate(openid, maxAge = CACHE_TTL) {
 
 // 结算/删除等写操作后调用；版本号递增让各页面的 onShow 守卫立刻失效
 function _invalidate() {
-  const oldOpenid = _cacheOpenid
-  _cache = null
-  _cacheTime = 0
-  _cacheOpenid = ''
+  _invalidated = true
   _version++
-  const store = _wxStorage()
-  if (store && oldOpenid) {
-    try {
-      store.removeStorageSync(_storageKey(oldOpenid))
-    } catch (err) {
-      console.warn('[game-data invalidate]', err)
-    }
-  }
 }
 
 function getCacheVersion() {
@@ -158,6 +151,9 @@ function markGamesChanged() {
 
 function clearGamesCache() {
   _invalidate()
+  _cache = null
+  _cacheTime = 0
+  _cacheOpenid = ''
   clearTimeout(_snapshotSaveTimer)
   _snapshotSaveTimer = null
   _snapshotMem = {}
@@ -173,10 +169,11 @@ function getCachedGames(openid, maxAge = STALE_CACHE_TTL) {
   return _hydrate(openid, maxAge) || []
 }
 
-async function fetchAllGames(openid, opts = {}) {
+async function readAllGames(openid, opts = {}) {
   const force = opts.force || false
-  const cached = !force ? _hydrate(openid, CACHE_TTL) : null
+  const cached = !force && !_invalidated ? _hydrate(openid, CACHE_TTL) : null
   if (cached) return cached
+  const version = _version
 
   const db = wx.cloud.database()
   const _ = db.command
@@ -221,15 +218,24 @@ async function fetchAllGames(openid, opts = {}) {
     g => !(Array.isArray(g.hiddenForOpenids) && g.hiddenForOpenids.includes(openid))
   )
 
+  if (version !== _version) return readAllGames(openid, { force: true })
+  _invalidated = false
   _cache = filtered
   _cacheTime = Date.now()
   _cacheOpenid = openid
   _persist(openid, filtered)
   filtered.slice(0, SNAPSHOT_LIMIT).forEach(game => {
-    _loadSnapshots()[game._id] = { ts: Date.now(), game }
+    cacheGame(game)
   })
   _scheduleSnapshotSave()
   return filtered
+}
+
+function fetchAllGames(openid, opts = {}) {
+  if (_inFlight.has(openid)) return _inFlight.get(openid)
+  const task = readAllGames(openid, opts).finally(() => _inFlight.delete(openid))
+  _inFlight.set(openid, task)
+  return task
 }
 
 module.exports = {
