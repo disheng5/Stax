@@ -1,8 +1,8 @@
 // 镜像自 miniprogram/utils/analytics.js —— 个人聚合 + 趋势札记纯函数。
 // 两处必须保持一致：改动其一必须同步另一处并跑测试。
-const { computeGameStats, sortDimensionRows, gameScore } = require('./stats.js')
+const { computeGameStats, sortDimensionRows, gameScore, positionKey } = require('./stats.js')
 
-const ANALYTICS_VERSION = 1
+const ANALYTICS_VERSION = 2
 const MIN_NOTE_SAMPLE = 5
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -15,6 +15,7 @@ function computeAnalytics(games, openid) {
   const dimRebuys = {}
   const dimWeekday = {}
   const dimOpponents = {}
+  const dimPosition = {}
 
   visible.forEach(g => {
     const me = (g.players || []).find(p => p.openid === openid)
@@ -42,6 +43,12 @@ function computeAnalytics(games, openid) {
     dimWeekday[day].profit += score
     if (score > 0) dimWeekday[day].wins++
 
+    const seat = positionKey(me)
+    if (!dimPosition[seat]) dimPosition[seat] = { key: seat, games: 0, profit: 0, wins: 0 }
+    dimPosition[seat].games++
+    dimPosition[seat].profit += score
+    if (score > 0) dimPosition[seat].wins++
+
     ;(g.players || []).forEach(p => {
       if (p.openid === openid) return
       const name = p.nickname || '玩家'
@@ -56,6 +63,7 @@ function computeAnalytics(games, openid) {
       players: sortDimensionRows(Object.values(dimPlayers), 'players'),
       rebuys: sortDimensionRows(Object.values(dimRebuys), 'rebuys'),
       weekday: sortDimensionRows(Object.values(dimWeekday), 'weekday'),
+      position: sortDimensionRows(Object.values(dimPosition), 'position'),
       opponents: sortDimensionRows(Object.values(dimOpponents), 'opponents')
     },
     meta: { sourceGameCount: visible.length, algorithmVersion: ANALYTICS_VERSION }

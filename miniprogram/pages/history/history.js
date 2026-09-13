@@ -6,7 +6,7 @@ const {
   getCacheVersion,
   cacheGame
 } = require('../../utils/game-data.js')
-const { computeGameStats, gameScore, sortDimensionRows } = require('../../utils/stats.js')
+const { computeGameStats, gameScore, sortDimensionRows, positionKey } = require('../../utils/stats.js')
 const { buildTrendNote } = require('../../utils/analytics.js')
 const app = getApp()
 const { batchRender } = require('../../utils/render.js')
@@ -191,9 +191,10 @@ Page(require('../../utils/live-view.js').liveGamesPage({
       } else if (dim === 'weekday') {
         const wd = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
         keys = [wd[new Date(g.endedAt || g.startedAt).getDay()]]
+      } else if (dim === 'position') {
+        keys = [positionKey(me)]
       }
       // 对手维度已下线（记账数据不含对局细节，分析价值有限）；服务端字段保留兼容老前端。
-      // 待位置数据积累后可增加「位置」维度分析。
       keys.forEach(k => {
         if (!groups[k]) groups[k] = { key: k, games: 0, profit: 0, wins: 0 }
         groups[k].games++

@@ -38,9 +38,18 @@ const WEEKDAY_ORDER = {
   周日: 7
 }
 
+function positionKey(player) {
+  const value = player?.seat
+  const seat = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN
+  return Number.isSafeInteger(seat) && seat > 0 ? `${seat} 号` : '未记录'
+}
+
 function sortDimensionRows(rows, dimension) {
   return (rows || []).slice().sort((a, b) => {
-    if (dimension === 'players' || dimension === 'rebuys') {
+    if (dimension === 'position') {
+      const numberDiff = (parseInt(a.key, 10) || Infinity) - (parseInt(b.key, 10) || Infinity)
+      if (numberDiff) return numberDiff
+    } else if (dimension === 'players' || dimension === 'rebuys') {
       const numberDiff = (parseInt(a.key, 10) || 0) - (parseInt(b.key, 10) || 0)
       if (numberDiff) return numberDiff
     } else if (dimension === 'weekday') {
@@ -54,4 +63,4 @@ function sortDimensionRows(rows, dimension) {
   })
 }
 
-module.exports = { gameScore, computeGameStats, sortDimensionRows }
+module.exports = { gameScore, computeGameStats, sortDimensionRows, positionKey }

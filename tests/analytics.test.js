@@ -14,7 +14,7 @@ const makeGame = (profit, opts = {}) => ({
   endedAt: opts.endedAt || new Date().toISOString(),
   startedAt: opts.startedAt || new Date(Date.now() - 3600000).toISOString(),
   players: [
-    { openid: 'me', nickname: 'Me', finalProfit: profit, profit, buyInCount: opts.rebuys || 1 },
+    { openid: 'me', nickname: 'Me', finalProfit: profit, profit, buyInCount: opts.rebuys || 1, seat: opts.seat },
     { openid: 'opp1', nickname: 'Alice', finalProfit: -profit, profit: -profit, buyInCount: 1 },
     ...(opts.extraPlayers || [])
   ]
@@ -50,6 +50,31 @@ assert.ok(oppRow, 'Alice 应出现在对手维度')
 assert.strictEqual(oppRow.profit, undefined, '不得暴露对手盈亏')
 assert.strictEqual(oppRow.profitBB, undefined)
 assert.ok(typeof oppRow.games === 'number')
+
+const positioned = [
+  makeGame(100, { seat: 10, scoreRatio: 2 }),
+  makeGame(-30, { seat: 2 }),
+  makeGame(80, { seat: '2' }),
+  makeGame(20, { seat: 1 }),
+  makeGame(-10),
+  makeGame(0, { seat: 0 })
+]
+const positionRows = computeAnalytics(positioned, 'me').dimensions.position
+assert.deepStrictEqual(positionRows, [
+  { key: '1 号', games: 1, profit: 20, wins: 1 },
+  { key: '2 号', games: 2, profit: 50, wins: 1 },
+  { key: '10 号', games: 1, profit: 50, wins: 1 },
+  { key: '未记录', games: 2, profit: -10, wins: 0 }
+])
+assert.strictEqual(positionRows.reduce((sum, row) => sum + row.games, 0), positioned.length)
+assert.deepStrictEqual(
+  computeAnalytics([...positioned, ...excluded], 'me'),
+  require('../cloudfunctions/getMyAnalytics/analytics.js').computeAnalytics([...positioned, ...excluded], 'me')
+)
+const { positionKey } = require('../miniprogram/utils/stats.js')
+for (const seat of [undefined, null, '', 'bad', false, true, 0, -1, 2.5, Infinity]) {
+  assert.strictEqual(positionKey({ seat }), '未记录')
+}
 
 // === buildTrendNote 样本不足 ===
 const noteInsufficient = buildTrendNote({

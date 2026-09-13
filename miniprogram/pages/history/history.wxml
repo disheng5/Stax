@@ -54,6 +54,7 @@
         <view class="dim-tab {{dim === 'players' ? 'active' : ''}}"   data-k="players"   bindtap="onDimChange">人数</view>
         <view class="dim-tab {{dim === 'rebuys' ? 'active' : ''}}"    data-k="rebuys"    bindtap="onDimChange">买入次数</view>
         <view class="dim-tab {{dim === 'weekday' ? 'active' : ''}}"   data-k="weekday"   bindtap="onDimChange">星期</view>
+        <view class="dim-tab {{dim === 'position' ? 'active' : ''}}" data-k="position" bindtap="onDimChange">位置</view>
       </scroll-view>
       <view class="dim-head text-sub">
         <view class="col-key">分组</view>
