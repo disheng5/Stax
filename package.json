@@ -1,6 +1,6 @@
 {
   "name": "stax",
-  "version": "0.1.0",
+  "version": "0.3.4",
   "description": "StaxKit - 朋友局德州扑克娱乐积分记录 / 计时 / 战绩工具（微信小程序）",
   "private": true,
   "scripts": {

@@ -2,7 +2,7 @@
   <view class="card">
     <view class="logo">StaxKit</view>
     <view class="text-sub">Hold'em, held right.</view>
-    <view class="text-sub">Version 0.1.0 · MVP</view>
+    <view class="text-sub">Version 0.3.4</view>
   </view>
 
   <view class="card">
