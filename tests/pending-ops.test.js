@@ -60,5 +60,28 @@ const {
   queue.remove('op_004')
   assert.strictEqual(queue.list().length, 0)
 
+  queue.enqueue({ operationId: 'waiting', type: 'rebuy' })
+  let acknowledge
+  const inFlight = queue.flush(
+    () =>
+      new Promise(resolve => {
+        acknowledge = resolve
+      })
+  )
+  assert.strictEqual(
+    queue.flush(() => {
+      throw new Error('duplicate flush')
+    }),
+    inFlight
+  )
+  queue.enqueue({ operationId: 'new-during-flush', type: 'rebuy' })
+  acknowledge({ ok: true })
+  await inFlight
+  assert.deepStrictEqual(
+    queue.list().map(op => op.operationId),
+    ['new-during-flush']
+  )
+  queue.remove('new-during-flush')
+
   console.log('pending-ops.test.js passed')
 })()

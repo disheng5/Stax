@@ -5,6 +5,7 @@ function isReplayable(type) {
 }
 
 function createPendingQueue(adapter) {
+  let flushing = null
   function _load() {
     return adapter.load() || []
   }
@@ -27,24 +28,26 @@ function createPendingQueue(adapter) {
       const items = _load().filter(item => item.operationId !== operationId)
       _save(items)
     },
-    async flush(sender) {
-      let sent = 0
-      const remaining = []
-      const items = _load()
-      for (const op of items) {
-        try {
-          const result = await sender(op)
-          if (result && result.ok) {
-            sent++
-          } else {
-            remaining.push(op)
-          }
-        } catch (_) {
-          remaining.push(op)
+    flush(sender) {
+      if (flushing) return flushing
+      flushing = (async () => {
+        let sent = 0
+        const items = _load().slice()
+        for (const op of items) {
+          try {
+            const result = await sender(op)
+            if (result && result.ok) {
+              sent++
+              // Remove only the acknowledged operation from the latest queue.
+              _save(_load().filter(item => item.operationId !== op.operationId))
+            }
+          } catch (_) {}
         }
-      }
-      _save(remaining)
-      return { sent, remaining: remaining.length }
+        return { sent, remaining: _load().length }
+      })().finally(() => {
+        flushing = null
+      })
+      return flushing
     }
   }
 }

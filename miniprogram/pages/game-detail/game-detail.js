@@ -16,7 +16,8 @@ const {
   buildTransactionSentence,
   transactionHandState,
   sortTransactions,
-  mergeTransactions
+  mergeTransactions,
+  expandRevocations
 } = require('../../utils/transaction-format.js')
 const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
@@ -543,8 +544,8 @@ Page({
   },
 
   _applyTransactions(transactions, signature) {
-    const all = sortTransactions(mergeTransactions([], transactions))
-    this._txRaw = all
+    this._txRaw = sortTransactions(mergeTransactions([], transactions))
+    const all = expandRevocations(this._txRaw)
     const nameMap = {}
     const buyIn = Number(this.data.game?.buyIn || 0)
     const profiles = [...(this.data.game?.players || []), ...(this.data.game?.removedPlayers || [])]

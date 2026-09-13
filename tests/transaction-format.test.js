@@ -134,7 +134,7 @@ assert.strictEqual(
     8,
     resolveName
   ),
-  'eter撤销L美美补买3手，共8手'
+  'eter帮L美美补买3手，共8手'
 )
 
 // === 移出 ===

@@ -225,11 +225,24 @@ exports.main = async event => {
           1,
           tx.meta?.hands || Math.round(tx.amount / (game.buyIn || tx.amount))
         )
+        const beforePlayer = players[idx]
+        const totalBuyIn = Math.max(0, beforePlayer.totalBuyIn - tx.amount)
+        const settled = beforePlayer.finalStack !== null && beforePlayer.finalStack !== undefined
         players[idx] = {
-          ...players[idx],
-          buyInCount: Math.max(1, players[idx].buyInCount - hands),
-          totalBuyIn: Math.max(0, players[idx].totalBuyIn - tx.amount),
-          currentStack: Math.max(0, (players[idx].currentStack || 0) - tx.amount)
+          ...beforePlayer,
+          buyInCount: Math.max(1, beforePlayer.buyInCount - hands),
+          totalBuyIn,
+          currentStack: settled
+            ? beforePlayer.finalStack
+            : Math.max(0, (beforePlayer.currentStack || 0) - tx.amount),
+          ...(settled
+            ? {
+                profit: Number(beforePlayer.finalStack) - totalBuyIn,
+                ...(beforePlayer.finalProfit != null
+                  ? { finalProfit: Number(beforePlayer.finalStack) - totalBuyIn }
+                  : {})
+              }
+            : {})
         }
         const update = {
           players,
@@ -249,6 +262,9 @@ exports.main = async event => {
               revokedAt: now,
               revokedBy: OPENID,
               revokedByNicknameSnapshot: resolveNickname(game, OPENID),
+              revokedBeforeHands: beforePlayer.buyInCount,
+              revokedAfterHands: players[idx].buyInCount,
+              revokeSequence: update.txSeq,
               ...(operationId ? { revokeOperationId: operationId } : {})
             }
           })

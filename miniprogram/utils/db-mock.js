@@ -35,6 +35,8 @@ const command = {
   exists: v => ({ __cmd: 'exists', v }),
   elemMatch: v => ({ __cmd: 'elemMatch', v }),
   inc: v => ({ __cmd: 'inc', v }),
+  max: v => ({ __cmd: 'max', v }),
+  min: v => ({ __cmd: 'min', v }),
   push: v => ({ __cmd: 'push', v }),
   pull: v => ({ __cmd: 'pull', v }),
   remove: () => ({ __cmd: 'remove' }),
@@ -47,35 +49,46 @@ const command = {
 function matchValue(actual, expected) {
   if (isCommand(expected)) {
     switch (expected.__cmd) {
-    case 'eq':
-      return actual === expected.v
-    case 'neq':
-      return actual !== expected.v
-    case 'gt':
-      return actual > expected.v
-    case 'gte':
-      return actual >= expected.v
-    case 'lt':
-      return actual < expected.v
-    case 'lte':
-      return actual <= expected.v
-    case 'in':
-      return Array.isArray(expected.v) && expected.v.includes(actual)
-    case 'nin':
-      return Array.isArray(expected.v) && !expected.v.includes(actual)
-    case 'exists':
-      return (actual !== undefined) === !!expected.v
-    case 'elemMatch':
-      if (!Array.isArray(actual)) return false
-      return actual.some(item =>
-        Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k]))
-      )
-    case 'and':
-      return expected.args.every(c => matchValue(actual, c))
-    case 'or':
-      return expected.args.some(c => matchValue(actual, c))
-    default:
-      return false
+      case 'eq':
+        return actual === expected.v
+      case 'neq':
+        return actual !== expected.v
+      case 'gt':
+        return actual > expected.v
+      case 'gte':
+        return actual >= expected.v
+      case 'lt':
+        return actual < expected.v
+      case 'lte':
+        return actual <= expected.v
+      case 'in':
+        return (
+          Array.isArray(expected.v) &&
+          (Array.isArray(actual)
+            ? actual.some(v => expected.v.includes(v))
+            : expected.v.includes(actual))
+        )
+      case 'nin':
+        return (
+          Array.isArray(expected.v) &&
+          (Array.isArray(actual)
+            ? !actual.some(v => expected.v.includes(v))
+            : !expected.v.includes(actual))
+        )
+      case 'exists':
+        return (actual !== undefined) === !!expected.v
+      case 'elemMatch':
+        if (!Array.isArray(actual)) return false
+        if (isCommand(expected.v)) return actual.some(item => matchValue(item, expected.v))
+        return actual.some(item =>
+          Object.keys(expected.v).every(k => matchValue(item[k], expected.v[k]))
+        )
+      case 'and':
+        return expected.args.every(c => matchValue(actual, c))
+      case 'or':
+        return expected.args.some(c => matchValue(actual, c))
+      default:
+        return false
     }
   }
   if (Array.isArray(expected)) return JSON.stringify(actual) === JSON.stringify(expected)
@@ -86,6 +99,12 @@ function matchValue(actual, expected) {
 }
 
 function matchDoc(doc, query) {
+  if (isCommand(query) && ['and', 'or'].includes(query.__cmd)) {
+    const conditions = query.args.flat()
+    return query.__cmd === 'and'
+      ? conditions.every(q => matchDoc(doc, q))
+      : conditions.some(q => matchDoc(doc, q))
+  }
   if (!query || !Object.keys(query).length) return true
   return Object.keys(query).every(k => matchValue(doc[k], query[k]))
 }
@@ -103,25 +122,31 @@ function applyUpdate(doc, update) {
         target = target[p]
       }
       switch (val.__cmd) {
-      case 'inc':
-        target[last] = (target[last] || 0) + val.v
-        break
-      case 'push':
-        if (!Array.isArray(target[last])) target[last] = []
-        target[last].push(...(Array.isArray(val.v) ? val.v : [val.v]))
-        break
-      case 'pull':
-        if (Array.isArray(target[last]))
-          target[last] = target[last].filter(x => !matchValue(x, val.v))
-        break
-      case 'remove':
-        delete target[last]
-        break
-      case 'set':
-        target[last] = val.v
-        break
-      default:
-        target[last] = val
+        case 'max':
+          target[last] = Math.max(target[last] ?? val.v, val.v)
+          break
+        case 'min':
+          target[last] = Math.min(target[last] ?? val.v, val.v)
+          break
+        case 'inc':
+          target[last] = (target[last] || 0) + val.v
+          break
+        case 'push':
+          if (!Array.isArray(target[last])) target[last] = []
+          target[last].push(...(Array.isArray(val.v) ? val.v : [val.v]))
+          break
+        case 'pull':
+          if (Array.isArray(target[last]))
+            target[last] = target[last].filter(x => !matchValue(x, val.v))
+          break
+        case 'remove':
+          delete target[last]
+          break
+        case 'set':
+          target[last] = val.v
+          break
+        default:
+          target[last] = val
       }
     } else if (key.includes('.')) {
       const path = key.split('.')
@@ -181,7 +206,10 @@ function createMockDb(seed) {
       return this
     }
     where(q) {
-      this._where = { ...this._where, ...q }
+      this._where = Object.keys(this._where).length ? command.and(this._where, q) : q
+      return this
+    }
+    field() {
       return this
     }
     orderBy(f, dir = 'asc') {
@@ -204,14 +232,15 @@ function createMockDb(seed) {
         return d ? [d] : []
       }
       list = list.filter(d => matchDoc(d, this._where))
-      this._orderBy.forEach(({ f, dir }) => {
-        list = list.slice().sort((a, b) => {
+      list = list.slice().sort((a, b) => {
+        for (const { f, dir } of this._orderBy) {
           const av = a[f],
             bv = b[f]
           const cmp =
             av instanceof Date && bv instanceof Date ? av - bv : av > bv ? 1 : av < bv ? -1 : 0
-          return dir === 'desc' ? -cmp : cmp
-        })
+          if (cmp) return dir === 'desc' ? -cmp : cmp
+        }
+        return 0
       })
       list = list.slice(this._skip, this._skip + this._limit)
       return list
@@ -290,12 +319,30 @@ function createMockDb(seed) {
     }
   }
 
-  return {
+  let transactionTail = Promise.resolve()
+  const db = {
     collection,
     command,
     _raw: collections,
     _notify: notify
   }
+  db.runTransaction = fn => {
+    const result = transactionTail.then(async () => {
+      const before = deepClone(collections)
+      try {
+        return await fn(db)
+      } catch (err) {
+        Object.keys(collections).forEach(key => {
+          delete collections[key]
+        })
+        Object.assign(collections, before)
+        throw err
+      }
+    })
+    transactionTail = result.catch(() => {})
+    return result
+  }
+  return db
 }
 
 module.exports = { createMockDb }

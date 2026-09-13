@@ -11,6 +11,7 @@ function normalizeTransactionKind(tx) {
   if (type === 'buyin') return 'buyIn'
   if (type === 'rebuy' || type === 'addon') return tx.type === 'addOn' ? 'addOn' : 'rebuy'
   if (type === 'eliminate') return 'eliminate'
+  if (type === 'revoke') return 'revoke'
   if (type === 'settle' || type === 'settlepartial') return 'settle'
   // 费用留痕必须先于形状推断：它也带 beforeValue/afterValue，
   // 落入下方推断会被误判成结算修正（曾显示"结算从0改为561"）
@@ -80,8 +81,7 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
     const totalAfter = hasBeforeAfter(tx.beforeHands, tx.afterHands)
       ? tx.afterHands
       : accHands || null
-    if (tx.revoked && operator) seg('operator', `${operator}撤销`)
-    else if (isProxy) seg('operator', `${operator}帮`)
+    if (isProxy) seg('operator', `${operator}帮`)
     seg('player', player)
     seg('action', '补买')
     if (totalAfter) {
@@ -117,6 +117,17 @@ function buildTransactionSentence(tx, hands, accHands, resolveName) {
     }
     seg('action', '剩')
     seg('result', `${tx.amount}积分`)
+    return withKeys()
+  }
+
+  if (kind === 'revoke') {
+    if (operator) seg('operator', `${operator}撤销`)
+    else seg('action', '撤销')
+    seg('player', player)
+    seg('action', '的')
+    seg('result', `${hands}手`)
+    seg('action', '补买，共')
+    seg('result', `${tx.afterHands ?? accHands}手`)
     return withKeys()
   }
 
@@ -183,14 +194,17 @@ function transactionHandState(transactions, profiles, buyInValue) {
   ;(transactions || []).forEach(tx => {
     let hands = 0
     if (tx.type === 'buyIn') hands = Math.max(1, Number(tx.meta?.hands) || 1)
-    else if (tx.type === 'rebuy' || tx.type === 'addOn') {
+    else if (tx.type === 'rebuy' || tx.type === 'addOn' || tx.type === 'revoke') {
       hands =
         Number(tx.meta?.hands) ||
         (buyIn > 0 ? Math.max(1, Math.round((tx.amount || 0) / buyIn)) : 1)
     }
     state[tx._id] = { hands, accHands: runningHands[tx.playerOpenid] || 0 }
+    if (tx.type === 'revoke')
+      runningHands[tx.playerOpenid] = (runningHands[tx.playerOpenid] || 0) + hands
     const countsTowardTotal =
-      tx.type === 'buyIn' || ((tx.type === 'rebuy' || tx.type === 'addOn') && !tx.revoked)
+      tx.type === 'buyIn' ||
+      ((tx.type === 'rebuy' || tx.type === 'addOn') && (!tx.revoked || tx.revocationRecorded))
     if (countsTowardTotal) {
       runningHands[tx.playerOpenid] = Math.max(0, (runningHands[tx.playerOpenid] || 0) - hands)
     }
@@ -219,11 +233,35 @@ function mergeTransactions(existing, incoming) {
   return sortTransactions([...map.values()])
 }
 
+// Legacy records store cancellation metadata on the original event. Keep both facts visible.
+function expandRevocations(transactions) {
+  const out = []
+  for (const tx of transactions || []) {
+    const cancelled = tx.revoked && tx.revokedAt && ['rebuy', 'addOn'].includes(tx.type)
+    out.push(cancelled ? { ...tx, revocationRecorded: true } : tx)
+    if (cancelled)
+      out.push({
+        ...tx,
+        _id: `${tx._id}:revoke`,
+        type: 'revoke',
+        revoked: false,
+        timestamp: tx.revokedAt,
+        operationSequence: tx.revokeSequence,
+        operatorOpenid: tx.revokedBy,
+        operatorNicknameSnapshot: tx.revokedByNicknameSnapshot,
+        beforeHands: tx.revokedBeforeHands,
+        afterHands: tx.revokedAfterHands
+      })
+  }
+  return sortTransactions(out)
+}
+
 module.exports = {
   buildTransactionSentence,
   transactionSentenceText,
   normalizeTransactionKind,
   transactionHandState,
   sortTransactions,
-  mergeTransactions
+  mergeTransactions,
+  expandRevocations
 }

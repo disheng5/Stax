@@ -513,15 +513,31 @@ const handlers = {
         .catch(() => null)
       if (!txGot || !txGot.data) return { ok: false, error: 'TX_NOT_FOUND' }
       const tx = txGot.data
+      if (tx.gameId !== gameId) return { ok: false, error: 'TX_NOT_FOUND' }
       if (tx.revoked) return { ok: false, error: 'ALREADY_REVOKED' }
+      if (!['rebuy', 'addOn'].includes(tx.type))
+        return { ok: false, error: 'CANT_REVOKE_THIS_TYPE' }
       const idx = players.findIndex(p => p.openid === tx.playerOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
       const hands = Math.max(1, tx.meta?.hands || Math.round(tx.amount / (game.buyIn || tx.amount)))
+      const beforePlayer = players[idx]
+      const totalBuyIn = Math.max(0, beforePlayer.totalBuyIn - tx.amount)
+      const settled = beforePlayer.finalStack !== null && beforePlayer.finalStack !== undefined
       players[idx] = {
-        ...players[idx],
-        buyInCount: Math.max(1, players[idx].buyInCount - hands),
-        totalBuyIn: Math.max(0, players[idx].totalBuyIn - tx.amount),
-        currentStack: Math.max(0, (players[idx].currentStack || 0) - tx.amount)
+        ...beforePlayer,
+        buyInCount: Math.max(1, beforePlayer.buyInCount - hands),
+        totalBuyIn,
+        currentStack: settled
+          ? beforePlayer.finalStack
+          : Math.max(0, (beforePlayer.currentStack || 0) - tx.amount),
+        ...(settled
+          ? {
+              profit: Number(beforePlayer.finalStack) - totalBuyIn,
+              ...(beforePlayer.finalProfit != null
+                ? { finalProfit: Number(beforePlayer.finalStack) - totalBuyIn }
+                : {})
+            }
+          : {})
       }
       const update = {
         players,
@@ -541,6 +557,9 @@ const handlers = {
             revokedAt: now,
             revokedBy: MY_OPENID,
             revokedByNicknameSnapshot: mockNickname(game, MY_OPENID),
+            revokedBeforeHands: beforePlayer.buyInCount,
+            revokedAfterHands: players[idx].buyInCount,
+            revokeSequence: update.txSeq,
             ...(operationId ? { revokeOperationId: operationId } : {})
           }
         })
@@ -712,13 +731,10 @@ const handlers = {
     // 与云函数一致：费用留痕门控（显式携带费用参数且实际变化才记流水）
     const prevExtraCost = Number(game.extraCost) || 0
     const prevExpenseMode =
-      game.expenseMode || game.aaMode
-        ? normalizeExpenseMode(game.expenseMode || game.aaMode)
-        : null
+      game.expenseMode || game.aaMode ? normalizeExpenseMode(game.expenseMode || game.aaMode) : null
     const expenseChanged =
       (hasExtraCost || hasExpenseMode) &&
-      (effExtraCost !== prevExtraCost ||
-        (effExtraCost > 0 && effExpenseMode !== prevExpenseMode))
+      (effExtraCost !== prevExtraCost || (effExtraCost > 0 && effExpenseMode !== prevExpenseMode))
 
     let players = game.players.map(p => {
       if (!submittedOpenids.includes(p.openid)) return p
@@ -1309,7 +1325,13 @@ const handlers = {
           counted: !excluded.has(g._id) && !g.excludeFromSeason
         }
       })
-    const view = buildSeasonView({ season, circle, memberProfiles, myGames, viewerOpenid: MY_OPENID })
+    const view = buildSeasonView({
+      season,
+      circle,
+      memberProfiles,
+      myGames,
+      viewerOpenid: MY_OPENID
+    })
     // 与云函数一致：本榜历届夺冠次数（字段只加，老前端自动忽略）
     if (view && view.isMember) {
       const championCounts = {}
