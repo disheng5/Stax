@@ -118,6 +118,18 @@ vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
   assert.strictEqual(new Set(large.transactions.map(tx => tx._id)).size, 1001)
   page._applyCompleteGame(large)
   assert.strictEqual(page.data.recentTx.length, 1001, 'all same-time ledger rows remain visible')
+  const beforeEnd = writes
+  const ended = {
+    ...large, game: { ...large.game, status: 'ended', endedAt: new Date(2000), stateRevision: 4 },
+    transactions: large.transactions.concat({ _id: 'later_expense', gameId: 'g', type: 'expense', playerOpenid: 'host', amount: 20, timestamp: new Date(3000) })
+  }
+  page._applyCompleteGame(ended)
+  assert.strictEqual(writes, beforeEnd + 1, 'end state and all ledger events still share one render')
+  assert.strictEqual(page.data.recentTx.length, 1003)
+  assert.strictEqual(page.data.recentTx[0]._id, 'later_expense')
+  assert.strictEqual(page.data.recentTx[1]._id, 'g:record-ended')
+  page._applyCompleteGame(ended)
+  assert.strictEqual(writes, beforeEnd + 1, 'reopening the same ended snapshot does not redraw')
   views.clearCompleteGames()
   console.log('game-view.test.js passed')
 })().catch(err => {

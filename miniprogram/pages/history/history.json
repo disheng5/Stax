@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "战绩",
-  "enableShareAppMessage": true,
   "usingComponents": {
     "empty-state": "/components/empty-state/empty-state",
     "line-chart": "/components/line-chart/line-chart"

@@ -143,6 +143,8 @@ function load(relative, component = false) {
   )
 
   for (const name of ['index', 'history', 'game-detail', 'circle-detail']) {
+    const config = JSON.parse(fs.readFileSync(path.resolve(__dirname, `../miniprogram/pages/${name}/${name}.json`), 'utf8'))
+    assert.strictEqual(config.enableShareAppMessage, undefined, 'sharing uses the page handler, not an unsupported config key')
     const p = load(`pages/${name}/${name}.js`)
     Object.assign(p.data, {
       gameId: 'g',
@@ -156,6 +158,11 @@ function load(relative, component = false) {
     assert.strictEqual(share.imageUrl, '/images/share-cover.png')
     assert(fs.existsSync(path.resolve(__dirname, '../miniprogram' + share.imageUrl)))
     if (name === 'game-detail') assert(share.path.includes('code=ABCDEF'))
+  }
+  const css = fs.readFileSync(path.resolve(__dirname, '../miniprogram/components/profile-sheet/profile-sheet.wxss'), 'utf8')
+  for (const block of css.split('}')) {
+    const selector = block.split('{')[0]
+    assert(!/(^|[>,\s])(?:button|input|image|text|view)(?=::|\s|$)/.test(selector), 'component styles use class selectors')
   }
   console.log('share-profile.test.js passed')
 })().catch(err => {

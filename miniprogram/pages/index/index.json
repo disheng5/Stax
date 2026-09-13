@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "StaxKit",
-  "enableShareAppMessage": true,
   "usingComponents": {
     "empty-state": "/components/empty-state/empty-state"
   }
