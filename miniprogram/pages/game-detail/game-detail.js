@@ -1174,20 +1174,12 @@ Page({
   },
 
   async onJoinAsPlayer() {
-    if (this.data.joining) return
+    if (this.data.joining || this._profileJoining) return
     if (!this.data.game) return
     await app.globalData.openidReady
-    await app.refreshCurrentUser()
     const profile = readLocalProfile(app.globalData.openid) || {}
     if (!isMeaningfulNickname(profile.nickname)) {
-      wx.showModal({
-        title: '先完善资料',
-        content: '设置昵称和头像后，好友才能认出你',
-        confirmText: '去设置',
-        success: r => {
-          if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })
-        }
-      })
+      await this._completeJoinProfile()
       return
     }
     const code = this.data.inviteCode || this.data.game?.inviteCode
@@ -1201,7 +1193,17 @@ Page({
     })
   },
 
-  async _joinWithHands(hands) {
+  async _completeJoinProfile(hands = 1) {
+    if (this._profileJoining || this._unloaded) return
+    this._profileJoining = true
+    try {
+      const filled = await this.selectComponent('#join-profile').request({ hands, buyIn: this.data.game?.buyIn || 0 })
+      if (filled && !this._unloaded) await this._joinWithHands(filled.hands, true)
+    } finally { this._profileJoining = false }
+  },
+
+  async _joinWithHands(hands, profileCompleted = false) {
+    if (this.data.joining || this._unloaded) return
     const code = this.data.inviteCode || this.data.game?.inviteCode
     const profile = readLocalProfile(app.globalData.openid) || {}
     this.setData({ joining: true })
@@ -1220,14 +1222,18 @@ Page({
       wx.hideLoading()
       const { ok, error, alreadyJoined, game } = res.result || {}
       if (!ok) {
+        if (error === 'PROFILE_REQUIRED' && !profileCompleted) {
+          this.setData({ joining: false })
+          await this._completeJoinProfile(hands)
+          return
+        }
         const msg =
           {
             GAME_NOT_FOUND: '牌局已结束',
             PROFILE_REQUIRED: '请先完善真实昵称',
             CONFLICT_RETRY: '操作冲突，请重试'
           }[error] ||
-          error ||
-          '上桌失败'
+          '操作失败，请稍后重试'
         wx.showToast({ title: msg, icon: 'none' })
         return
       }
@@ -1246,17 +1252,9 @@ Page({
 
   onShareAppMessage() {
     const g = this.data.game
-    const playerN = g?.players?.length || 0
-    const pot = g?.totalPot || 0
-    return {
-      title: `「${g?.name || 'StaxKit 积分记录'}」· ${playerN} 人 · 累计积分 ${pot}`,
-      path:
-        '/pages/game-detail/game-detail?id=' +
-        this.data.gameId +
-        '&code=' +
-        (g?.inviteCode || '') +
-        '&mode=viewer',
-      imageUrl: '' // 可后续加结算图作为分享图
-    }
+    return require('../../utils/share.js').safeShare(
+      `/pages/game-detail/game-detail?id=${encodeURIComponent(this.data.gameId)}&code=${encodeURIComponent(g?.inviteCode || '')}&mode=viewer`,
+      '邀请你一起记录朋友局积分'
+    )
   }
 })

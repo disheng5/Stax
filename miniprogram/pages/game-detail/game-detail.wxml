@@ -115,6 +115,7 @@
 </view>
 <empty-state wx:else title="房间不存在或已结束" />
 
+<profile-sheet id="join-profile" />
 <view class="hands-mask" wx:if="{{handsPicker.show}}" bindtap="onHandsClose">
   <view class="hands-sheet" catchtap="onHandsStop">
     <view class="hands-title">{{handsPicker.title}} 几手</view>

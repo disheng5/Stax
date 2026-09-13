@@ -1,3 +1,4 @@
+<profile-sheet id="join-profile" />
 <view class="container invite-page">
   <view class="invite-hero card" wx:if="{{game}}">
     <view class="eyebrow">朋友局娱乐积分记录</view>

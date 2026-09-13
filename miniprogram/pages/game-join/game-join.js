@@ -19,6 +19,8 @@ Page({
     }
   },
 
+  onUnload() { this._unloaded = true },
+
   async _loadGameByCode(code) {
     if (!/^[A-Z0-9]{6}$/.test(code)) return
     this.setData({ loadingGame: true })
@@ -80,23 +82,16 @@ Page({
   },
 
   async _join(mode) {
+    if (this.data.submitting || this._profileJoining) return
     if (!/^[A-Z0-9]{6}$/.test(this.data.code)) {
       wx.showToast({ title: '邀请信息无效，请让好友重新分享', icon: 'none' })
       return
     }
 
     await app.globalData.openidReady
-    await app.refreshCurrentUser()
     const profile = readLocalProfile(app.globalData.openid)
     if (!isMeaningfulNickname(profile.nickname) && mode === 'player') {
-      wx.showModal({
-        title: '先完善资料',
-        content: '设置昵称和头像后，好友才能认出你',
-        confirmText: '去设置',
-        success: r => {
-          if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })
-        }
-      })
+      await this._completeJoinProfile()
       return
     }
     if (isMeaningfulNickname(profile.nickname) && mode === 'player') {
@@ -108,7 +103,10 @@ Page({
         confirmText: '参与',
         success: async r => {
           if (!r.confirm) return
-          const hands = Math.max(1, Math.floor(Number(r.content || 1) || 1))
+          const hands = Number(r.content || 1)
+          if (!Number.isInteger(hands) || hands < 1 || hands > 99) {
+            wx.showToast({ title: '请输入1至99之间的整数', icon: 'none' }); return
+          }
           await this._doJoin(mode, hands)
         }
       })
@@ -117,7 +115,17 @@ Page({
     await this._doJoin(mode, 1)
   },
 
-  async _doJoin(mode, hands = 1) {
+  async _completeJoinProfile(hands = 1) {
+    if (this._profileJoining || this._unloaded) return
+    this._profileJoining = true
+    try {
+      const filled = await this.selectComponent('#join-profile').request({ hands, buyIn: this.data.game?.buyIn || 0 })
+      if (filled && !this._unloaded) await this._doJoin('player', filled.hands, true)
+    } finally { this._profileJoining = false }
+  },
+
+  async _doJoin(mode, hands = 1, profileCompleted = false) {
+    if (this.data.submitting || this._unloaded) return
     const profile = readLocalProfile(app.globalData.openid)
     this.setData({ submitting: true })
     wx.showLoading({ title: mode === 'viewer' ? '进入中…' : '加入中…' })
@@ -135,13 +143,18 @@ Page({
       wx.hideLoading()
       const { ok, gameId, game, error, alreadyJoined } = res.result || {}
       if (!ok) {
+        if (error === 'PROFILE_REQUIRED' && mode === 'player' && !profileCompleted) {
+          this.setData({ submitting: false })
+          await this._completeJoinProfile(hands)
+          return
+        }
         wx.showToast({
           title:
             error === 'GAME_NOT_FOUND'
               ? '邀请已失效或记录已结束'
               : error === 'PROFILE_REQUIRED'
                 ? '请先完善真实昵称'
-                : error || '加入失败',
+                : '操作失败，请稍后重试',
           icon: 'none'
         })
         return

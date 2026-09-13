@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "积分记录邀请" }
+{ "navigationBarTitleText": "积分记录邀请", "usingComponents": { "profile-sheet": "/components/profile-sheet/profile-sheet" } }

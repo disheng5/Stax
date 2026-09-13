@@ -295,14 +295,6 @@ Page({
   },
 
   onShareAppMessage() {
-    const games = this.data.games
-    if (!games.length) return { title: 'StaxKit', path: '/pages/index/index' }
-    const total = games.reduce((s, g) => s + (g.myProfit || 0), 0)
-    const wins = games.filter(g => (g.myProfit || 0) > 0).length
-    const winRate = Math.round((wins * 100) / games.length)
-    return {
-      title: `我打了 ${games.length} 局 ${total >= 0 ? '盈利' : '亏损'} ${Math.abs(total)}（胜率 ${winRate}%）`,
-      path: '/pages/index/index'
-    }
+    return require('../../utils/share.js').safeShare()
   }
 })

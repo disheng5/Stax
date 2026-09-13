@@ -150,12 +150,6 @@ Page({
   },
 
   onShareAppMessage() {
-    const s = this.data.myStats
-    let title = 'StaxKit · 朋友局娱乐积分记录'
-    if (s && s.totalGames >= 3) {
-      const pf = formatProfit(s.totalProfit || 0)
-      title = `我用 StaxKit 记录了 ${s.totalGames} 场朋友局，累计积分 ${pf}`
-    }
-    return { title, path: '/pages/index/index' }
+    return require('../../utils/share.js').safeShare()
   }
 })

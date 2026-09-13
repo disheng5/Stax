@@ -2,6 +2,7 @@
   "navigationBarTitleText": "积分记录",
   "enableShareAppMessage": true,
   "usingComponents": {
+    "profile-sheet": "/components/profile-sheet/profile-sheet",
     "player-card": "/components/player-card/player-card",
     "empty-state": "/components/empty-state/empty-state"
   }
