@@ -1,6 +1,6 @@
 // cloudfunctions/recordTransaction/index.js
 // 操作权限：
-//   - rebuy / addOn ：参与人可给自己；庄家可给任意人
+//   - rebuy / addOn ：共享开启时在场成员可互相代买；共享关闭时仅庄家
 //   - eliminate     ：仅庄家
 //   - revoke        ：仅庄家可锁销最近一条 rebuy/addOn（撤回到上一状态）
 //   - pauseToggle / levelUp ：仅庄家
@@ -139,10 +139,15 @@ exports.main = async event => {
         const isPlayer = (game.players || []).some(p => p.openid === OPENID)
         if (!isHost && !isPlayer) return { ok: false, error: 'NOT_PLAYER' }
         if (!isHost && game.playerOpsShared === false) return { ok: false, error: 'NOT_HOST' }
-        if (!isHost && targetOpenid !== OPENID) return { ok: false, error: 'CAN_ONLY_BUY_FOR_SELF' }
         const players = game.players.slice()
         const idx = players.findIndex(p => p.openid === targetOpenid)
         if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+        // 仅约束本次新开放的代买路径，保留旧客户端的房主/本人调用契约。
+        if (!isHost && targetOpenid !== OPENID) {
+          if (players.find(p => p.openid === OPENID).eliminatedAt)
+            return { ok: false, error: 'NOT_PLAYER' }
+          if (players[idx].eliminatedAt) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+        }
         const buyIn = Number(game.buyIn) || 0
         hands = Math.min(
           99,

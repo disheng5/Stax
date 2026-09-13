@@ -10,7 +10,7 @@
     "test:mock": "node scripts/test-mock.js",
     "compliance": "node scripts/compliance-check.js",
     "gen:images": "node scripts/gen-images.js",
-    "test:regression": "node tests/trust-regressions.test.js && node tests/game-view.test.js && node tests/share-profile.test.js && node tests/live-view.test.js && node tests/derived-stats.test.js && node tests/trend-note.test.js",
+    "test:regression": "node tests/trust-regressions.test.js && node tests/game-view.test.js && node tests/share-profile.test.js && node tests/live-view.test.js && node tests/derived-stats.test.js && node tests/trend-note.test.js && node tests/proxy-buy.test.js",
     "check": "npm run test && npm run test:regression && npm run test:mock && npm run compliance"
   },
   "devDependencies": {

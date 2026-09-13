@@ -253,8 +253,51 @@ function step(name, fn) {
     )
   })
 
-  await step('给非 host 给非自己 rebuy 应拒绝', async () => {
-    // mock 模式下 me 一定是 host，无法验证 NOT_HOST 路径；跳过
+  await step('普通成员可代买，保留共享开关和真实操作人，重试不重复记账', async () => {
+    const raw = cloudMock.getDb()._raw
+    const source = raw.games.find(g => g._id === gameId)
+    const probe = structuredClone(source)
+    probe._id = 'proxy_buy_probe'
+    probe.hostOpenid = 'mock_host'
+    probe.playerOpsShared = true
+    probe.players.push({
+      openid: 'friend',
+      nickname: 'Friend',
+      totalBuyIn: 100,
+      buyInCount: 1,
+      currentStack: 100
+    })
+    raw.games.push(probe)
+    const data = {
+      gameId: probe._id,
+      type: 'rebuy',
+      playerOpenid: 'friend',
+      amount: 100,
+      hands: 1,
+      operationId: 'proxy_mock_001'
+    }
+    const first = await wx.cloud.callFunction({ name: 'recordTransaction', data })
+    assert(first.result.ok)
+    assert((await wx.cloud.callFunction({ name: 'recordTransaction', data })).result.idempotent)
+    const entries = raw.transactions.filter(t => t.operationId === data.operationId)
+    assert.strictEqual(entries.length, 1)
+    assert.strictEqual(entries[0].operatorOpenid, 'mock_me')
+    assert.strictEqual(entries[0].playerOpenid, 'friend')
+    assert.strictEqual(entries[0].afterHands, 2)
+    const updated = raw.games.find(g => g._id === probe._id)
+    updated.playerOpsShared = false
+    const blocked = await wx.cloud.callFunction({
+      name: 'recordTransaction',
+      data: { ...data, operationId: 'proxy_mock_002' }
+    })
+    assert.strictEqual(blocked.result.error, 'NOT_HOST')
+    updated.playerOpsShared = true
+    updated.players = updated.players.filter(p => p.openid !== 'mock_me')
+    const outsider = await wx.cloud.callFunction({
+      name: 'recordTransaction',
+      data: { ...data, operationId: 'proxy_mock_003' }
+    })
+    assert.strictEqual(outsider.result.error, 'NOT_PLAYER')
   })
 
   await step('流水新增字段：operationSequence 单调递增、操作人快照、前后手数', async () => {

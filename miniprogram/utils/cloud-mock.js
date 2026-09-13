@@ -432,6 +432,9 @@ const handlers = {
       .catch(() => null)
     if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
     const game = got.data
+    const isParticipant =
+      game.hostOpenid === MY_OPENID || (game.players || []).some(p => p.openid === MY_OPENID)
+    if (!isParticipant) return { ok: false, error: 'NOT_PLAYER' }
     const operationId = normalizeOperationId(rawOperationId)
     if (operationId && (game.recentOperationIds || []).includes(operationId)) {
       return { ok: true, idempotent: true, operationId, game }
@@ -442,19 +445,26 @@ const handlers = {
     const players = game.players.slice()
 
     if (type === 'rebuy' || type === 'addOn') {
-      if (amount <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
+      amount = Number(amount)
+      if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'INVALID_AMOUNT' }
       const targetOpenid = playerOpenid || MY_OPENID
-      if (!isHost && targetOpenid !== MY_OPENID)
-        return { ok: false, error: 'CAN_ONLY_BUY_FOR_SELF' }
+      if (!isHost && game.playerOpsShared === false) return { ok: false, error: 'NOT_HOST' }
       const idx = players.findIndex(p => p.openid === targetOpenid)
       if (idx < 0) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+      if (!isHost && targetOpenid !== MY_OPENID) {
+        if (players.find(p => p.openid === MY_OPENID).eliminatedAt)
+          return { ok: false, error: 'NOT_PLAYER' }
+        if (players[idx].eliminatedAt) return { ok: false, error: 'PLAYER_NOT_FOUND' }
+      }
       const buyIn = Number(game.buyIn) || 0
-      const hands =
+      const hands = Math.min(
+        99,
         Number(handsInput) > 0
           ? Math.floor(Number(handsInput))
           : buyIn > 0
             ? Math.max(1, Math.round(amount / buyIn))
             : 1
+      )
       const previous = players[idx]
       players[idx] = {
         ...previous,
@@ -474,7 +484,7 @@ const handlers = {
       const seq = nextTxSeq(game)
       const update = {
         players,
-        totalPot: game.totalPot + amount,
+        totalPot: (Number(game.totalPot) || 0) + amount,
         checkedOutCount: settledCount,
         settledCount,
         txSeq: seq,
@@ -501,7 +511,7 @@ const handlers = {
           ...(operationId ? { operationId } : {})
         }
       })
-      return { ok: true, txId: tx._id, game: { ...game, ...update } }
+      return { ok: true, isHost, txId: tx._id, game: { ...game, ...update } }
     }
     if (type === 'revoke') {
       if (!isHost) return { ok: false, error: 'NOT_HOST' }
