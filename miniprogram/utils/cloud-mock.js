@@ -10,7 +10,7 @@ const { computeShares } = require('./aa.js')
 const { generateInviteCode } = require('./invite-code.js')
 const { recoverLegacyNickname } = require('./game-name.js')
 const { buildSeasonView } = require('./season-view.js')
-const { computeAnalytics, buildTrendNote } = require('./analytics.js')
+const { computeAnalytics, buildTrendNote, buildTrendSignals } = require('./analytics.js')
 
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 const meaningfulNickname = value => {
@@ -1358,7 +1358,7 @@ const handlers = {
     return view
   },
 
-  async getMyAnalytics() {
+  async getMyAnalytics(event = {}) {
     const raw = getDb()._raw
     const games = (raw.games || []).filter(
       g =>
@@ -1367,30 +1367,14 @@ const handlers = {
         !(g.hiddenForOpenids || []).includes(MY_OPENID)
     )
     const analytics = computeAnalytics(games, MY_OPENID)
-    const scores = games
-      .slice()
-      .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
-      .map(g => {
-        const me = (g.players || []).find(p => p.openid === MY_OPENID)
-        if (!me) return null
-        const ratio = Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1
-        return Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)
-      })
-      .filter(s => s !== null)
-    const recent = scores.slice(-5)
-    const prev = scores.slice(-10, -5)
-    const recentSum = recent.reduce((s, v) => s + v, 0)
-    const prevSum = prev.reduce((s, v) => s + v, 0)
-    const best = scores.length ? Math.max(...scores) : 0
-    const worst = scores.length ? Math.min(...scores) : 0
-    const direction = recentSum > prevSum ? 'up' : recentSum < prevSum ? 'down' : 'flat'
-    const signals = { sampleCount: scores.length, recentSum, prevSum, best, worst, direction }
+    const signals = buildTrendSignals(games, MY_OPENID)
+    const { recentSum, prevSum, best, worst, direction } = signals
     return {
       ok: true,
       stats: analytics.stats,
       dimensions: analytics.dimensions,
       trend: { recentSum, prevSum, best, worst, direction },
-      note: buildTrendNote(signals),
+      note: buildTrendNote(signals, { variation: event?.noteVariation }),
       meta: analytics.meta
     }
   },

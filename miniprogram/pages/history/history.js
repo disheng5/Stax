@@ -7,7 +7,8 @@ const {
   cacheGame
 } = require('../../utils/game-data.js')
 const { computeGameStats, gameScore, sortDimensionRows, positionKey } = require('../../utils/stats.js')
-const { buildTrendNote } = require('../../utils/analytics.js')
+const { buildTrendNote, buildTrendSignals } = require('../../utils/analytics.js')
+const { createNoteVisit } = require('../../utils/trend-note-visit.js')
 const app = getApp()
 const { batchRender } = require('../../utils/render.js')
 
@@ -94,7 +95,9 @@ Page(require('../../utils/live-view.js').liveGamesPage({
   // 服务端聚合：stats/dimensions/trend/note 由 getMyAnalytics 一次性返回
   async _fetchAnalytics() {
     try {
-      const res = await wx.cloud.callFunction({ name: 'getMyAnalytics', data: {} })
+      const res = await wx.cloud.callFunction({ name: 'getMyAnalytics', data: {
+        noteVariation: this._noteVisit?.variation || 0
+      } })
       const r = res && res.result
       if (!r || !r.ok) return
       this._analyticsApplied = true
@@ -215,27 +218,17 @@ Page(require('../../utils/live-view.js').liveGamesPage({
   },
 
   _computeAiSummary(games, openid) {
-    const scores = (games || [])
-      .slice()
-      .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
-      .map(g => gameScore(g, openid) || 0)
-    if (!scores.length) {
-      this.setData({ aiSummary: [] })
-      return
+    if (this._noteOpenid !== openid || !this._noteVisit) {
+      this._noteOpenid = openid
+      this._noteVisit = createNoteVisit(openid)
     }
-    // 与服务端 getMyAnalytics.note 同源，保证口径与措辞一致
-    const recent = scores.slice(-5).reduce((s, v) => s + v, 0)
-    const prev = scores.slice(-10, -5).reduce((s, v) => s + v, 0)
-    const note = buildTrendNote({
-      sampleCount: scores.length,
-      recentSum: recent,
-      prevSum: prev,
-      best: Math.max(...scores),
-      worst: Math.min(...scores)
+    const note = buildTrendNote(buildTrendSignals(games, openid), {
+      variation: this._noteVisit.variation
     })
     this.setData({
       aiSummary: note.enough ? [note.observation, note.perspective, note.action] : []
     })
+    if (note.enough && this.data.aiExpanded) this._noteVisit.markRead()
   },
 
   onDimChange(e) {
@@ -249,7 +242,9 @@ Page(require('../../utils/live-view.js').liveGamesPage({
   },
 
   onToggleAi() {
-    this.setData({ aiExpanded: !this.data.aiExpanded })
+    const aiExpanded = !this.data.aiExpanded
+    this.setData({ aiExpanded })
+    if (aiExpanded && this.data.aiSummary.length) this._noteVisit?.markRead()
   },
 
   onOpenGame(e) {

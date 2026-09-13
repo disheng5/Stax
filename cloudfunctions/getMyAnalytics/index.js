@@ -4,7 +4,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
-const { computeAnalytics, buildTrendNote } = require('./analytics.js')
+const { computeAnalytics, buildTrendNote, buildTrendSignals } = require('./analytics.js')
 const { gameScore } = require('./stats.js')
 
 async function fetchMyEndedGames(openid) {
@@ -44,30 +44,12 @@ async function fetchMyEndedGames(openid) {
   )
 }
 
-// 趋势信号：按结束时间排序取本人每局积分，最近 5 场与前 5 场对比。
-function buildSignals(games, openid) {
-  const scores = games
-    .slice()
-    .sort((a, b) => new Date(a.endedAt || a.startedAt) - new Date(b.endedAt || b.startedAt))
-    .map(g => gameScore(g, openid))
-    .filter(s => s !== null)
-  const sampleCount = scores.length
-  const recent = scores.slice(-5)
-  const prev = scores.slice(-10, -5)
-  const recentSum = recent.reduce((s, v) => s + v, 0)
-  const prevSum = prev.reduce((s, v) => s + v, 0)
-  const best = scores.length ? Math.max(...scores) : 0
-  const worst = scores.length ? Math.min(...scores) : 0
-  const direction = recentSum > prevSum ? 'up' : recentSum < prevSum ? 'down' : 'flat'
-  return { sampleCount, recentSum, prevSum, best, worst, direction }
-}
-
-exports.main = async () => {
+exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
   const games = await fetchMyEndedGames(OPENID)
   const analytics = computeAnalytics(games, OPENID)
-  const signals = buildSignals(games, OPENID)
-  const note = buildTrendNote(signals)
+  const signals = buildTrendSignals(games, OPENID)
+  const note = buildTrendNote(signals, { variation: event?.noteVariation })
   return {
     ok: true,
     stats: analytics.stats,
