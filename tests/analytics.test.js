@@ -29,6 +29,12 @@ const games = [
   makeGame(80)
 ]
 const result = computeAnalytics(games, 'me')
+const excluded = [makeGame(999), makeGame(999), makeGame(999)]
+excluded[0].deletedAt = new Date()
+excluded[1].hiddenForOpenids = ['me']
+excluded[2].players[0].eliminatedAt = new Date()
+assert.strictEqual(computeAnalytics([...games, ...excluded], 'me').stats.totalGames, 5)
+assert.strictEqual(computeAnalytics([...games, ...excluded], 'me').stats.totalProfit, 300)
 assert.strictEqual(result.stats.totalGames, 5)
 assert.strictEqual(result.stats.totalProfit, 300)
 assert.strictEqual(result.stats.biggestWin, 200)

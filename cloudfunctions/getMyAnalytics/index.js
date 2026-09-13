@@ -29,7 +29,8 @@ async function fetchMyEndedGames(openid) {
         status: true,
         startedAt: true,
         endedAt: true,
-        hiddenForOpenids: true
+        hiddenForOpenids: true,
+        deletedAt: true
       })
       .orderBy('endedAt', 'asc')
       .skip(skip)
@@ -39,7 +40,7 @@ async function fetchMyEndedGames(openid) {
     if ((page.data || []).length < PAGE_SIZE) break
   }
   return [...new Map(out.map(game => [game._id, game])).values()].filter(
-    game => !(game.hiddenForOpenids || []).includes(openid)
+    game => gameScore(game, openid) !== null
   )
 }
 

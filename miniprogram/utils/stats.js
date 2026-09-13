@@ -2,7 +2,8 @@
 
 // 我在某局的积分（盈亏 / 记分比例）；不在局内返回 null
 function gameScore(game, openid) {
-  const me = (game.players || []).find(p => p.openid === openid)
+  if (game.deletedAt || (game.hiddenForOpenids || []).includes(openid)) return null
+  const me = (game.players || []).find(p => p.openid === openid && !p.eliminatedAt)
   if (!me) return null
   const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
   return Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)

@@ -1,6 +1,6 @@
 // 镜像自 miniprogram/utils/analytics.js —— 个人聚合 + 趋势札记纯函数。
 // 两处必须保持一致：改动其一必须同步另一处并跑测试。
-const { computeGameStats, sortDimensionRows } = require('./stats.js')
+const { computeGameStats, sortDimensionRows, gameScore } = require('./stats.js')
 
 const ANALYTICS_VERSION = 1
 const MIN_NOTE_SAMPLE = 5
@@ -8,7 +8,7 @@ const MIN_NOTE_SAMPLE = 5
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 function computeAnalytics(games, openid) {
-  const visible = (games || []).filter(g => g.status === 'ended')
+  const visible = (games || []).filter(g => g.status === 'ended' && gameScore(g, openid) !== null)
   const stats = computeGameStats(visible, openid)
 
   const dimPlayers = {}

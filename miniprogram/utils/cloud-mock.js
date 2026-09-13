@@ -642,9 +642,18 @@ const handlers = {
   async settleGame(event = {}) {
     const operationId = normalizeOperationId(event.operationId)
     const db = getDb()
+    const { createDerivedSync } = require('./derived-stats.js')
+    const derived = createDerivedSync(db, circleId => handlers.calcSeasonScore({ circleId }))
+    if (event.syncDerived === true && event.gameId) {
+      const game = (await db.collection('games').doc(event.gameId).get()).data
+      if (!(game.players || []).some(p => p.openid === MY_OPENID)) return { ok: false, error: 'NOT_PLAYER' }
+      return { ok: true, derivedPending: (await derived.sync(event.gameId)).pending }
+    }
     const cached = await readReceipt(db, event.gameId, operationId)
-    if (cached) return cached
+    if (cached) return { ...cached, derivedPending: event.deferDerived === true || (await derived.sync(event.gameId)).pending }
     const result = await this._settleGameCore(event)
+    if (result.ok) result.derivedPending = event.deferDerived === true
+      ? !!result.game?.derivedPending : (await derived.sync(event.gameId)).pending
     await writeReceipt(db, event.gameId, operationId, result)
     return result
   },
@@ -801,6 +810,7 @@ const handlers = {
       update.status = 'ended'
       update.endedAt = now
     }
+    if (justEnded || edited) Object.assign(update, require('./derived-stats.js').pendingDerivedUpdate(game, update.stateRevision))
     await db.collection('games').doc(gameId).update({ data: update })
     for (const openid of submittedOpenids) {
       const prevPlayer = prevPlayers.find(p => p.openid === openid)

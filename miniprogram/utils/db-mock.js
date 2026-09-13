@@ -263,6 +263,7 @@ function createMockDb(seed) {
 
     async add({ data }) {
       const doc = { _id: makeId(), _openid: meta.MY_OPENID || 'mock_me', ...deepClone(data) }
+      if (collections[this._name].some(item => item._id === doc._id)) throw new Error('duplicate id')
       collections[this._name].push(doc)
       return { _id: doc._id }
     }

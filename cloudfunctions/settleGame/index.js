@@ -3,8 +3,12 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const _ = db.command
 const OPERATION_ID_LIMIT = 50
+const { pendingDerivedUpdate, createDerivedSync } = require('./derived-stats.js')
+const derived = createDerivedSync(db, async circleId => {
+  const res = await cloud.callFunction({ name: 'calcSeasonScore', data: { circleId } })
+  return res.result
+})
 
 function normalizeOperationId(value) {
   const id = typeof value === 'string' ? value.trim() : ''
@@ -154,166 +158,16 @@ function computeShares(players, totalCost, mode) {
   return aaEven(players, totalCost)
 }
 
-// 结束后修改结算积分时，按差额修正个人累计战绩（totalProfit/wins 精确；
-// biggestWin/biggestLoss 只增不减，属近似，前端统计均由 games 原始数据实时计算不受影响）
-async function applyStatsDelta(prevPlayers, nextPlayers, game) {
-  const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
-  const prevBy = {}
-  prevPlayers
-    .filter(p => !p.eliminatedAt)
-    .forEach(p => {
-      prevBy[p.openid] = Math.round((Number(p.finalProfit ?? p.profit) || 0) / ratio)
-    })
-  await Promise.all(
-    nextPlayers
-      .filter(p => !p.eliminatedAt)
-      .map(p => {
-        const newScore = Math.round((Number(p.finalProfit) || 0) / ratio)
-        const oldScore = prevBy[p.openid] || 0
-        const dProfit = newScore - oldScore
-        const dWins = (newScore > 0 ? 1 : 0) - (oldScore > 0 ? 1 : 0)
-        if (!dProfit && !dWins) return null
-        return db
-          .collection('users')
-          .where({ _openid: p.openid })
-          .update({
-            data: {
-              'stats.totalProfit': _.inc(dProfit),
-              'stats.wins': _.inc(dWins),
-              'stats.biggestWin': _.max(Math.max(0, newScore)),
-              'stats.biggestLoss': _.min(Math.min(0, newScore))
-            }
-          })
-          .catch(err => console.error('[applyStatsDelta]', p.openid, err))
-      })
-  )
-}
-
-// 结算后更新每个玩家的累计战绩：一次 _.in 批量查 + 并行原子更新
-async function updateUserStats(players, game, now) {
-  const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
-  const openids = players.map(p => p.openid)
-  const byOpenid = {}
-  try {
-    const existing = await db
-      .collection('users')
-      .where({ _openid: _.in(openids) })
-      .limit(100)
-      .get()
-    existing.data.forEach(u => {
-      byOpenid[u._openid] = u
-    })
-  } catch (err) {
-    console.error('[updateUserStats query]', err)
-  }
-  await Promise.all(
-    players.map(p => {
-      const score = Math.round((p.finalProfit || 0) / ratio)
-      const u = byOpenid[p.openid]
-      if (!u) {
-        return db
-          .collection('users')
-          .add({
-            data: {
-              _openid: p.openid,
-              nickname: p.nickname,
-              avatar: p.avatar,
-              createdAt: now,
-              stats: {
-                totalGames: 1,
-                totalProfit: score,
-                biggestWin: Math.max(0, score),
-                biggestLoss: Math.min(0, score),
-                wins: score > 0 ? 1 : 0
-              }
-            }
-          })
-          .catch(err => console.error('[updateUserStats add]', p.openid, err))
-      }
-      // 原子更新，两局同时结算也不丢计数；max/min 用 0 截断保持与初始语义一致
-      return db
-        .collection('users')
-        .doc(u._id)
-        .update({
-          data: {
-            'stats.totalGames': _.inc(1),
-            'stats.totalProfit': _.inc(score),
-            'stats.biggestWin': _.max(Math.max(0, score)),
-            'stats.biggestLoss': _.min(Math.min(0, score)),
-            'stats.wins': _.inc(score > 0 ? 1 : 0)
-          }
-        })
-        .catch(err => console.error('[updateUserStats update]', p.openid, err))
-    })
-  )
-}
-
-async function fetchActiveCircles(memberOpenids = []) {
-  const PAGE_SIZE = 100
-  const query = filtered =>
-    db
-      .collection('circles')
-      .where(
-        filtered && memberOpenids.length
-          ? { status: 'active', memberOpenids: _.elemMatch(_.in(memberOpenids)) }
-          : { status: 'active' }
-      )
-  const fetch = async filtered => {
-    const out = []
-    const countRes = await query(filtered)
-      .count()
-      .catch(() => null)
-    if (countRes && typeof countRes.total === 'number') {
-      const total = countRes.total || 0
-      for (let skip = 0; skip < total; skip += PAGE_SIZE) {
-        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
-        out.push(...(page.data || []))
-      }
-    } else {
-      for (let skip = 0; ; skip += PAGE_SIZE) {
-        const page = await query(filtered).skip(skip).limit(PAGE_SIZE).get()
-        out.push(...(page.data || []))
-        if ((page.data || []).length < PAGE_SIZE) break
-      }
-    }
-    return out
-  }
-  try {
-    return await fetch(true)
-  } catch (err) {
-    console.warn('[fetchActiveCircles member fallback]', err)
-    const memberSet = new Set(memberOpenids)
-    return (await fetch(false)).filter(circle =>
-      (circle.memberOpenids || []).some(openid => memberSet.has(openid))
-    )
-  }
-}
-
-// 触发相关圈子的赛季积分重算。
-// 云函数返回后事件循环即被冻结，fire-and-forget 不可靠，必须等待完成。
-async function triggerSeasonCalc(players) {
-  try {
-    const playerSet = {}
-    players.forEach(p => {
-      if (p.openid) playerSet[p.openid] = true
-    })
-    const circles = await fetchActiveCircles(Object.keys(playerSet))
-    const related = circles.filter(c => (c.memberOpenids || []).some(openid => playerSet[openid]))
-    await Promise.all(
-      related.map(c =>
-        cloud
-          .callFunction({ name: 'calcSeasonScore', data: { circleId: c._id } })
-          .catch(e => console.error('[calcSeasonScore]', c._id, e))
-      )
-    )
-  } catch (err) {
-    console.error('[calcSeasonScore trigger]', err)
-  }
-}
 
 exports.main = async event => {
   const { OPENID } = cloud.getWXContext()
+  if (!OPENID && event?.Type === 'Timer') return derived.drain()
   const { gameId, finalStacks } = event || {}
+  if (event?.syncDerived === true && gameId) {
+    const game = (await db.collection('games').doc(gameId).get()).data
+    if (!(game.players || []).some(p => p.openid === OPENID)) return { ok: false, error: 'NOT_PLAYER' }
+    return { ok: true, derivedPending: (await derived.sync(gameId)).pending }
+  }
   // ⚠️ 契约红线：绝不按 mode 名称拒绝请求（曾用 INVALID_MODE 白名单拒掉了
   // 源码已丢失的线上前端的费用分摊调用，酿成线上事故）。
   // 按【载荷形状】推断意图，任何代际的前端都能正确工作：
@@ -331,7 +185,8 @@ exports.main = async event => {
   if (!gameId) return { ok: false, error: 'INVALID_PARAMS' }
   if (operationId) {
     const cached = await readSettleReceipt(gameId, operationId)
-    if (cached) return cached
+    if (cached) return event.deferDerived === true ? { ...cached, derivedPending: true }
+      : { ...cached, derivedPending: (await derived.sync(gameId)).pending }
   }
   if (hasExtraCost && (!Number.isFinite(extraCost) || extraCost < 0))
     return { ok: false, error: 'INVALID_EXTRA_COST' }
@@ -511,6 +366,7 @@ exports.main = async event => {
         update.status = 'ended'
         update.endedAt = now
       }
+      if (justEnded || edited) Object.assign(update, pendingDerivedUpdate(game, update.stateRevision))
 
       await transaction.collection('games').doc(gameId).update({ data: update })
       // 牌局状态与流水同事务提交，watch 不会再看到“数据已变、流水尚未落库”的中间态。
@@ -590,9 +446,11 @@ exports.main = async event => {
   }
   if (!txn.ok) return txn
   if (txn.idempotent) {
+    const synced = event.deferDerived === true ? { pending: !!txn.game.derivedPending } : await derived.sync(gameId)
     return {
       ok: true,
       idempotent: true,
+      derivedPending: synced.pending,
       operationId,
       ended: txn.ended,
       diff: txn.diff,
@@ -603,24 +461,17 @@ exports.main = async event => {
     }
   }
 
-  const { ended, justEnded, edited, diff, game, players, prevPlayers, activePlayers, update } = txn
+  const { ended, justEnded, edited, diff, game, players, update } = txn
 
-  if (justEnded) {
-    // 首次终局：全量记账 + 赛季重算（两者独立，并行缩短等待）
-    await Promise.all([updateUserStats(activePlayers, game, now), triggerSeasonCalc(activePlayers)])
-  } else if (edited) {
-    // 结束后的积分修正：按差额修正个人战绩 + 赛季重算
-    await Promise.all([
-      applyStatsDelta(prevPlayers, players, game),
-      triggerSeasonCalc(activePlayers)
-    ])
-  }
+  const pending = !!(update.derivedPending || game.derivedPending)
+  const synced = pending && event.deferDerived !== true ? await derived.sync(gameId) : { pending }
 
   const response = {
     ok: true,
     ended,
     justEnded,
     edited,
+    derivedPending: synced.pending,
     diff,
     players,
     game: { ...game, ...update, players },

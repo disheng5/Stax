@@ -2,7 +2,8 @@
 // 改动 miniprogram/utils/stats.js 必须同步此镜像。
 
 function gameScore(game, openid) {
-  const me = (game.players || []).find(p => p.openid === openid)
+  if (game.deletedAt || (game.hiddenForOpenids || []).includes(openid)) return null
+  const me = (game.players || []).find(p => p.openid === openid && !p.eliminatedAt)
   if (!me) return null
   const ratio = Number(game.scoreRatio) > 0 ? Number(game.scoreRatio) : 1
   return Math.round((me.finalProfit ?? me.profit ?? 0) / ratio)

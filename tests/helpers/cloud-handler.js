@@ -9,7 +9,7 @@ module.exports = function loadHandler(name, db, options = {}) {
   const cloud = {
     init() {},
     database: () => db,
-    getWXContext: () => ({ OPENID: options.openid || 'host' }),
+    getWXContext: () => ({ OPENID: options.openid ?? 'host' }),
     callFunction: options.callFunction || (async () => ({ result: { ok: true } }))
   }
   vm.runInNewContext(
