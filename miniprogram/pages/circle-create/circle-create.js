@@ -45,7 +45,7 @@ Page({
         wx.showToast({ title: '创建成功' })
         wx.redirectTo({ url: '/pages/circle-detail/circle-detail?id=' + res.result.circleId })
       } else {
-        wx.showToast({ title: res.result?.error || '创建失败', icon: 'none' })
+        wx.showToast({ title: require('../../utils/errors.js').errorMessage(res.result?.error), icon: 'none' })
       }
     } catch (err) {
       console.error('[createCircle]', err)

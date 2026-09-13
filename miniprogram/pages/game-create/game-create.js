@@ -169,7 +169,7 @@ Page({
           CONFLICT_RETRY: '创建冲突，请重试'
         }
         wx.showToast({
-          title: errorMessages[error] || error || '创建失败',
+          title: errorMessages[error] || require('../../utils/errors.js').errorMessage(error),
           icon: 'none'
         })
         return

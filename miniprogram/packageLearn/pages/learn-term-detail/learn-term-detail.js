@@ -40,7 +40,7 @@ Page({
       })
       const r = res.result || {}
       if (!r.ok) {
-        this.setData({ aiError: r.error || '生成失败', aiLoading: false })
+        this.setData({ aiError: '生成失败，请稍后重试', aiLoading: false })
         return
       }
       this.setData({ aiText: r.aiText, aiLoading: false })

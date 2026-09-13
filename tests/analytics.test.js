@@ -75,4 +75,14 @@ const { hasForbiddenWording } = require('../miniprogram/utils/wording.js')
   assert.strictEqual(hasForbiddenWording(line), false, `札记不得包含禁用措辞：${line}`)
 })
 
+for (const sampleCount of [5, 7, 9, 10, 100]) {
+  const signals = { sampleCount, recentSum: -50, prevSum: -50, best: 9000, worst: -10000 }
+  const note = buildTrendNote(signals)
+  assert(!/稳定|漏洞|还太少|9000|10000/.test(JSON.stringify(note)))
+  if (sampleCount < 10) assert(!/前 5 场|前一段/.test(note.observation))
+  assert.deepStrictEqual(note, require('../cloudfunctions/getMyAnalytics/analytics.js').buildTrendNote(signals))
+}
+const { errorMessage } = require('../miniprogram/utils/errors.js')
+assert.strictEqual(errorMessage('UNEXPECTED_INTERNAL_CODE'), '操作失败，请稍后重试')
+assert(!errorMessage('SEASON_NOT_FOUND').includes('SEASON_NOT_FOUND'))
 console.log('analytics.test.js passed')

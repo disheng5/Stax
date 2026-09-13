@@ -716,8 +716,7 @@ Page({
             GAME_ENDED: '牌局已结束',
             CONFLICT_RETRY: '操作冲突，请重试'
           }[err] ||
-          err ||
-          '操作失败'
+          require('../../utils/errors.js').errorMessage(err)
         wx.showToast({ title: msg, icon: 'none' })
         if (rollbackGame) this._applyGame(rollbackGame, { optimistic: true })
         if (optimistic) this._fetchGameOnce()

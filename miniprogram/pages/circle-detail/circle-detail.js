@@ -309,8 +309,7 @@ Page({
                 OWNER_CANNOT_REMOVE: '榜主不能移出自己',
                 NOT_MEMBER: '该成员不在积分榜'
               }[res.result?.error] ||
-              res.result?.error ||
-              '操作失败'
+              require('../../utils/errors.js').errorMessage(res.result?.error)
             wx.showToast({ title: msg, icon: 'none' })
             return
           }
@@ -348,7 +347,7 @@ Page({
             wx.showToast({ title: '已退出' })
             wx.navigateBack()
           } else {
-            wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+            wx.showToast({ title: require('../../utils/errors.js').errorMessage(res.result?.error), icon: 'none' })
           }
         } catch (_) {
           wx.showToast({ title: '网络异常', icon: 'none' })
@@ -381,7 +380,7 @@ Page({
             this._lastFetch = 0
             await this._fetch()
           } else {
-            let msg = res.result?.error || '操作失败'
+            let msg = require('../../utils/errors.js').errorMessage(res.result?.error)
             if (res.result?.error === 'NO_ACTIVE_SEASON') msg = '当前无进行中赛季'
             else if (res.result?.error === 'CALC_FAILED') msg = '重算失败，请稍后重试'
             wx.showToast({ title: msg, icon: 'none' })
@@ -411,7 +410,7 @@ Page({
             wx.showToast({ title: '已解散' })
             wx.navigateBack()
           } else {
-            wx.showToast({ title: res.result?.error || '操作失败', icon: 'none' })
+            wx.showToast({ title: require('../../utils/errors.js').errorMessage(res.result?.error), icon: 'none' })
           }
         } catch (_) {
           wx.showToast({ title: '网络异常', icon: 'none' })

@@ -277,7 +277,7 @@ Page(require('../../utils/live-view.js').liveGamesPage({
           })
           wx.hideLoading()
           if (!res.result?.ok) {
-            wx.showToast({ title: res.result?.error || '删除失败', icon: 'none' })
+            wx.showToast({ title: require('../../utils/errors.js').errorMessage(res.result?.error), icon: 'none' })
             return
           }
           wx.showToast({ title: '已删除' })

@@ -30,7 +30,7 @@ Page({
           message:
             res.result?.error === 'NOT_FOUND'
               ? '邀请已失效，请让好友重新分享'
-              : res.result?.error || '暂时无法加入，请稍后重试'
+              : require('../../utils/errors.js').errorMessage(res.result?.error)
         })
         return
       }
