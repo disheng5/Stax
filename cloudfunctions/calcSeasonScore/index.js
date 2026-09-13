@@ -372,7 +372,7 @@ async function calcForCircle(circleId, opts = {}) {
     if (g.deletedAt) return false
     if (activePlayers(g).length < MIN_PLAYERS) return false
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
-    if (!Number.isFinite(dur) || dur < MIN_DURATION_MS) return false
+    if (!g.startedAt || !g.endedAt || !Number.isFinite(dur) || dur < MIN_DURATION_MS) return false
     if (!activePlayers(g).some(p => members.includes(p.openid))) return false
     return true
   })

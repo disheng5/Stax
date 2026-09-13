@@ -1154,7 +1154,7 @@ const handlers = {
       .filter(g => new Date(g.endedAt || g.startedAt) >= queryStart)
       .filter(g => new Date(g.endedAt || g.startedAt) < seasonEnd)
       .filter(g => activePlayers(g).length >= 4)
-      .filter(g => new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60 * 1000)
+      .filter(g => g.startedAt && g.endedAt && new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60 * 1000)
       .filter(g => activePlayers(g).some(p => memberSet[p.openid]))
     if (needsLegacyMigration) {
       candidateGames.filter(g => g.excludeFromSeason).forEach(g => excludedGameIds.add(g._id))
@@ -1372,7 +1372,7 @@ const handlers = {
           startedAt: g.startedAt,
           endedAt: g.endedAt,
           myProfit: me ? Math.round((Number(me.finalProfit ?? me.profit) || 0) / (Number(g.scoreRatio) > 0 ? Number(g.scoreRatio) : 1)) : 0,
-          counted: !!me && active.length >= 4 && new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60000 && !excluded.has(g._id) && (season?.exclusionScopeVersion === 1 || !g.excludeFromSeason)
+          counted: !!me && active.length >= 4 && !!g.startedAt && !!g.endedAt && new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60000 && !excluded.has(g._id) && (season?.exclusionScopeVersion === 1 || !g.excludeFromSeason)
         }
       })
     const view = buildSeasonView({

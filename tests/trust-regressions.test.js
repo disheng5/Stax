@@ -172,7 +172,7 @@ async function seasonIsolationAndConcurrency() {
   assert.strictEqual(db._raw.seasons[0].rankings[0].rawProfit, 200)
 }
 
-async function deletedRecordBoundaries() {
+async function deletedRecordBoundaries(startedAt) {
   const game = {
     _id: 'visible', status: 'ended', startedAt: new Date('2026-09-01T10:00:00Z'),
     endedAt: new Date('2026-09-01T12:00:00Z'), bigBlind: 5,
@@ -186,7 +186,7 @@ async function deletedRecordBoundaries() {
   removed._id = 'removed'
   removed.players[0].eliminatedAt = new Date()
   const hide = { ...structuredClone(game), _id: 'hide' }
-  const undated = { ...structuredClone(game), _id: 'undated', startedAt: undefined }
+  const undated = { ...structuredClone(game), _id: 'undated', startedAt }
   const db = createMockDb({
     games: [game, deleted, removed, hide, undated],
     users: [{ _id: 'u', _openid: 'host', nickname: 'Host' }, { _id: 'a', _openid: 'a', stats: { totalProfit: 123 } }],
@@ -215,7 +215,9 @@ async function deletedRecordBoundaries() {
   await revokedSettlement()
   await analyticsFailure()
   await seasonIsolationAndConcurrency()
-  await deletedRecordBoundaries()
+  for (const startedAt of [undefined, null, '', 'invalid']) {
+    await deletedRecordBoundaries(startedAt)
+  }
   console.log('trust-regressions.test.js passed')
 })().catch(err => {
   console.error(err)

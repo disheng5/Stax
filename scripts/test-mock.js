@@ -782,11 +782,17 @@ function step(name, fn) {
       players: ['mock_me', 'a', 'b', 'c'].map(openid => ({ openid, nickname: openid, finalProfit: openid === 'mock_me' ? 100 : 0 }))
     }
     const deleted = { ...structuredClone(game), _id: 'deleted_boundary', deletedAt: new Date() }
-    raw.games.push(game, deleted)
+    const undated = [undefined, null, '', 'invalid'].map((startedAt, i) => ({
+      ...structuredClone(game), _id: `undated_boundary_${i}`, startedAt
+    }))
+    raw.games.push(game, deleted, ...undated)
     raw.circles.push({ _id: 'boundary', status: 'active', ownerOpenid: 'mock_me', memberOpenids: ['mock_me'], currentSeasonId: 'boundary_season' })
     raw.seasons.push({ _id: 'boundary_season', circleId: 'boundary', seasonNo: 2, status: 'ongoing', startAt: new Date('2026-09-01'), endAt: new Date('2100-01-01'), exclusionScopeVersion: 1 })
     const before = await wx.cloud.callFunction({ name: 'getSeasonView', data: { circleId: 'boundary' } })
     assert(!before.result.myGames.some(g => g._id === deleted._id))
+    assert(!before.result.myGames.some(g => g._id.startsWith('undated_boundary_')))
+    await wx.cloud.callFunction({ name: 'calcSeasonScore', data: { circleId: 'boundary' } })
+    assert(!raw.seasons.find(s => s._id === 'boundary_season').gameSummaries.some(g => g._id.startsWith('undated_boundary_')))
     const expected = require('../miniprogram/utils/analytics.js').computeAnalytics(raw.games, 'mock_me').stats.totalProfit - 100
     const removed = await wx.cloud.callFunction({ name: 'deleteGameRecord', data: { gameId: game._id } })
     assert(removed.result.statsRebuilt)

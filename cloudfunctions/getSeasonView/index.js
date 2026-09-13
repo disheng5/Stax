@@ -106,6 +106,7 @@ async function fetchMyGames(viewerOpenid, season) {
       counted:
         !!me &&
         active.length >= 4 &&
+        !!g.startedAt && !!g.endedAt &&
         new Date(g.endedAt) - new Date(g.startedAt) >= 20 * 60000 &&
         !excluded.has(g._id) &&
         (season.exclusionScopeVersion === 1 || !g.excludeFromSeason)
