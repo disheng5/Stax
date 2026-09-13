@@ -38,6 +38,7 @@ const command = {
   max: v => ({ __cmd: 'max', v }),
   min: v => ({ __cmd: 'min', v }),
   push: v => ({ __cmd: 'push', v }),
+  addToSet: v => ({ __cmd: 'addToSet', v }),
   pull: v => ({ __cmd: 'pull', v }),
   remove: () => ({ __cmd: 'remove' }),
   set: v => ({ __cmd: 'set', v }),
@@ -139,6 +140,15 @@ function applyUpdate(doc, update) {
         if (Array.isArray(target[last]))
           target[last] = target[last].filter(x => !matchValue(x, val.v))
         break
+      case 'addToSet': {
+        if (!Array.isArray(target[last])) target[last] = []
+        const values = Array.isArray(val.v?.each) ? val.v.each : [val.v]
+        for (const value of values) {
+          if (!target[last].some(item => JSON.stringify(item) === JSON.stringify(value)))
+            target[last].push(deepClone(value))
+        }
+        break
+      }
       case 'remove':
         delete target[last]
         break

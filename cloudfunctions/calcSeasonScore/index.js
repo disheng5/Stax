@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
-const ALGO_VERSION = 5
+const ALGO_VERSION = 6
 const EXCLUSION_SCOPE_VERSION = 1
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 
@@ -212,6 +212,7 @@ async function fetchEndedGamesForBatch(queryStart, seasonEnd, memberBatch) {
         excludeFromSeason: true,
         startedAt: true,
         endedAt: true,
+        deletedAt: true,
         name: true
       })
       .orderBy('endedAt', 'asc')
@@ -368,9 +369,10 @@ async function calcForCircle(circleId, opts = {}) {
   const activePlayers = g => (g.players || []).filter(p => !p.eliminatedAt)
   // 达到人数/时长门槛且含本榜成员的候选局，供列表展示与排除/恢复。
   const candidateGames = allGames.filter(g => {
+    if (g.deletedAt) return false
     if (activePlayers(g).length < MIN_PLAYERS) return false
     const dur = new Date(g.endedAt) - new Date(g.startedAt)
-    if (dur < MIN_DURATION_MS) return false
+    if (!Number.isFinite(dur) || dur < MIN_DURATION_MS) return false
     if (!activePlayers(g).some(p => members.includes(p.openid))) return false
     return true
   })

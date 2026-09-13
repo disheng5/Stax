@@ -774,6 +774,26 @@ function step(name, fn) {
     assert.strictEqual(gvViewer.result.canJoin, true, '进行中局受分享人可加入')
   })
 
+  await step('旧删除标记不进入赛季；个人删除只重建本人统计', async () => {
+    const raw = cloudMock.getDb()._raw
+    const game = {
+      _id: 'visible_boundary', status: 'ended', bigBlind: 5,
+      startedAt: new Date('2026-09-01T10:00:00Z'), endedAt: new Date('2026-09-01T12:00:00Z'),
+      players: ['mock_me', 'a', 'b', 'c'].map(openid => ({ openid, nickname: openid, finalProfit: openid === 'mock_me' ? 100 : 0 }))
+    }
+    const deleted = { ...structuredClone(game), _id: 'deleted_boundary', deletedAt: new Date() }
+    raw.games.push(game, deleted)
+    raw.circles.push({ _id: 'boundary', status: 'active', ownerOpenid: 'mock_me', memberOpenids: ['mock_me'], currentSeasonId: 'boundary_season' })
+    raw.seasons.push({ _id: 'boundary_season', circleId: 'boundary', seasonNo: 2, status: 'ongoing', startAt: new Date('2026-09-01'), endAt: new Date('2100-01-01'), exclusionScopeVersion: 1 })
+    const before = await wx.cloud.callFunction({ name: 'getSeasonView', data: { circleId: 'boundary' } })
+    assert(!before.result.myGames.some(g => g._id === deleted._id))
+    const expected = require('../miniprogram/utils/analytics.js').computeAnalytics(raw.games, 'mock_me').stats.totalProfit - 100
+    const removed = await wx.cloud.callFunction({ name: 'deleteGameRecord', data: { gameId: game._id } })
+    assert(removed.result.statsRebuilt)
+    assert.strictEqual(raw.users.find(u => u._openid === 'mock_me').stats.totalProfit, expected)
+    assert((await wx.cloud.callFunction({ name: 'deleteGameRecord', data: { gameId: game._id } })).result.alreadyHidden)
+  })
+
   await step('到期赛季自动结账：冠军荣誉入档 + 新一季开启 + 结账幂等', async () => {
     const raw = cloudMock.getDb()._raw
     const circle = raw.circles.find(c => c.name === 'Mock 积分榜')

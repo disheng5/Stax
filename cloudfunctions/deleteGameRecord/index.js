@@ -1,9 +1,8 @@
 // cloudfunctions/deleteGameRecord/index.js
 // 只允许从“我自己的战绩列表”中移除一条已结束牌局。
 // 实现策略：
-//   1. 在 games.players[].deletedByOpenidList 上加入当前 openid，
-//      让 history 查询 + 用户个人统计在前端按 openid 过滤即可隐藏。
-//   2. 同步扣减 user.stats 的相关字段，确保「我的统计」马上一致。
+//   1. 在 games.hiddenForOpenids 上加入当前 openid。
+//   2. 从本人可见的有效记录重建 user.stats，不改变其他人的统计。
 // 不会真正删除整局数据，避免影响其他玩家。
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
@@ -34,7 +33,7 @@ async function fetchVisibleGames(openid) {
     }
   }
   return all.filter(
-    item => !(Array.isArray(item.hiddenForOpenids) && item.hiddenForOpenids.includes(openid))
+    item => !item.deletedAt && !(Array.isArray(item.hiddenForOpenids) && item.hiddenForOpenids.includes(openid))
   )
 }
 
@@ -46,7 +45,7 @@ async function rebuildUserStats(openid) {
   let wins = 0
   let totalGames = 0
   games.forEach(item => {
-    const player = (item.players || []).find(p => p.openid === openid)
+    const player = (item.players || []).find(p => p.openid === openid && !p.eliminatedAt)
     if (!player) return
     const ratio = Number(item.scoreRatio) > 0 ? Number(item.scoreRatio) : 1
     const score = Math.round(Number(player.finalProfit ?? player.profit ?? 0) / ratio)

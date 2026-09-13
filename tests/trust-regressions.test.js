@@ -172,10 +172,50 @@ async function seasonIsolationAndConcurrency() {
   assert.strictEqual(db._raw.seasons[0].rankings[0].rawProfit, 200)
 }
 
+async function deletedRecordBoundaries() {
+  const game = {
+    _id: 'visible', status: 'ended', startedAt: new Date('2026-09-01T10:00:00Z'),
+    endedAt: new Date('2026-09-01T12:00:00Z'), bigBlind: 5,
+    players: ['host', 'a', 'b', 'c'].map(openid => ({ openid, nickname: openid, finalProfit: openid === 'host' ? 100 : 0 }))
+  }
+  const deleted = structuredClone(game)
+  deleted._id = 'deleted'
+  deleted.deletedAt = new Date()
+  deleted.players[0].finalProfit = 9999
+  const removed = structuredClone(game)
+  removed._id = 'removed'
+  removed.players[0].eliminatedAt = new Date()
+  const hide = { ...structuredClone(game), _id: 'hide' }
+  const undated = { ...structuredClone(game), _id: 'undated', startedAt: undefined }
+  const db = createMockDb({
+    games: [game, deleted, removed, hide, undated],
+    users: [{ _id: 'u', _openid: 'host', nickname: 'Host' }, { _id: 'a', _openid: 'a', stats: { totalProfit: 123 } }],
+    circles: [{ _id: 'c', status: 'active', ownerOpenid: 'host', memberOpenids: ['host', 'a'], currentSeasonId: 's' }],
+    seasons: [{ _id: 's', circleId: 'c', seasonNo: 1, status: 'ongoing', startAt: new Date('2026-01-01'), endAt: new Date('2100-01-01'), exclusionScopeVersion: 1, exclusionRevision: 0 }]
+  })
+  const view = await loadHandler('getSeasonView', db)({ circleId: 'c' })
+  assert.deepStrictEqual(Array.from(view.myGames, g => g._id).sort(), ['hide', 'visible'])
+  const calculated = await loadHandler('calcSeasonScore', db)({ circleId: 'c' })
+  assert(calculated.ok, JSON.stringify(calculated))
+  const ranking = db._raw.seasons[0].rankings.find(r => r.openid === 'host')
+  assert.strictEqual(ranking.rawProfit, 200)
+  assert.strictEqual(ranking.games, 2)
+  assert(!db._raw.seasons[0].gameSummaries.some(g => g._id === 'deleted'))
+  const remove = loadHandler('deleteGameRecord', db)
+  assert((await remove({ gameId: 'hide' })).statsRebuilt)
+  assert.strictEqual(db._raw.users[0].stats.totalGames, 2, 'personal stats do not impose season duration rules')
+  assert.strictEqual(db._raw.users[0].stats.totalProfit, 200)
+  assert.strictEqual(db._raw.users[1].stats.totalProfit, 123)
+  assert((await remove({ gameId: 'hide' })).alreadyHidden)
+  const after = await loadHandler('getSeasonView', db)({ circleId: 'c' })
+  assert.deepStrictEqual(Array.from(after.myGames, g => g._id), ['visible'])
+}
+
 ;(async () => {
   await revokedSettlement()
   await analyticsFailure()
   await seasonIsolationAndConcurrency()
+  await deletedRecordBoundaries()
   console.log('trust-regressions.test.js passed')
 })().catch(err => {
   console.error(err)

@@ -992,13 +992,25 @@ const handlers = {
       .catch(() => null)
     if (!got || !got.data) return { ok: false, error: 'GAME_NOT_FOUND' }
     const game = got.data
+    if (!(game.players || []).some(p => p.openid === MY_OPENID)) return { ok: false, error: 'NOT_PLAYER' }
     const hidden = Array.isArray(game.hiddenForOpenids) ? game.hiddenForOpenids.slice() : []
+    const alreadyHidden = hidden.includes(MY_OPENID)
     if (!hidden.includes(MY_OPENID)) hidden.push(MY_OPENID)
     await db
       .collection('games')
       .doc(gameId)
       .update({ data: { hiddenForOpenids: hidden } })
-    return { ok: true }
+    let statsRebuilt = true
+    if (game.status === 'ended') {
+      try {
+        const { totalGames, totalProfit, biggestWin, biggestLoss, wins } = computeAnalytics(db._raw.games, MY_OPENID).stats
+        const users = (db._raw.users || []).filter(u => u._openid === MY_OPENID)
+        for (const user of users) await db.collection('users').doc(user._id).update({
+          data: { stats: { totalGames, totalProfit, biggestWin, biggestLoss, wins } }
+        })
+      } catch (_) { statsRebuilt = false }
+    }
+    return { ok: true, statsRebuilt, ...(alreadyHidden ? { alreadyHidden: true } : {}) }
   },
 
   async termAi({ termId, termEn }) {
@@ -1138,7 +1150,7 @@ const handlers = {
     const excludedGameIds = new Set(season.excludedGameIds || [])
     const needsLegacyMigration = season.exclusionScopeVersion !== 1
     const candidateGames = (raw.games || [])
-      .filter(g => g.status === 'ended')
+      .filter(g => g.status === 'ended' && !g.deletedAt)
       .filter(g => new Date(g.endedAt || g.startedAt) >= queryStart)
       .filter(g => new Date(g.endedAt || g.startedAt) < seasonEnd)
       .filter(g => activePlayers(g).length >= 4)
@@ -1239,14 +1251,14 @@ const handlers = {
         excluded: excludedGameIds.has(g._id)
       }))
     season.calculatedAt = new Date()
-    season.calculationMeta = { algorithmVersion: 5, qualifiedCount: qualifiedGames.length }
+    season.calculationMeta = { algorithmVersion: 6, qualifiedCount: qualifiedGames.length }
     db._notify('seasons', season._id)
     return {
       ok: true,
       seasonId: season._id,
       rankedCount: rankings.filter(r => r.rank > 0).length,
       qualifiedCount: qualifiedGames.length,
-      algorithmVersion: 5
+      algorithmVersion: 6
     }
   },
 
@@ -1339,7 +1351,7 @@ const handlers = {
     const end = season ? new Date(season.endAt) : null
     const myGames = (raw.games || [])
       .filter(g => {
-        if (g.status !== 'ended') return false
+        if (g.status !== 'ended' || g.deletedAt) return false
         if (!(g.players || []).some(p => p.openid === MY_OPENID)) return false
         // 已删除（对本人隐藏）的记录不出现在任何列表里
         if ((g.hiddenForOpenids || []).includes(MY_OPENID)) return false

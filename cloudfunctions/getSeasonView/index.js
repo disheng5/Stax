@@ -75,6 +75,7 @@ async function fetchMyGames(viewerOpenid, season) {
         name: true,
         startedAt: true,
         endedAt: true,
+        deletedAt: true,
         excludeFromSeason: true,
         scoreRatio: true
       })
@@ -86,7 +87,7 @@ async function fetchMyGames(viewerOpenid, season) {
     if ((res.data || []).length < 100) break
   }
   const excluded = new Set(season.excludedGameIds || [])
-  return [...new Map(games.map(g => [g._id, g])).values()].map(g => {
+  return [...new Map(games.map(g => [g._id, g])).values()].filter(g => !g.deletedAt).map(g => {
     const active = (g.players || []).filter(p => !p.eliminatedAt)
     const me = active.find(p => p.openid === viewerOpenid)
     const myProfit = me
