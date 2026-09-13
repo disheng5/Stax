@@ -1,6 +1,6 @@
 # 云资源与兼容边界
 
-核对日期：2026-09-13；依据本地代码 `e722a8f`。本文不证明生产规则、索引和部署版本已与仓库一致。
+核对日期：2026-09-13；依据本地分支 `codex/friends-ledger-polish`，开发基线 `5e0b4ea`。本文不证明生产规则、索引和部署版本已与仓库一致。
 
 ## 环境
 
@@ -25,7 +25,7 @@ const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 | `transactions` | 买入、结算、费用、修正及撤销元数据 | 记账与结算云函数 |
 | `circles` | 积分榜、成员和当前赛季 | 积分榜管理云函数 |
 | `seasons` | 赛季结果、比赛摘要、计算版本 | 赛季计算与管理云函数 |
-| `opReceipts` | 持久化操作回执 | 记账与结算云函数 |
+| `opReceipts` | 持久化操作回执 | 创建、记账与结算云函数 |
 | `terms` | 术语种子内容 | `seedTerms` |
 | `handRanks` | 起手参考种子内容 | `seedTerms` |
 
@@ -85,9 +85,11 @@ const ENV_ID = 'cloud1-d7gykoaktfc01fbf0'
 
 1. 运行 `npm run check`、`npm run lint`、`git diff --check`。
 2. 对照各函数实际“上次部署的 commit”检查差异；不能把本轮开发基线当作已知生产基线。
-3. 本轮先部署 `calcSeasonScore`，再部署 `recordTransaction`、`getSeasonView`、`getMyAnalytics`、`settleGame`。
-4. 上传完整函数目录并云端安装依赖。`settleGame` 不可漏 `derived-stats.js/config.json`，`getMyAnalytics` 不可漏 `analytics.js/stats.js/trend-note.js`。
+3. 相对开发基线 `5e0b4ea`，本轮先部署 `calcSeasonScore`，再部署 `recordTransaction`、`createGame`、`getSeasonView`、`deleteGameRecord`。这是代码增量，不证明其他函数已经在生产完成部署。
+4. 上传完整函数目录并云端安装依赖。若前一轮尚未部署，另行核对全部增量；`settleGame` 不可漏 `derived-stats.js/config.json`，`getMyAnalytics` 不可漏 `analytics.js/stats.js/trend-note.js`。
 5. 验证旧前端费用、加入、结算和修正，再上传新前端。保留旧字段和按载荷形状兼容 mode 的逻辑。
+
+本轮不新增集合或触发器。`createGame` 的可选操作号复用已有 `opReceipts`，需要该集合可供云函数读写。回执使用 `_id` 查找，与房间及首条流水同事务提交；不得捕获回执读写异常后继续创建。赛季计算版本升为 6，但部署不会自动扫描并重算全部历史赛季。细节见 [本轮交接](FRIENDS_LEDGER_POLISH_2026-09-13.md)。
 
 ## 定时器与补算
 

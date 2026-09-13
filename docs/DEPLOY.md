@@ -31,7 +31,7 @@ git diff --check
 
 1. 盘点当前已部署版本与八个集合、查询索引、安全规则。已有环境不重新初始化，权限方案见 [云资源说明](CLOUD_SETUP.md)。
 2. 按每个函数的实际部署基线检查 diff；若基线未知，先记录“待核实”，不能凭提交时间或截图认定一致。
-3. 本轮函数部署顺序：`calcSeasonScore` → `recordTransaction/getSeasonView/getMyAnalytics/settleGame`，细节见 [本轮部署依赖](CLOUD_SETUP.md#本轮部署依赖)。
+3. 相对本轮开发基线 `5e0b4ea`，函数增量为 `calcSeasonScore` → `recordTransaction/createGame/getSeasonView/deleteGameRecord`。实际生产若未包含前一轮改动，还需核对 `getMyAnalytics/settleGame` 等差异，不能把开发基线当作部署记录。细节见 [本轮部署依赖](CLOUD_SETUP.md#本轮部署依赖)。
 4. 上传整个函数目录，核实共享纯函数、依赖和 config 均在包内；确认补算触发器实际启用与超时足够。
 5. 用现有已发布前端验证原调用：创建、邀请加入、费用、结算、收局、三小时内修正。旧 mode、`settledCount/checkedOutCount`、`rankings.winRate` 等必须保持兼容。
 6. 确认核心账目与派生统计都正确，再进入新前端验收。
@@ -72,3 +72,5 @@ git diff --check
 | 回退 | 已验证的前端包与函数版本、需要保留的新增字段 |
 
 Git 回退不会自动回退云函数或数据库。出问题时优先停止扩大发布范围；兼容性回退也要保留已写入字段，不执行破坏性数据库“还原”。
+
+新前端上传后，不应把 `createGame` 回退到忽略 `operationId` 的旧实现，否则同一创建请求的重试可能重复建房。优先修补并保留回执契约。当前创建请求号仅在页面实例存续时复用，不承诺跨重启恢复创建请求。
