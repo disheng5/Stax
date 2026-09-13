@@ -128,6 +128,20 @@ function step(name, fn) {
     assert.strictEqual(r.result.ok, true, '服务端不得收紧旧客户端已有名称入参')
   })
 
+  await step('创建返回完整首帧，重复请求不重复建局', async () => {
+    const data = { name: '创建幂等测试', buyIn: 500, operationId: 'create_mock_001' }
+    const [first, second] = await Promise.all([
+      wx.cloud.callFunction({ name: 'createGame', data }),
+      wx.cloud.callFunction({ name: 'createGame', data })
+    ])
+    assert.strictEqual(first.result.gameId, second.result.gameId)
+    assert(second.result.idempotent)
+    assert.strictEqual(first.result.transactions.length, 1)
+    assert.strictEqual(first.result.transactions[0].afterHands, 1)
+    assert.strictEqual(first.result.game.txSeq, 1)
+    assert.strictEqual(cloudMock.getDb()._raw.transactions.filter(t => t.gameId === first.result.gameId).length, 1)
+  })
+
   await step('查询进行中牌局列表', async () => {
     const db = wx.cloud.database()
     const _ = db.command

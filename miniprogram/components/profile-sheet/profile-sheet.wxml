@@ -1,7 +1,7 @@
 <view wx:if="{{visible}}" class="profile-mask" catchtap="onCancel" catchtouchmove="onStop">
   <view class="profile-sheet" catchtap="onStop">
     <form bindsubmit="onSubmit">
-      <view class="sheet-heading">参与积分记录</view>
+      <view class="sheet-heading">{{title}}</view>
       <view class="identity-row">
         <button class="avatar-button" open-type="chooseAvatar" bindchooseavatar="onAvatar" disabled="{{saving}}" aria-label="选择头像">
           <image class="avatar" src="{{avatarDisplay}}" mode="aspectFill" />
@@ -9,20 +9,20 @@
         </button>
         <view class="nickname-field">
           <text class="field-label">昵称</text>
-          <input name="nickname" type="nickname" value="{{nickname}}" bindinput="onNickname" placeholder="你的昵称" maxlength="24" disabled="{{saving}}" />
+          <input class="nickname-input" name="nickname" type="nickname" value="{{nickname}}" bindinput="onNickname" placeholder="你的昵称" maxlength="24" disabled="{{saving}}" />
         </view>
       </view>
-      <view class="hands-field">
+      <view class="hands-field" wx:if="{{showHands}}">
         <view><view class="field-label">初始手数</view><view class="amount">每手 {{buyIn}} 积分</view></view>
         <view class="stepper">
-          <button data-delta="-1" bindtap="onStep" disabled="{{saving || hands <= 1}}" aria-label="减少一手">−</button>
-          <input name="hands" type="number" value="{{hands}}" bindinput="onHands" disabled="{{saving}}" />
-          <button data-delta="1" bindtap="onStep" disabled="{{saving || hands >= 99}}" aria-label="增加一手">＋</button>
+          <button class="step-button" data-delta="-1" bindtap="onStep" disabled="{{saving || hands <= 1}}" aria-label="减少一手">−</button>
+          <input class="hands-input" name="hands" type="number" value="{{hands}}" bindinput="onHands" disabled="{{saving}}" />
+          <button class="step-button" data-delta="1" bindtap="onStep" disabled="{{saving || hands >= 99}}" aria-label="增加一手">＋</button>
         </view>
       </view>
       <view class="sheet-actions">
-        <button class="cancel" bindtap="onCancel" disabled="{{saving}}">取消</button>
-        <button class="confirm" form-type="submit" loading="{{saving}}" disabled="{{saving}}">加入记录</button>
+        <button class="sheet-button cancel" bindtap="onCancel" disabled="{{saving}}">取消</button>
+        <button class="sheet-button confirm" form-type="submit" loading="{{saving}}" disabled="{{saving}}">{{confirmText}}</button>
       </view>
     </form>
   </view>

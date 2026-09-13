@@ -248,12 +248,14 @@ const handlers = {
     playerOpsShared = true,
     scoreRatio = 1,
     nickname = '庄家',
-    avatar = ''
+    avatar = '',
+    operationId: rawOperationId
   }) {
     const rawName = typeof name === 'string' ? name.trim() : ''
     if (!rawName) return { ok: false, error: 'INVALID_NAME' }
     const normalizedName = rawName
     const db = getDb()
+    const operationId = normalizeOperationId(rawOperationId)
     const profile = await currentProfile(nickname, avatar, rawName)
     if (!meaningfulNickname(profile.nickname)) return { ok: false, error: 'PROFILE_REQUIRED' }
     const inviteCode = generateInviteCode()
@@ -292,6 +294,7 @@ const handlers = {
       inviteCode,
       txRevision: 1,
       stateRevision: 1,
+      txSeq: 1,
       players: [
         {
           openid: MY_OPENID,
@@ -309,21 +312,34 @@ const handlers = {
       ],
       totalPot: buyIn
     }
-    const created = await db.collection('games').add({ data: game })
-    await db.collection('transactions').add({
-      data: {
+    return db.runTransaction(async transaction => {
+      const key = receiptId(`create:${MY_OPENID}`, operationId)
+      const receipt = operationId && (db._raw.opReceipts || []).find(r => r._id === key)
+      if (receipt?.result) return { ...receipt.result, idempotent: true, operationId }
+      const created = await transaction.collection('games').add({ data: game })
+      const initialTransaction = {
         gameId: created._id,
         type: 'buyIn',
         playerOpenid: MY_OPENID,
         amount: buyIn,
         operatorOpenid: MY_OPENID,
+        operatorNicknameSnapshot: profile.nickname || '',
         byHost: true,
         revoked: false,
         timestamp: now,
-        meta: { hands: 1 }
+        operationSequence: 1,
+        beforeHands: 0,
+        afterHands: 1,
+        meta: { hands: 1 },
+        ...(operationId ? { operationId } : {})
       }
+      const tx = await transaction.collection('transactions').add({ data: initialTransaction })
+      const result = { ok: true, gameId: created._id, inviteCode }
+      if (operationId) await transaction.collection('opReceipts').doc(key).set({
+        data: { gameId: created._id, actorOpenid: MY_OPENID, operationId, result, createdAt: now }
+      })
+      return { ...result, game: { ...game, _id: created._id }, transactions: [{ ...initialTransaction, _id: tx._id }] }
     })
-    return { ok: true, gameId: created._id, inviteCode, game: { ...game, _id: created._id } }
   },
 
   async joinGame({ inviteCode, nickname = '玩家', avatar = '', mode = 'player', hands = 1 }) {

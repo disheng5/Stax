@@ -9,6 +9,9 @@ Component({
     avatarDisplay: '',
     hands: 1,
     buyIn: 0,
+    showHands: true,
+    title: '参与积分记录',
+    confirmText: '加入记录',
     saving: false
   },
   lifetimes: {
@@ -18,7 +21,13 @@ Component({
     }
   },
   methods: {
-    request({ hands = 1, buyIn = 0 } = {}) {
+    request({
+      hands = 1,
+      buyIn = 0,
+      showHands = true,
+      title = '参与积分记录',
+      confirmText = '加入记录'
+    } = {}) {
       if (this._request) return this._request
       const profile = readLocalProfile(getApp().globalData.openid)
       this.setData({
@@ -31,6 +40,9 @@ Component({
           '/images/default-avatar.png',
         hands,
         buyIn,
+        showHands,
+        title,
+        confirmText,
         saving: false
       })
       this._avatarChosen = false

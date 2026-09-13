@@ -72,7 +72,7 @@
       <view class="setting-row setting-row--last">
         <view class="setting-copy">
           <view class="setting-title">成员自助记录</view>
-          <view class="setting-note">允许成员买入和结算积分</view>
+          <view class="setting-note">成员可为自己或他人买入、结算</view>
         </view>
         <switch checked="{{playerOpsShared}}" bindchange="onPlayerOpsSharedChange" color="#2B6CB0" />
       </view>
@@ -83,3 +83,4 @@
     {{submitting ? '正在创建…' : '创建积分记录'}}
   </button>
 </view>
+<profile-sheet id="create-profile" />

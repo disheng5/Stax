@@ -7,6 +7,8 @@ const {
   normalizeGameName
 } = require('../../utils/game-name.js')
 const { cacheGame, markGamesChanged } = require('../../utils/game-data.js')
+const { rememberCompleteGame } = require('../../utils/game-view.js')
+const { createOperationId } = require('../../utils/operation.js')
 const app = getApp()
 
 const SCORE_PRESETS = [
@@ -43,10 +45,17 @@ Page({
     const def = app.globalData.defaultBlind || { sb: 5, bb: 5, blindUpMinutes: 999 }
     const profile = readLocalProfile(app.globalData.openid) || {}
     const nickname = profile.nickname || app.globalData.userDoc?.nickname || ''
-    const buyIn = Number(app.globalData.defaultBuyIn) || 500
-    const smallBlind = Number(def.sb) || 5
-    const bigBlind = Number(def.bb) || 5
-    const scoreRatio = Number(app.globalData.defaultScoreRatio) || 1
+    let saved = {}
+    const openid = app.globalData.openid || wx.getStorageSync('last_openid')
+    try {
+      saved = (openid && wx.getStorageSync(`stax_create_defaults_${openid}`)) || {}
+    } catch (_) {}
+    const positive = (value, fallback) =>
+      Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback
+    const buyIn = positive(saved.buyIn, Number(app.globalData.defaultBuyIn) || 500)
+    const smallBlind = positive(saved.smallBlind, Number(def.sb) || 5)
+    const bigBlind = positive(saved.bigBlind, Number(def.bb) || 5)
+    const scoreRatio = positive(saved.scoreRatio, Number(app.globalData.defaultScoreRatio) || 1)
     const ratioIndex = this.data.ratioOptions.indexOf(scoreRatio)
     this.setData({
       name: buildDefaultGameName(nickname),
@@ -55,6 +64,7 @@ Page({
       bigBlind,
       blindUpMinutes: 999,
       scoreRatio,
+      playerOpsShared: saved.playerOpsShared !== false,
       ratioIndex: ratioIndex >= 0 ? ratioIndex : 0,
       presetIndex: findPresetIndex(buyIn, smallBlind, bigBlind)
     })
@@ -112,43 +122,60 @@ Page({
     }
     const normalizedName = normalizeGameName(rawName)
     if (normalizedName !== this.data.name) this.setData({ name: normalizedName })
-    if (this.data.buyIn <= 0) {
+    if (!Number.isFinite(Number(this.data.buyIn)) || this.data.buyIn <= 0) {
       wx.showToast({ title: '每份积分需大于 0', icon: 'none' })
       return
     }
-    if (this.data.smallBlind <= 0 || this.data.bigBlind <= 0) {
+    if (
+      ![this.data.smallBlind, this.data.bigBlind].every(n => Number.isFinite(Number(n)) && n > 0)
+    ) {
       wx.showToast({ title: '大小盲需大于 0', icon: 'none' })
       return
     }
 
-    await app.globalData.openidReady
-    await app.refreshCurrentUser()
-    let profile = readLocalProfile(app.globalData.openid)
-    if (!isMeaningfulNickname(profile.nickname)) {
-      wx.showModal({
-        title: '先完善资料',
-        content: '设置昵称和头像后，好友才能认出你',
-        confirmText: '去设置',
-        success: r => {
-          if (r.confirm) wx.navigateTo({ url: '/pages/profile/profile?firstTime=1' })
-        }
-      })
-      return
-    }
     this.setData({ submitting: true })
-    wx.showLoading({ title: '创建中…' })
+    const settings = {
+      buyIn: Number(this.data.buyIn),
+      smallBlind: Number(this.data.smallBlind),
+      bigBlind: Number(this.data.bigBlind),
+      blindUpMinutes: Number(this.data.blindUpMinutes),
+      playerOpsShared: this.data.playerOpsShared,
+      scoreRatio: Number(this.data.scoreRatio) || 1
+    }
     try {
+      await app.globalData.openidReady
+      const openid = app.globalData.openid
+      if (!openid) throw new Error('IDENTITY_UNAVAILABLE')
+      let profile = readLocalProfile(openid)
+      if (!isMeaningfulNickname(profile.nickname)) {
+        await app.refreshCurrentUser().catch(() => null)
+        profile = readLocalProfile(openid)
+      }
+      if (!isMeaningfulNickname(profile.nickname)) {
+        const completed = await this.selectComponent('#create-profile').request({
+          showHands: false,
+          title: '完善资料',
+          confirmText: '继续创建'
+        })
+        if (!completed || this._unloaded) return
+        profile = completed.profile
+      }
+      if (this._unloaded) return
+      const payload = { name: normalizedName, ...settings }
+      const signature = JSON.stringify([openid, payload])
+      if (this._createRequest?.signature !== signature) {
+        this._createRequest = { signature, operationId: createOperationId('create') }
+      }
+      if (this._createRequest.gameId) {
+        wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${this._createRequest.gameId}` })
+        return
+      }
       const create = currentProfile =>
         wx.cloud.callFunction({
           name: 'createGame',
           data: {
-            name: normalizedName,
-            buyIn: Number(this.data.buyIn),
-            smallBlind: Number(this.data.smallBlind),
-            bigBlind: Number(this.data.bigBlind),
-            blindUpMinutes: Number(this.data.blindUpMinutes),
-            playerOpsShared: this.data.playerOpsShared,
-            scoreRatio: Number(this.data.scoreRatio) || 1,
+            ...payload,
+            operationId: this._createRequest.operationId,
             nickname: currentProfile.nickname || '玩家',
             avatar: currentProfile.avatar || ''
           }
@@ -161,8 +188,7 @@ Page({
         profile = readLocalProfile(app.globalData.openid)
         if (isMeaningfulNickname(profile.nickname)) res = await create(profile)
       }
-      wx.hideLoading()
-      const { ok, gameId, game, error } = res.result || {}
+      const { ok, gameId, game, transactions, error } = res.result || {}
       if (!ok) {
         const errorMessages = {
           PROFILE_REQUIRED: '请先完善真实昵称',
@@ -174,15 +200,23 @@ Page({
         })
         return
       }
+      this._createRequest.gameId = gameId
+      try {
+        wx.setStorageSync(`stax_create_defaults_${openid}`, settings)
+      } catch (_) {}
       markGamesChanged()
-      if (game) cacheGame(game)
-      wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
+      if (game && Array.isArray(transactions)) rememberCompleteGame(game, transactions)
+      else if (game) cacheGame(game)
+      if (!this._unloaded) wx.redirectTo({ url: `/pages/game-detail/game-detail?id=${gameId}` })
     } catch (err) {
-      wx.hideLoading()
       console.error(err)
-      wx.showToast({ title: '网络异常', icon: 'none' })
+      if (!this._unloaded) wx.showToast({ title: '暂未确认创建结果，请重试', icon: 'none' })
     } finally {
-      this.setData({ submitting: false })
+      if (!this._unloaded) this.setData({ submitting: false })
     }
+  },
+
+  onUnload() {
+    this._unloaded = true
   }
 })

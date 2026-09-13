@@ -1,4 +1,4 @@
 {
   "navigationBarTitleText": "创建积分记录",
-  "usingComponents": {}
+  "usingComponents": { "profile-sheet": "/components/profile-sheet/profile-sheet" }
 }

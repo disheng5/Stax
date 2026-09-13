@@ -8,7 +8,10 @@ module.exports = function loadHandler(name, db, options = {}) {
   const exports = {}
   const cloud = {
     init() {},
-    database: () => db,
+    database: options => {
+      if (options?.throwOnNotFound === false) db._throwOnNotFound = false
+      return db
+    },
     getWXContext: () => ({ OPENID: options.openid ?? 'host' }),
     callFunction: options.callFunction || (async () => ({ result: { ok: true } }))
   }

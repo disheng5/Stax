@@ -91,6 +91,13 @@ function load(relative, component = false) {
   assert.strictEqual(await request, null)
   assert.strictEqual(calls.length, 0)
 
+  request = sheet.request({ showHands: false, title: '完善资料', confirmText: '继续创建' })
+  assert.strictEqual(sheet.data.showHands, false)
+  await sheet.onSubmit({ detail: { value: { nickname: '新朋友' } } })
+  assert.strictEqual((await request).profile.nickname, '新朋友')
+  delete storage.user_profile
+  calls.length = 0
+
   const page = load('pages/game-detail/game-detail.js')
   page.data.game = db._raw.games[0]
   page.data.gameId = 'g'

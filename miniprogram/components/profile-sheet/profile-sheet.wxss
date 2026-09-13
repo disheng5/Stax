@@ -3,18 +3,18 @@
 .sheet-heading { font-size: 34rpx; font-weight: 600; text-align: center; margin-bottom: 40rpx; }
 .identity-row { display: flex; align-items: center; gap: 28rpx; margin-bottom: 36rpx; }
 .avatar-button { flex: 0 0 104rpx; width: 104rpx; margin: 0; padding: 0; background: transparent; line-height: 1.4; }
-.avatar-button::after, .stepper button::after, .sheet-actions button::after { border: 0; }
+.avatar-button::after, .step-button::after, .sheet-button::after { border: 0; }
 .avatar { width: 88rpx; height: 88rpx; border-radius: 50%; display: block; margin: 0 auto; }
 .avatar-label { display: block; font-size: 22rpx; color: #6d7580; margin-top: 8rpx; }
 .nickname-field { flex: 1; min-width: 0; }
 .field-label { font-size: 26rpx; color: #6d7580; }
-.nickname-field input { font-size: 30rpx; height: 70rpx; border-bottom: 1rpx solid #e6eaf0; width: 100%; }
+.nickname-input { font-size: 30rpx; height: 70rpx; border-bottom: 1rpx solid #e6eaf0; width: 100%; }
 .hands-field { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 12rpx 0 36rpx; }
 .amount { font-size: 23rpx; color: #89919b; margin-top: 8rpx; }
 .stepper { display: flex; align-items: center; flex-shrink: 0; width: 244rpx; }
-.stepper button { width: 64rpx; height: 64rpx; line-height: 60rpx; padding: 0; margin: 0; font-size: 34rpx; color: #356cac; background: #edf2f8; border-radius: 8rpx; }
-.stepper input { width: 116rpx; height: 64rpx; font-size: 32rpx; text-align: center; }
+.step-button { width: 64rpx; height: 64rpx; line-height: 60rpx; padding: 0; margin: 0; font-size: 34rpx; color: #356cac; background: #edf2f8; border-radius: 8rpx; }
+.hands-input { width: 116rpx; height: 64rpx; font-size: 32rpx; text-align: center; }
 .sheet-actions { display: flex; gap: 20rpx; }
-.sheet-actions button { flex: 1; min-width: 0; margin: 0; padding: 0 12rpx; font-size: 30rpx; height: 84rpx; line-height: 84rpx; border-radius: 12rpx; }
+.sheet-button { flex: 1; min-width: 0; margin: 0; padding: 0 12rpx; font-size: 30rpx; height: 84rpx; line-height: 84rpx; border-radius: 12rpx; }
 .cancel { color: #6d7580; background: #f1f3f5; }
 .confirm { color: #fff; background: #356cac; }

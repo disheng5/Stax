@@ -250,6 +250,7 @@ function createMockDb(seed) {
       await new Promise(r => setTimeout(r, 30)) // 模拟网络
       const list = this._filter()
       if (this._docId) {
+        if (!list.length && db._throwOnNotFound === false) return { data: null }
         if (!list.length) throw new Error('document not found')
         return { data: deepClone(list[0]) }
       }

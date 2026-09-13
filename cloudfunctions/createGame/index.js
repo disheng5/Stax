@@ -2,8 +2,9 @@
 const cloud = require('wx-server-sdk')
 const { recoverLegacyNickname } = require('./game-name.js')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
-const db = cloud.database()
+const db = cloud.database({ throwOnNotFound: false })
 const _ = db.command
+const { createHash } = require('crypto')
 const GENERIC_NICKNAMES = new Set(['玩家', '庄家', '微信用户', '未设置昵称'])
 const DEFAULT_STATS = {
   totalGames: 0,
@@ -218,6 +219,12 @@ exports.main = async event => {
   const normalizedBuyIn = Number(buyIn)
   const normalizedSmallBlind = Number(smallBlind)
   const normalizedBigBlind = Number(bigBlind)
+  const operationId = /^[a-zA-Z0-9_-]{8,64}$/.test(event?.operationId || '')
+    ? event.operationId
+    : ''
+  const receiptKey = operationId
+    ? 'create_' + createHash('sha256').update(`${OPENID}:${operationId}`).digest('hex').slice(0, 32)
+    : ''
   if (!rawName) return { ok: false, error: 'INVALID_NAME' }
   if (
     !Number.isFinite(normalizedBuyIn) ||
@@ -290,33 +297,55 @@ exports.main = async event => {
   try {
     const [created] = await Promise.all([
       db.runTransaction(async transaction => {
+        if (receiptKey) {
+          // 不存在返回 null；读取失败让事务失败，不能把未知结果当作首次创建。
+          const receipt = await transaction.collection('opReceipts').doc(receiptKey).get()
+          if (receipt.data?.result) return { ...receipt.data.result, idempotent: true }
+        }
         const res = await transaction.collection('games').add({ data: doc })
-        await transaction.collection('transactions').add({
-          data: {
-            gameId: res._id,
-            type: 'buyIn',
-            playerOpenid: OPENID,
-            amount: normalizedBuyIn,
-            operatorOpenid: OPENID,
-            operatorNicknameSnapshot: profile.nickname || '',
-            timestamp: now,
-            operationSequence: 1,
-            beforeHands: 0,
-            afterHands: 1,
-            meta: { hands: 1 }
-          }
-        })
-        return { gameId: res._id }
+        const initialTransaction = {
+          gameId: res._id,
+          type: 'buyIn',
+          playerOpenid: OPENID,
+          amount: normalizedBuyIn,
+          operatorOpenid: OPENID,
+          operatorNicknameSnapshot: profile.nickname || '',
+          timestamp: now,
+          operationSequence: 1,
+          beforeHands: 0,
+          afterHands: 1,
+          meta: { hands: 1 },
+          ...(operationId ? { operationId } : {})
+        }
+        const tx = await transaction.collection('transactions').add({ data: initialTransaction })
+        const result = { gameId: res._id, inviteCode }
+        if (receiptKey) {
+          await transaction
+            .collection('opReceipts')
+            .doc(receiptKey)
+            .set({
+              data: {
+                gameId: res._id,
+                operationId,
+                actorOpenid: OPENID,
+                result,
+                createdAt: now
+              }
+            })
+        }
+        return { ...result, transactions: [{ ...initialTransaction, _id: tx._id }] }
       }, 3),
       persistRecoveredProfile(profile, now).catch(err => {
         // 资料回填失败不能阻断创建；下次请求仍可再次自愈。
         console.error('[createGame profile persist]', err)
       })
     ])
+    if (created.idempotent) return { ok: true, ...created }
     return {
       ok: true,
       gameId: created.gameId,
       inviteCode,
+      transactions: created.transactions,
       game: {
         ...doc,
         _id: created.gameId
