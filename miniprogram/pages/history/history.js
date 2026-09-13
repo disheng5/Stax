@@ -11,7 +11,7 @@ const { buildTrendNote } = require('../../utils/analytics.js')
 const app = getApp()
 const { batchRender } = require('../../utils/render.js')
 
-Page({
+Page(require('../../utils/live-view.js').liveGamesPage({
   data: {
     games: [],
     stats: { totalGames: 0, totalProfit: 0, biggestWin: 0, biggestLoss: 0, winRate: 0 },
@@ -297,4 +297,4 @@ Page({
   onShareAppMessage() {
     return require('../../utils/share.js').safeShare()
   }
-})
+}, function () { return this._fetch(true) }))

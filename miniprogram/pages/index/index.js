@@ -12,7 +12,7 @@ const {
 const { computeGameStats, gameScore } = require('../../utils/stats.js')
 const { isMeaningfulNickname, readLocalProfile } = require('../../utils/user.js')
 
-Page({
+Page(require('../../utils/live-view.js').liveGamesPage({
   data: {
     recentGames: [],
     loading: true,
@@ -152,4 +152,4 @@ Page({
   onShareAppMessage() {
     return require('../../utils/share.js').safeShare()
   }
-})
+}, function (openid) { return this._fetchRecent(openid) }))

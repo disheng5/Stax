@@ -16,7 +16,7 @@ const {
 
 const DEFAULT_AVATAR = '/images/default-avatar.png'
 
-Page({
+Page(require('../../utils/live-view.js').liveGamesPage({
   data: {
     avatarUrl: DEFAULT_AVATAR,
     avatarDisplayUrl: DEFAULT_AVATAR,
@@ -262,4 +262,4 @@ Page({
       }
     })
   }
-})
+}, function () { return this._refresh({ statsFresh: false }) }))

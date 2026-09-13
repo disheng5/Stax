@@ -1,5 +1,7 @@
 const app = getApp()
 const avatarCache = require('../../utils/avatar.js')
+const { changedPatch, batchRender } = require('../../utils/render.js')
+const { observe } = require('../../utils/live-view.js')
 
 Page({
   data: {
@@ -21,19 +23,20 @@ Page({
     if (!circleId) return
     try {
       const snapshot = wx.getStorageSync(`stax_circle_${circleId}`)
-      if (snapshot?.view && Date.now() - (snapshot.ts || 0) < 2 * 24 * 60 * 60 * 1000) {
-        if (snapshot.circle) {
-          this.setData({
-            circle: snapshot.circle,
-            isOwner: snapshot.circle.ownerOpenid === app.globalData.openid
-          })
-        }
-        this._applyView(snapshot.view)
+      if (snapshot?.openid === app.globalData.openid && snapshot?.view && Date.now() - (snapshot.ts || 0) < 2 * 24 * 60 * 60 * 1000) {
+        batchRender(this, () => {
+          if (snapshot.circle) this.setData({ circle: snapshot.circle, isOwner: snapshot.circle.ownerOpenid === app.globalData.openid })
+          this._applyView(snapshot.view)
+        })
+        this._resolveRankProfiles()
+        this._resolveRankDisplayAvatars()
       }
     } catch (_) {}
   },
 
   async onShow() {
+    this._visible = true
+    if (this.data.season) this._startSeasonWatch(this.data.season)
     // 30s 节流；重置赛季等主动操作直接调 _fetch 不受此限
     if (this._lastFetch && Date.now() - this._lastFetch < 30000) return
     await this._fetch()
@@ -41,12 +44,25 @@ Page({
   },
 
   onUnload() {
+    this._unloaded = true
     this._closeSeasonWatch()
   },
 
+  onHide() { this._visible = false; this._closeSeasonWatch() },
+
   // 服务端最小视图：不再在客户端直读全量 rankings；隐私裁剪由 getSeasonView 完成。
   async _fetch() {
-    if (!this.data.circleId) return
+    if (!this.data.circleId || this._unloaded) return
+    if (this._fetching) { this._fetchQueued = true; return this._fetching }
+    this._fetching = this._fetchView()
+    try { await this._fetching }
+    finally {
+      this._fetching = null
+      if (this._fetchQueued) { this._fetchQueued = false; return this._fetch() }
+    }
+  },
+
+  async _fetchView() {
     try {
       await app.globalData.openidReady
       const res = await wx.cloud.callFunction({
@@ -60,16 +76,18 @@ Page({
       }
       // 积分榜基础信息（名称/成员数/邀请码/owner 判定）仍需 circle 文档
       const db = wx.cloud.database()
-      const got = await db
+      const got = view.circle ? { data: view.circle } : await db
         .collection('circles')
         .doc(this.data.circleId)
         .get()
         .catch(() => null)
       const circle = got && got.data ? got.data : this.data.circle
-      if (circle) {
-        this.setData({ circle, isOwner: circle.ownerOpenid === app.globalData.openid })
-      }
-      this._applyView(view, { fromServer: true })
+      if (this._unloaded) return
+      batchRender(this, () => {
+        if (circle) this.setData({ circle, isOwner: circle.ownerOpenid === app.globalData.openid })
+        this._applyView(view, { fromServer: true })
+      })
+      this._resolveRankDisplayAvatars()
       this._persistSnapshot(circle, view)
       this._startSeasonWatch(view.season)
     } catch (err) {
@@ -83,6 +101,7 @@ Page({
     try {
       wx.setStorageSync(`stax_circle_${this.data.circleId}`, {
         ts: Date.now(),
+        openid: app.globalData.openid,
         circle,
         view
       })
@@ -134,7 +153,7 @@ Page({
     }
     const honors = (view.honors || []).map(fill)
     const members = (view.members || []).map(fill)
-    this.setData({
+    const patch = changedPatch(this.data, {
       season,
       honors,
       members,
@@ -143,47 +162,37 @@ Page({
       daysLeft,
       loading: false
     })
-    this._resolveRankProfiles()
-    this._resolveRankDisplayAvatars()
+    if (Object.keys(patch).length) this.setData(patch)
   },
 
   _closeSeasonWatch() {
-    if (!this.seasonWatcher) return
-    try {
-      this.seasonWatcher.close()
-    } catch (_) {}
-    this.seasonWatcher = null
+    this._stopSeasonLive?.()
+    this._stopSeasonLive = null
     this._seasonWatchId = ''
   },
 
   _startSeasonWatch(season) {
+    if (!this._visible || this._unloaded) return
     if (!season || !season.seasonId) {
       this._closeSeasonWatch()
       return
     }
-    if (this.seasonWatcher && this._seasonWatchId === season.seasonId) return
+    if (this._stopSeasonLive && this._seasonWatchId === season.seasonId) return
     this._closeSeasonWatch()
     this._seasonWatchId = season.seasonId
-    try {
-      const db = wx.cloud.database()
-      this.seasonWatcher = db
-        .collection('seasons')
-        .doc(season.seasonId)
-        .watch({
-          // 只作为"数据已变"的信号，收到后重新拉取服务端裁剪视图（不直读 rankings）
-          onChange: () => {
-            this._lastFetch = 0
-            this._fetch()
-          },
-          onError: err => {
-            console.warn('[season watch]', err)
-            this._closeSeasonWatch()
-          }
-        })
-    } catch (err) {
-      console.warn('[season watch unavailable]', err)
-      this._closeSeasonWatch()
+    const db = wx.cloud.database()
+    const queries = [
+      () => db.collection('seasons').where({ _id: season.seasonId })
+        .field({ _id: true, calculatedAt: true, status: true, exclusionRevision: true }).limit(1),
+      () => db.collection('circles').doc(this.data.circleId)
+    ]
+    const ids = (this.data.members || []).map(p => p.openid).filter(Boolean)
+    for (let start = 0; start < ids.length; start += 20) {
+      const batch = ids.slice(start, start + 20)
+      queries.push(() => db.collection('users').where({ _openid: db.command.in(batch) })
+        .field({ _openid: true, nickname: true, avatar: true, updatedAt: true }).limit(20))
     }
+    this._stopSeasonLive = observe(queries, () => this._fetch())
   },
 
   // 荣誉/成员资料以 users 表为准，节流刷新；视图里的头像/昵称只用于首帧。

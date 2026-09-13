@@ -4,7 +4,7 @@ const { fetchAllGames, getCachedGames, getCacheVersion } = require('../../utils/
 const { computeAnalytics } = require('../../utils/analytics.js')
 const { changedPatch } = require('../../utils/render.js')
 
-Page({
+Page(require('../../utils/live-view.js').liveGamesPage({
   data: { dim: 'players', dimData: [], loading: true },
   onLoad() {
     const openid = app.globalData.openid || wx.getStorageSync('last_openid')
@@ -44,4 +44,4 @@ Page({
     if (Object.keys(patch).length) this.setData(patch)
   },
   onDimChange(e) { this._applyDimension(e.currentTarget.dataset.k) }
-})
+}, function () { return this._fetchAll() }))

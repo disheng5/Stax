@@ -22,6 +22,7 @@ const SUNZI = require('../../utils/sunzi.js')
 const { createPendingQueue, isReplayable } = require('../../utils/pending-ops.js')
 const { txSignature, getCompleteGame, fetchCompleteGame, rememberCompleteGame, removeCompleteGame } = require('../../utils/game-view.js')
 const { batchRender, changedPatch } = require('../../utils/render.js')
+const { observe } = require('../../utils/live-view.js')
 
 function normalizeExpenseMode(value) {
   if (['winner', 'winnerRatio', 'winnerByRatio'].includes(value)) return 'winner'
@@ -99,16 +100,29 @@ Page({
   },
 
   onShow() {
+    this._hidden = false
     if (!this.watcher && this.data.gameId) {
       this._watchRetries = 0
       this._startWatch()
     }
     this._recomputeIdentity()
     this._flushPending()
+    if (this.data.game) this._startProfileWatch(this.data.game.players || [])
+  },
+
+  onHide() {
+    this._hidden = true
+    this._closeProfiles?.()
+    this._closeProfiles = null
+    clearTimeout(this._watchRetryTimer)
+    this._stopPolling()
+    try { this.watcher?.close() } catch (_) {}
+    this.watcher = null
   },
 
   onUnload() {
     this._unloaded = true
+    this._closeProfiles?.()
     clearTimeout(this._completeRetry)
     clearTimeout(this._watchRetryTimer)
     this._stopPolling()
@@ -358,6 +372,24 @@ Page({
       this._applyGame(snapshot.game, { complete: true, cached: true })
     })
     this._completeFailures = 0
+    this._startProfileWatch(snapshot.game.players || [])
+  },
+
+  _startProfileWatch(players) {
+    if (this._hidden || this._unloaded) return
+    const ids = [...new Set(players.map(p => p.openid).filter(Boolean))].sort()
+    const signature = ids.join(',')
+    if (this._closeProfiles && this._profileWatchSignature === signature) return
+    this._closeProfiles?.()
+    this._profileWatchSignature = signature
+    if (!ids.length) { this._closeProfiles = null; return }
+    const db = wx.cloud.database(), queries = []
+    for (let start = 0; start < ids.length; start += 20) {
+      const batch = ids.slice(start, start + 20)
+      queries.push(() => db.collection('users').where({ _openid: db.command.in(batch) })
+        .field({ _openid: true, nickname: true, avatar: true, updatedAt: true }).limit(20))
+    }
+    this._closeProfiles = observe(queries, () => this._resolveAvatars(null, { force: true }))
   },
 
   async _loadComplete(game) {
@@ -394,7 +426,7 @@ Page({
   },
 
   _startWatch() {
-    if (!this.data.gameId || this._unloaded) return
+    if (!this.data.gameId || this._unloaded || this._hidden) return
     clearTimeout(this._watchRetryTimer)
     const db = wx.cloud.database()
     if (this.watcher) {
@@ -496,7 +528,7 @@ Page({
     const buyIn = Number(game?.buyIn || 0)
     const profiles = [...(game?.players || []), ...(game?.removedPlayers || [])]
     profiles.forEach(player => {
-      if (!nameMap[player.openid]) nameMap[player.openid] = player.nickname
+      if (!nameMap[player.openid]) nameMap[player.openid] = avatarCache.cached(player.openid)?.nickname || player.nickname
     })
 
     const handState = transactionHandState(all, profiles, buyIn)
@@ -539,6 +571,7 @@ Page({
       this._profileRefreshing = false
     }
     const cur = this.data.game?.players || []
+    if (this._unloaded) return
     let changed = false
     const updated = cur.map(p => {
       const latest = map[p.openid]
@@ -567,10 +600,10 @@ Page({
       updated.forEach(player => {
         latestNames[player.openid] = player.nickname
       })
-      if (this._txRaw && this._txRaw.length) {
-        this._applyTransactions(this._txRaw, this._lastTxSig, game)
-      }
-      this.setData(patch)
+      batchRender(this, () => {
+        if (this._txRaw && this._txRaw.length) this._applyTransactions(this._txRaw, this._lastTxSig, game)
+        this.setData(patch)
+      })
       cacheGame(game)
       if (this._txRaw) rememberCompleteGame(game, this._txRaw)
     }

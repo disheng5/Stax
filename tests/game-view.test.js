@@ -24,7 +24,7 @@ vm.runInNewContext(fs.readFileSync(file, 'utf8'), { require: createRequire(file)
   assert.strictEqual(snapshot.transactions.length, 45)
   let writes = 0
   const page = { ...definition, data: { ...structuredClone(definition.data), gameId: 'g' },
-    _resolveAvatars() {}, _resolveDisplayAvatars() {},
+    _resolveAvatars() {}, _resolveDisplayAvatars() {}, _startProfileWatch() {},
     setData(patch) { writes++; for (const [key, value] of Object.entries(patch)) {
       const parts = key.split('.'); const last = parts.pop(); let parent = this.data
       for (const part of parts) parent = parent[part] ||= {}
