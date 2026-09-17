@@ -5,6 +5,16 @@ const vm = require('vm')
 const { createRequire } = require('module')
 const { createMockDb } = require('../miniprogram/utils/db-mock.js')
 const loadHandler = require('./helpers/cloud-handler.js')
+const { safeShare } = require('../miniprogram/utils/share.js')
+const cover = fs.readFileSync(path.resolve(__dirname, '../miniprogram' + safeShare().imageUrl))
+assert.strictEqual(cover.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'share cover is a PNG')
+assert.strictEqual(cover.readUInt32BE(8), 13, 'PNG starts with a complete IHDR')
+assert.strictEqual(cover.toString('ascii', 12, 16), 'IHDR')
+const coverWidth = cover.readUInt32BE(16)
+const coverHeight = cover.readUInt32BE(20)
+assert(coverWidth >= 1000 && coverHeight >= 800, 'share cover must not regress to a small app icon')
+assert.strictEqual(coverWidth * 4, coverHeight * 5, 'share cover uses the 5:4 message-card ratio')
+assert(cover.length <= 200 * 1024, 'keep the bundled cover within a 200 KiB asset budget')
 const storage = {}
 const app = {
   globalData: { openid: 'new-user', openidReady: Promise.resolve() },
@@ -155,9 +165,15 @@ function load(relative, component = false) {
     })
     const share = p.onShareAppMessage()
     assert(!/12345|98765|私密|胜率|盈利|亏损|累计/.test(share.title), name)
-    assert.strictEqual(share.imageUrl, '/images/share-cover.png')
+    assert.strictEqual(share.imageUrl, '/images/share-cover-v2.png')
     assert(fs.existsSync(path.resolve(__dirname, '../miniprogram' + share.imageUrl)))
-    if (name === 'game-detail') assert(share.path.includes('code=ABCDEF'))
+    if (name === 'game-detail') {
+      assert.strictEqual(share.path, '/pages/game-detail/game-detail?id=g&code=ABCDEF&mode=viewer')
+    } else if (name === 'circle-detail') {
+      assert.strictEqual(share.path, '/pages/circle-join/circle-join?code=ABCDEFGH')
+    } else {
+      assert.strictEqual(share.path, '/pages/index/index')
+    }
   }
   const css = fs.readFileSync(path.resolve(__dirname, '../miniprogram/components/profile-sheet/profile-sheet.wxss'), 'utf8')
   for (const block of css.split('}')) {
