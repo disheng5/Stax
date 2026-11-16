@@ -67,7 +67,7 @@ async function writeSettleReceipt(gameId, operationId, result) {
     .catch(() => null)
 }
 
-// 结束后允许修改结算积分的时间窗（账不平可在此期间修正）
+// 结束后允许修改结算积分的时间窗（费用分摊不受此窗口限制）
 const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
 
 function normalizeExpenseMode(value) {
@@ -260,8 +260,8 @@ exports.main = async event => {
       }
 
       const wasEnded = game.status === 'ended'
-      // 结束后的编辑（改结算积分/改费用）只允许在时间窗内
-      if (wasEnded && !withinEditWindow(game, +now)) {
+      // 结束后仅结算积分可在窗口内修正；费用是独立记账，可随后补录或调整。
+      if (wasEnded && mode === 'checkout' && !withinEditWindow(game, +now)) {
         return { ok: false, error: 'ALREADY_ENDED' }
       }
       if (mode === 'finalize' && wasEnded) return { ok: false, error: 'ALREADY_ENDED' }
@@ -315,6 +315,7 @@ exports.main = async event => {
       // 终局判定：
       //  - finalize（旧客户端）：显式终局
       //  - checkout：全员结算完即自动终局（不校验差额，账不平可在 3 小时内修正）
+      //  - expense：只更新费用单与流水，不改变终局状态、结束时间或积分结果
       //  - 已结束局的再编辑：保持 ended，不改 endedAt
       const ended = wasEnded || mode === 'finalize' || (mode === 'checkout' && allSettled)
       const justEnded = ended && !wasEnded

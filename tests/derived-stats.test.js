@@ -106,6 +106,37 @@ const game = {
   const worker = createDerivedSync(db, async () => ({ ok: true }))
   assert.strictEqual((await worker.drain()).processed, 0)
 
+  // 超过结算修正窗口后，费用仍可补录；费用不重开房间，也不改变已确认的积分。
+  const endedGame = db._raw.games[0]
+  endedGame.endedAt = new Date(Date.now() - 3 * 60 * 60 * 1000 - 1)
+  const endedAt = +new Date(endedGame.endedAt)
+  const finalStack = endedGame.players[0].finalStack
+  const finalProfit = endedGame.players[0].finalProfit
+  const expenseAfterWindow = await settle({
+    gameId: 'g',
+    mode: 'expense',
+    extraCost: 75,
+    expenseMode: 'all',
+    operationId: 'expense_after_window_0001',
+    deferDerived: true
+  })
+  assert(expenseAfterWindow.ok)
+  assert.strictEqual(expenseAfterWindow.game.status, 'ended')
+  assert.strictEqual(+new Date(expenseAfterWindow.game.endedAt), endedAt)
+  assert.strictEqual(expenseAfterWindow.game.players[0].finalStack, finalStack)
+  assert.strictEqual(expenseAfterWindow.game.players[0].finalProfit, finalProfit)
+  assert.strictEqual(expenseAfterWindow.game.extraCost, 75)
+  assert.strictEqual(expenseAfterWindow.game.players[0].share, 75)
+  assert.strictEqual(db._raw.transactions.at(-1).type, 'expense')
+  const lateSettlement = await settle({
+    gameId: 'g',
+    finalStacks: { host: 500 },
+    operationId: 'late_settlement_0001',
+    deferDerived: true
+  })
+  assert.strictEqual(lateSettlement.ok, false)
+  assert.strictEqual(lateSettlement.error, 'ALREADY_ENDED')
+
   // A slow rebuild must not replace a newer settlement's statistics.
   const raceDb = createMockDb({
     games: [

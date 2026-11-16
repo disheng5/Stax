@@ -1135,7 +1135,6 @@ Page({
       if (!res.result?.ok) {
         const msg =
           {
-            ALREADY_ENDED: '结束已超 3 小时，费用已锁定',
             PLAYER_OPS_DISABLED: '本局仅房主可操作',
             INVALID_EXTRA_COST: '请输入有效的费用金额',
             INVALID_MODE: '请更新到最新版后重试',

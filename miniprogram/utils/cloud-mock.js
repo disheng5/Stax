@@ -96,7 +96,7 @@ function normalizeExpenseMode(value) {
   return 'winner'
 }
 
-// 与线上一致：结束后 3 小时内允许修改结算积分/费用
+// 与线上一致：结束后 3 小时内只允许修改结算积分，费用分摊可随时调整
 const EDIT_WINDOW_MS = 3 * 60 * 60 * 1000
 function withinEditWindow(game, now) {
   if (!game.endedAt) return false
@@ -753,7 +753,9 @@ const handlers = {
     }
     const now = new Date()
     const wasEnded = game.status === 'ended'
-    if (wasEnded && !withinEditWindow(game, +now)) return { ok: false, error: 'ALREADY_ENDED' }
+    if (wasEnded && mode === 'checkout' && !withinEditWindow(game, +now)) {
+      return { ok: false, error: 'ALREADY_ENDED' }
+    }
     if (mode === 'finalize' && wasEnded) return { ok: false, error: 'ALREADY_ENDED' }
 
     const effExtraCost = hasExtraCost ? extraCost : Number(game.extraCost) || 0

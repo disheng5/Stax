@@ -526,6 +526,41 @@ function step(name, fn) {
     )
   })
 
+  await step('结束超过 3 小时后仍可调整费用，且不影响终局和积分', async () => {
+    const oldGame = cloudMock.getDb()._raw.games.find(g => g._id === gameId)
+    oldGame.endedAt = new Date(Date.now() - 3 * 60 * 60 * 1000 - 1)
+    const endedAt = +new Date(oldGame.endedAt)
+    const beforeFinalStack = oldGame.players[0].finalStack
+    const beforeFinalProfit = oldGame.players[0].finalProfit
+    const beforeSeq = oldGame.txSeq || 0
+
+    const expense = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: {
+        gameId,
+        mode: 'expense',
+        extraCost: 45,
+        expenseMode: 'all',
+        operationId: 'expense_after_window_0001'
+      }
+    })
+    assert.strictEqual(expense.result.ok, true)
+    assert.strictEqual(expense.result.game.status, 'ended')
+    assert.strictEqual(+new Date(expense.result.game.endedAt), endedAt, '费用修改不得改写结束时间')
+    assert.strictEqual(expense.result.game.players[0].finalStack, beforeFinalStack)
+    assert.strictEqual(expense.result.game.players[0].finalProfit, beforeFinalProfit)
+    assert.strictEqual(expense.result.game.extraCost, 45)
+    assert.strictEqual(expense.result.game.players[0].share, 45)
+    assert.strictEqual(expense.result.game.txSeq, beforeSeq + 1)
+
+    const lateSettle = await wx.cloud.callFunction({
+      name: 'settleGame',
+      data: { gameId, mode: 'checkout', finalStacks: { mock_me: 180 } }
+    })
+    assert.strictEqual(lateSettle.result.ok, false)
+    assert.strictEqual(lateSettle.result.error, 'ALREADY_ENDED', '结算积分仍应保留三小时窗口')
+  })
+
   await step('结束后 finalize 应拒绝（自动收局已替代手动结束）', async () => {
     const r = await wx.cloud.callFunction({
       name: 'settleGame',
